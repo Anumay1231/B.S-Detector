@@ -4,9 +4,9 @@ Speaker verification module for the B.S. Detector project. Determines whether
 a test audio sample and a reference audio sample were spoken by the same
 person, producing a `MATCH` / `NON_MATCH` / `UNCERTAIN` verdict.
 
-**Status: project foundation, environment, and audio preprocessing are
-complete (Phases 1–3).** Embedding model (ECAPA-TDNN), similarity scoring,
-and calibration have not been implemented yet. See
+**Status: project foundation, environment, audio preprocessing, and the
+ECAPA-TDNN speaker encoder are complete (Phases 1–4).** Similarity
+scoring and calibration have not been implemented yet. See
 [Status / Roadmap](#status--roadmap) below.
 
 ## Architecture
@@ -83,12 +83,14 @@ speaker-verification/
 │   ├── calibrate.py
 │   ├── evaluate.py
 │   ├── check_environment.py
-│   └── test_audio_pipeline.py
+│   ├── test_audio_pipeline.py
+│   └── test_encoder.py
 │
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py
 │   ├── test_audio.py
+│   ├── test_encoder.py
 │   ├── test_similarity.py
 │   └── test_verifier.py
 │
@@ -100,7 +102,8 @@ speaker-verification/
 ├── outputs/
 │
 └── docs/
-    └── architecture.md
+    ├── architecture.md
+    └── model.md
 ```
 
 - `src/speaker_verification/` — the installable Python package containing
@@ -113,14 +116,15 @@ speaker-verification/
 - `data/trials/` — labeled trial pairs/metadata used for calibration and
   evaluation.
 - `outputs/` — generated artifacts (results, calibrated thresholds, reports).
-- `docs/` — design and architecture documentation.
+- `docs/` — design and architecture documentation (`architecture.md`,
+  `model.md`).
 
 ## Status / Roadmap
 
 - Phase 1 — Project foundation: **COMPLETE**
 - Phase 2 — Environment setup: **COMPLETE**
 - Phase 3 — Audio preprocessing: **COMPLETE**
-- Phase 4 — ECAPA-TDNN embedding extraction: not started
+- Phase 4 — ECAPA-TDNN embedding extraction: **COMPLETE**
 - Phase 5 — Cosine similarity scoring: not started
 - Phase 6 — Threshold calibration (genuine/impostor scores, FAR, FRR, EER,
   ROC/ROC-AUC): not started
@@ -133,6 +137,14 @@ how preprocessing affects downstream speaker-verification accuracy — that
 can only be measured once the ECAPA-TDNN encoder and evaluation pipeline
 (Phases 4–6) exist and are run against real trial data.
 
+Phase 4 note: the pretrained model could not actually be downloaded and
+run in this development sandbox (the Hugging Face Hub is blocked by this
+sandbox's network policy — see [Encoder limitations](#encoder-limitations)
+below). `encoder.py` was built and validated against the real, installed
+SpeechBrain API, and should be re-run on a machine with normal internet
+access (e.g. your own machine) to get the first real, verified embedding
+output.
+
 **Not part of the baseline** — a separate, optional, experimental module to
 be considered only after the ECAPA-TDNN baseline is fully evaluated:
 
@@ -142,8 +154,12 @@ be considered only after the ECAPA-TDNN baseline is fully evaluated:
 
 This project is designed to run on **CPU by default** and to **automatically
 use an available NVIDIA GPU via CUDA** when one is present (`torch.cuda.is_available()`).
-No code path requires a GPU; a GPU is used opportunistically for speed once
-the ECAPA-TDNN encoder is implemented in a later phase.
+No code path requires a GPU. As of Phase 4, the ECAPA-TDNN encoder
+(`src/speaker_verification/encoder.py`) is the first component that
+actually uses a GPU when one is available, via the same
+CUDA-if-available-else-CPU pattern (`encoder.resolve_device()`); GPU
+name/index are always read from `torch.cuda` at runtime and never
+hard-coded.
 
 Two environments are relevant to this project, and they are not the same:
 
@@ -279,3 +295,76 @@ Prints the file's original sample rate, channel count, and duration,
 followed by the processed (16 kHz, mono) sample rate, channel count,
 duration, and waveform shape — explicitly noting when a stereo/multi-channel
 input was converted to mono.
+
+## ECAPA-TDNN speaker encoder
+
+`src/speaker_verification/encoder.py` wraps a pretrained ECAPA-TDNN
+speaker-embedding model:
+
+```
+Audio
+    ↓
+Audio preprocessing
+    ↓
+16 kHz mono waveform
+    ↓
+Pretrained ECAPA-TDNN
+    ↓
+Speaker embedding
+    ↓
+[Cosine similarity — NEXT PHASE]
+```
+
+**Model:** `speechbrain/spkrec-ecapa-voxceleb` (pretrained only — not
+trained or fine-tuned in this project). Full model documentation,
+verified API details, and caching location are in
+[`docs/model.md`](docs/model.md).
+
+**API:** `SpeakerEncoder()` loads the model once;
+`encoder.encode(waveform)` takes an already-preprocessed waveform (from
+`audio.py`) and returns a 1-D embedding tensor; `encoder.encode_file(path)`
+does both steps for a single file. The rest of the project depends on
+this interface, not on SpeechBrain directly.
+
+**Device handling:** CUDA is used automatically when available
+(`torch.cuda.is_available()`), otherwise CPU — same pattern as the rest
+of this project. An explicit device can be requested via
+`SpeakerEncoder(device="cuda")`; requesting CUDA when it's unavailable
+raises a clear error instead of silently falling back.
+
+### Running the encoder tests
+
+```bash
+pip install pytest
+pytest tests/test_encoder.py -v
+```
+
+Device-selection tests always run. Tests that need the real pretrained
+model are skipped with a clear reason (not failed) if the model can't be
+downloaded — see [Encoder limitations](#encoder-limitations).
+
+### Manually inspecting a file (or a pair of files)
+
+```bash
+python scripts/test_encoder.py path/to/audio.wav
+python scripts/test_encoder.py reference.wav test.wav   # two-file mode
+```
+
+Single-file mode prints device, original/processed audio metadata,
+embedding shape/dtype/device/norm, and inference time. Two-file mode
+extracts an embedding for each file independently and reports their
+shapes/statistics side by side — it does **not** compute similarity or a
+MATCH/NON_MATCH decision (that's a later phase).
+
+### Encoder limitations
+
+The pretrained model is downloaded from the Hugging Face Hub on first use
+and cached locally (see `docs/model.md`). This requires network access.
+It could not be downloaded in this project's development sandbox (that
+sandbox blocks `huggingface.co` at the network-policy level), so
+runtime-verified embedding output (exact values, confirmed shape,
+measured inference time) could not be produced there. This is a sandbox
+limitation, not a defect in `encoder.py` — re-run
+`pytest tests/test_encoder.py -v` and `python scripts/test_encoder.py
+<file>` on a machine with normal internet access (such as your own) to
+get real, verified results.
