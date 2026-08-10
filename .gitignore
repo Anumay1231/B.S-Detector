@@ -49,3 +49,6 @@ data/trials/*
 # is ever used.
 pretrained_models/
 model_cache/
+
+# Local audio test files
+tests/recording test/
