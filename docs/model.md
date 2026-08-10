@@ -77,6 +77,10 @@ package (not assumed from older tutorials):
   below. `tests/test_encoder.py::test_embedding_has_expected_dimension`
   asserts `embedding.shape[0] == 192` and should be run on a machine with
   normal network access to confirm this against the real model.
+  **Update:** this has since been empirically confirmed by the developer
+  on their own machine (NVIDIA GeForce RTX 3060 Laptop GPU, CUDA 12.4):
+  the model loads successfully and produces 192-dimensional embeddings,
+  matching what was documented here ahead of time.
 
 ## Device handling
 
