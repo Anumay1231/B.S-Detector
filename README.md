@@ -4,9 +4,9 @@ Speaker verification module for the B.S. Detector project. Determines whether
 a test audio sample and a reference audio sample were spoken by the same
 person, producing a `MATCH` / `NON_MATCH` / `UNCERTAIN` verdict.
 
-**Status: project foundation and environment are set up (Phases 1–2
-complete).** No audio processing, embedding model, similarity scoring, or
-calibration has been implemented yet. See
+**Status: project foundation, environment, and audio preprocessing are
+complete (Phases 1–3).** Embedding model (ECAPA-TDNN), similarity scoring,
+and calibration have not been implemented yet. See
 [Status / Roadmap](#status--roadmap) below.
 
 ## Architecture
@@ -81,10 +81,13 @@ speaker-verification/
 ├── scripts/
 │   ├── verify.py
 │   ├── calibrate.py
-│   └── evaluate.py
+│   ├── evaluate.py
+│   ├── check_environment.py
+│   └── test_audio_pipeline.py
 │
 ├── tests/
 │   ├── __init__.py
+│   ├── conftest.py
 │   ├── test_audio.py
 │   ├── test_similarity.py
 │   └── test_verifier.py
@@ -116,12 +119,19 @@ speaker-verification/
 
 - Phase 1 — Project foundation: **COMPLETE**
 - Phase 2 — Environment setup: **COMPLETE**
-- Phase 3 — Audio preprocessing: not started
+- Phase 3 — Audio preprocessing: **COMPLETE**
 - Phase 4 — ECAPA-TDNN embedding extraction: not started
 - Phase 5 — Cosine similarity scoring: not started
 - Phase 6 — Threshold calibration (genuine/impostor scores, FAR, FRR, EER,
   ROC/ROC-AUC): not started
 - Deepfake detector integration: not started
+
+Phase 3 note: audio preprocessing correctness (validation, mono conversion,
+resampling) has been verified by unit tests (see
+[Audio preprocessing](#audio-preprocessing) below). No claim is made about
+how preprocessing affects downstream speaker-verification accuracy — that
+can only be measured once the ECAPA-TDNN encoder and evaluation pipeline
+(Phases 4–6) exist and are run against real trial data.
 
 **Not part of the baseline** — a separate, optional, experimental module to
 be considered only after the ECAPA-TDNN baseline is fully evaluated:
@@ -206,3 +216,66 @@ verified in this development sandbox, where it correctly and expectedly
 reports `CUDA available: False` (no GPU present in that environment) —
 that result says nothing about whether your RTX 3060 will be detected;
 that must be checked locally.
+
+## Audio preprocessing
+
+`src/speaker_verification/audio.py` implements the input pipeline that the
+ECAPA-TDNN encoder (Phase 4) will build on:
+
+```
+Audio File
+    ↓
+Validation (exists, supported extension, decodable)
+    ↓
+Load (native sample rate, native channel count)
+    ↓
+Mono conversion (average across channels, if more than one)
+    ↓
+Resample to 16,000 Hz (skipped if already 16 kHz)
+    ↓
+Preprocessed waveform: torch.FloatTensor, shape (1, num_samples)
+```
+
+**Supported input formats:** WAV and FLAC. Other extensions raise a clear
+`UnsupportedAudioFormatError`.
+
+**What it does NOT do (by design, this phase):** no denoising or band-pass
+filtering, no loudness/amplitude normalization beyond the lossless
+integer-to-float PCM scaling every decoder performs, and it never modifies,
+moves, or overwrites the source file.
+
+**Error handling:** missing files, corrupt/undecodable files, and
+zero-length audio each raise a distinct, clearly-named exception
+(`AudioFileNotFoundError`, `AudioDecodeError`, `EmptyAudioError`). Very
+short audio is processed rather than rejected, with a `UserWarning` if it
+falls under ~100 ms.
+
+**Main functions:** `load_audio(path)` (raw load, no resampling/mono
+conversion), `preprocess_audio(path)` (full pipeline above), and
+`get_audio_info(path)` (metadata only — sample rate, channels, frame
+count, duration — without necessarily decoding the full waveform).
+
+### Running the audio preprocessing tests
+
+Requires `pytest` (not part of `requirements.txt`, which is scoped to
+runtime dependencies only):
+
+```bash
+pip install pytest
+pytest tests/test_audio.py -v
+```
+
+Tests generate their own temporary WAV/FLAC fixtures (mono, stereo,
+multi-channel, various sample rates, corrupt, empty, very short) — no
+external dataset is required.
+
+### Manually inspecting a single file
+
+```bash
+python scripts/test_audio_pipeline.py path/to/audio.wav
+```
+
+Prints the file's original sample rate, channel count, and duration,
+followed by the processed (16 kHz, mono) sample rate, channel count,
+duration, and waveform shape — explicitly noting when a stereo/multi-channel
+input was converted to mono.
