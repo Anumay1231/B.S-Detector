@@ -109,14 +109,17 @@ package (not assumed from older tutorials):
 - The model is downloaded once on first use and reused from cache on
   subsequent runs/processes.
 
-## Speaker verification API (not used yet)
+## Speaker verification API (not used)
 
 SpeechBrain also exposes `speechbrain.inference.speaker.SpeakerRecognition`,
-which wraps `EncoderClassifier` plus a similarity/threshold decision. This
-project deliberately does **not** use `SpeakerRecognition` in Phase 4: we
-only extract embeddings via `EncoderClassifier`. Cosine similarity and
-verification decisions are explicitly a later phase (see
-`docs/architecture.md`).
+which wraps `EncoderClassifier` plus its own built-in similarity/threshold
+decision. This project deliberately does **not** use `SpeakerRecognition`
+anywhere: `encoder.py` only extracts embeddings via `EncoderClassifier`.
+Cosine similarity (`similarity.py`, Phase 5) and the calibration/decision
+layer (`calibration.py`, `verifier.py`, Phase 6) are this project's own
+implementations, built so the threshold is always caller-supplied and
+traceable to real calibration data rather than an opaque library default
+— see `docs/architecture.md` and `docs/calibration.md`.
 
 ## Known limitation: model could not be downloaded in this sandbox
 
@@ -152,4 +155,7 @@ Hindi/Hinglish (bilingual) speech. **No claim is made here that this
 model performs comparably well on Hindi/Hinglish audio just because it
 performs well on VoxCeleb** — cross-lingual/cross-accent performance for
 this use case has not been measured and must be evaluated experimentally
-in a later phase (once evaluation infrastructure — Phase 6 — exists).
+once representative Hindi/Hinglish genuine and impostor trial data exists
+(see `docs/calibration.md` for the calibration data requirement this
+also blocks — the same missing data prevents both a valid threshold and
+a cross-lingual accuracy claim).

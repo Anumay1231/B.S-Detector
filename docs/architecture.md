@@ -1,44 +1,46 @@
 # Architecture
 
-Status: Phases 1–5 (foundation, environment, audio preprocessing,
-ECAPA-TDNN speaker encoder, cosine similarity) are implemented. This
-document will continue to describe the detailed design of the speaker
-verification module as later phases are implemented.
+Status: Phases 1–6 (foundation, environment, audio preprocessing,
+ECAPA-TDNN speaker encoder, cosine similarity, calibration and the
+verification decision layer) are implemented. This document will
+continue to describe the detailed design of the speaker verification
+module as later phases are implemented.
 
 ## Pipeline overview
 
 ```
-Reference Audio
-      ↓
-Preprocessing
-      ↓
-ECAPA-TDNN
-      ↓
-Embedding A
-      │
-      │
-      ├── Cosine Similarity ──→ Similarity Score
-      │
-      │
-      ↓
-Embedding B
-      ↑
-ECAPA-TDNN
-      ↑
-Preprocessing
-      ↑
-Test Audio
+Reference Audio                          Test Audio
+      ↓                                        ↓
+Preprocessing (audio.py)              Preprocessing (audio.py)
+      ↓                                        ↓
+ECAPA-TDNN encoder                    ECAPA-TDNN encoder
+      ↓                                        ↓
+Embedding A (192-D)                  Embedding B (192-D)
+      │                                        │
+      └──────────── Cosine Similarity ─────────┘
+                          ↓
+                   Similarity Score
+                          ↓
+                     Calibration
+          (genuine + impostor trials → FAR/FRR/EER)
+                          ↓
+                      Threshold
+                          ↓
+                  MATCH / NON_MATCH
 ```
 
-**As of Phase 5, the pipeline stops at "Similarity Score."** The score is
-a raw cosine similarity value, approximately in `[-1.0, 1.0]`. It is
-**not** currently converted into a verification decision: there is no
-threshold, no MATCH/NON_MATCH/UNCERTAIN output, and no calibration.
-Threshold calibration will be performed in a later phase (Phase 6) using
-genuine and impostor trials on representative data. A high or low
-similarity score cannot be reliably interpreted as "same speaker" or
-"different speaker" until that calibration exists — this document and
-the code deliberately avoid making that claim.
+**As of Phase 5, the pipeline stopped at "Similarity Score."** As of
+Phase 6, the remaining stages exist in code
+(`src/speaker_verification/calibration.py`,
+`src/speaker_verification/verifier.py`), but **this project does not yet
+have a real calibrated threshold** — only one genuine trial and zero
+impostor trials exist, which is insufficient data to calibrate (see
+[Calibration & verification decision](#calibration--verification-decision-phase-6--implemented)
+below and [docs/calibration.md](calibration.md) for the full
+methodology). A raw similarity score is still not, by itself, a
+verification decision — it only becomes one once paired with a threshold
+that the caller supplies explicitly, and that threshold is only
+meaningful if it came from real calibration on representative data.
 
 ## Audio preprocessing (Phase 3 — implemented)
 
@@ -175,8 +177,71 @@ single scalar score, range ≈ [-1.0, 1.0]
   return value).
 - **Scope**: this module answers only "how similar are these two
   embeddings?" — it does not threshold, calibrate, or decide anything.
-  `speaker_verification.verifier` (a later phase) is where a similarity
-  score, once calibrated, would feed into an actual decision.
+  `speaker_verification.verifier` (Phase 6, see below) is where a
+  similarity score, once calibrated, feeds into an actual decision.
+
+## Calibration & verification decision (Phase 6 — implemented)
+
+Expanding the "Calibration," "Threshold," and "MATCH / NON_MATCH" steps
+in the pipeline overview above. Full methodology (FAR/FRR/EER math, EER
+interpolation method, threshold direction, statistical-reliability rule
+of thumb, and this project's real data status) is documented in
+[docs/calibration.md](calibration.md); this section covers the
+architectural contract.
+
+**`src/speaker_verification/calibration.py`** — pure score-in,
+statistics-out. Takes labeled genuine and impostor cosine-similarity
+scores (produced upstream by `similarity.py`; this module never touches
+audio or embeddings directly) and computes:
+
+- `compute_far(impostor_scores, threshold)` / `compute_frr(genuine_scores,
+  threshold)` — single-threshold error rates.
+- `compute_far_frr_curve(genuine_scores, impostor_scores)` — the full
+  FAR/FRR curve across all candidate thresholds (also usable as an ROC
+  curve).
+- `compute_eer(genuine_scores, impostor_scores)` — the Equal Error Rate
+  operating point, via exact match → linear interpolation across the
+  FAR−FRR sign change → nearest-point fallback, in that order of
+  preference (never a naive average of two arbitrary points).
+- `compute_roc_auc(operating_points)` — trapezoidal-rule AUC.
+- `calibrate(genuine_scores, impostor_scores) -> CalibrationResult` — the
+  main entry point, bundling all of the above plus a statistical
+  reliability flag (`MIN_RELIABLE_TRIALS_PER_CLASS = 30` per class, a
+  documented rule of thumb) and human-readable warnings.
+
+**Threshold direction is fixed and explicit everywhere:**
+`score >= threshold -> MATCH`, `score < threshold -> NON_MATCH`. This is
+the same convention used by `compute_far`/`compute_frr` and by
+`SpeakerVerifier`.
+
+**`calibrate()` never fabricates a result.** If either the genuine or
+impostor score list is empty, it raises
+`InsufficientCalibrationDataError` rather than returning a partial or
+default threshold — this is the exact code path exercised by this
+project's real current data (one genuine trial, zero impostor trials).
+
+**`src/speaker_verification/verifier.py`** — the decision layer.
+`SpeakerVerifier(encoder, threshold, is_calibrated=False)` composes the
+existing `encoder.py` and `similarity.py` modules (`verify_files()`
+preprocesses → encodes → compares, exactly like the earlier phases'
+scripts did manually) and applies the threshold rule above to produce a
+`VerificationResult` (`MATCH`/`NON_MATCH`, the raw score, the threshold
+used, and whether that threshold `is_calibrated`). `threshold` has **no
+default value** — `SpeakerVerifier` cannot be constructed without the
+caller supplying one explicitly, by design, so a real or ad-hoc value is
+never silently assumed. `is_calibrated` defaults to `False` so that
+ad-hoc/example thresholds are never confused with ones derived from real
+`calibrate()` output.
+
+**Real-data integration**: `scripts/calibrate.py` reads a labeled
+`reference,test,label` trial CSV, scores every pair with the real
+encoder + `cosine_similarity`, and calls `calibrate()`; `scripts/verify.py`
+runs a single reference/test pair through `SpeakerVerifier` given an
+explicit `--threshold`. Neither script has a default/fallback threshold.
+
+This phase does not implement fuzzy logic, ML-based classification, or
+ECAPA-TDNN fine-tuning — see [Out of scope for the baseline](#out-of-scope-for-the-baseline)
+below.
 
 ## Integration with B.S. Detector
 
@@ -189,14 +254,18 @@ audio that has already passed deepfake screening.
 - Audio preprocessing details (`audio.py`): **done, see above**
 - ECAPA-TDNN encoder details (`encoder.py`): **done, see above and docs/model.md**
 - Similarity scoring details (`similarity.py`): **done, see above**
-- Threshold calibration methodology (`calibration.py`): genuine/impostor
-  trial scores, threshold calibration, FAR, FRR, EER, ROC/ROC-AUC
+- Threshold calibration and verification decision (`calibration.py`,
+  `verifier.py`): **done, see above and docs/calibration.md** — code and
+  tests complete; no real calibrated threshold exists yet (insufficient
+  trial data)
 - Evaluation methodology (`evaluation.py`)
 - B.S. Detector pipeline integration contract
 
 ## Out of scope for the baseline
 
-Fuzzy logic decision boundaries are explicitly out of scope for the
-ECAPA-TDNN baseline and for `calibration.py`. Fuzzy logic will be considered
-only as a separate, optional, experimental module introduced later, after
-the baseline has been fully evaluated.
+Fuzzy logic decision boundaries and ML-based classification are
+explicitly out of scope for the ECAPA-TDNN baseline, including
+`calibration.py` and `verifier.py`. Fuzzy logic will be considered only
+as a separate, optional, experimental module introduced later, after the
+baseline has been fully evaluated. ECAPA-TDNN fine-tuning is likewise not
+part of this baseline — only the pretrained checkpoint is used.
