@@ -42,3 +42,10 @@ data/trials/*
 *.pth
 *.ckpt
 *.bin
+
+# Pretrained model cache (Phase 4+). By default SpeakerEncoder uses the
+# Hugging Face Hub's own cache (~/.cache/huggingface/hub), outside this
+# repo. These are excluded defensively in case an explicit local savedir
+# is ever used.
+pretrained_models/
+model_cache/
