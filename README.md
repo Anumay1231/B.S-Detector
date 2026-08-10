@@ -4,45 +4,49 @@ Speaker verification module for the B.S. Detector project. Determines whether
 a test audio sample and a reference audio sample were spoken by the same
 person, producing a `MATCH` / `NON_MATCH` / `UNCERTAIN` verdict.
 
-**Status: project foundation, environment, audio preprocessing, and the
-ECAPA-TDNN speaker encoder are complete (Phases 1–4).** Similarity
-scoring and calibration have not been implemented yet. See
+**Status: project foundation, environment, audio preprocessing, the
+ECAPA-TDNN speaker encoder, and cosine similarity comparison are complete
+(Phases 1–5).** Threshold calibration (and therefore an actual
+MATCH/NON_MATCH/UNCERTAIN decision) has not been implemented yet. See
 [Status / Roadmap](#status--roadmap) below.
 
 ## Architecture
 
 ```
 Reference Audio
-       ↓
-Audio Preprocessing
-       ↓
+      ↓
+Preprocessing
+      ↓
 ECAPA-TDNN
-       ↓
-Reference Embedding
-
+      ↓
+Embedding A
+      │
+      │
+      ├── Cosine Similarity ──→ Similarity Score
+      │
+      │
+      ↓
+Embedding B
+      ↑
+ECAPA-TDNN
+      ↑
+Preprocessing
+      ↑
 Test Audio
-       ↓
-Audio Preprocessing
-       ↓
-ECAPA-TDNN
-       ↓
-Test Embedding
-
-Reference + Test Embeddings
-       ↓
-Cosine Similarity
-       ↓
-Threshold Calibration
-       ↓
-MATCH / NON_MATCH / UNCERTAIN
 ```
 
 Reference audio and test audio are each independently preprocessed and
 passed through an ECAPA-TDNN speaker encoder to produce fixed-size speaker
-embeddings. The two embeddings are compared using cosine similarity, and the
-resulting score is passed through a calibrated threshold (see
-`src/speaker_verification/calibration.py`) to produce a final verdict of
-`MATCH`, `NON_MATCH`, or `UNCERTAIN`.
+embeddings. The two embeddings are compared using cosine similarity,
+producing a single scalar score in roughly `[-1.0, 1.0]`.
+
+**As of Phase 5, that score is the end of the pipeline.** It is **not**
+currently converted into a verification decision — there is no threshold
+and no `MATCH` / `NON_MATCH` / `UNCERTAIN` output yet. Threshold
+calibration (see `src/speaker_verification/calibration.py`) will be
+performed in a later phase using genuine and impostor trials on
+representative data. **A high or low similarity score cannot be reliably
+interpreted as a verification decision until that calibration exists.**
 
 For the baseline architecture, `calibration.py` is scoped strictly to
 genuine/impostor trial score handling, threshold calibration, FAR, FRR, EER,
@@ -84,7 +88,8 @@ speaker-verification/
 │   ├── evaluate.py
 │   ├── check_environment.py
 │   ├── test_audio_pipeline.py
-│   └── test_encoder.py
+│   ├── test_encoder.py
+│   └── test_similarity.py
 │
 ├── tests/
 │   ├── __init__.py
@@ -124,8 +129,10 @@ speaker-verification/
 - Phase 1 — Project foundation: **COMPLETE**
 - Phase 2 — Environment setup: **COMPLETE**
 - Phase 3 — Audio preprocessing: **COMPLETE**
-- Phase 4 — ECAPA-TDNN embedding extraction: **COMPLETE**
-- Phase 5 — Cosine similarity scoring: not started
+- Phase 4 — ECAPA-TDNN embedding extraction: **COMPLETE** (empirically
+  validated on the developer's NVIDIA GeForce RTX 3060 Laptop GPU, CUDA
+  12.4: 192-dimensional embeddings)
+- Phase 5 — Cosine similarity scoring: **COMPLETE**
 - Phase 6 — Threshold calibration (genuine/impostor scores, FAR, FRR, EER,
   ROC/ROC-AUC): not started
 - Deepfake detector integration: not started
@@ -137,13 +144,20 @@ how preprocessing affects downstream speaker-verification accuracy — that
 can only be measured once the ECAPA-TDNN encoder and evaluation pipeline
 (Phases 4–6) exist and are run against real trial data.
 
-Phase 4 note: the pretrained model could not actually be downloaded and
-run in this development sandbox (the Hugging Face Hub is blocked by this
+Phase 4 note: the pretrained model could not be downloaded and run in
+this development sandbox itself (the Hugging Face Hub is blocked by this
 sandbox's network policy — see [Encoder limitations](#encoder-limitations)
-below). `encoder.py` was built and validated against the real, installed
-SpeechBrain API, and should be re-run on a machine with normal internet
-access (e.g. your own machine) to get the first real, verified embedding
-output.
+below); it has since been verified on the developer's own machine (see
+above).
+
+Phase 5 note: cosine similarity's mathematics and input validation are
+verified by deterministic unit tests using hand-constructed vectors (see
+[Cosine similarity](#cosine-similarity) below) — those do not require the
+pretrained model and pass in any environment. The real-embeddings
+integration test (`scripts/test_similarity.py`) could not be executed in
+this sandbox for the same network-access reason as Phase 4. **A raw
+cosine similarity score is not a verification result** — see
+[Architecture](#architecture) above.
 
 **Not part of the baseline** — a separate, optional, experimental module to
 be considered only after the ECAPA-TDNN baseline is fully evaluated:
@@ -367,4 +381,88 @@ measured inference time) could not be produced there. This is a sandbox
 limitation, not a defect in `encoder.py` — re-run
 `pytest tests/test_encoder.py -v` and `python scripts/test_encoder.py
 <file>` on a machine with normal internet access (such as your own) to
-get real, verified results.
+get real, verified results. (This has since been done — see
+[Status / Roadmap](#status--roadmap) above.)
+
+## Cosine similarity
+
+`src/speaker_verification/similarity.py` answers exactly one question:
+"how similar are these two speaker embeddings?" — nothing more.
+
+```
+embedding_a
+embedding_b
+      ↓
+cosine similarity = dot(A, B) / (||A|| · ||B||)
+      ↓
+single scalar score, range ≈ [-1.0, 1.0]
+```
+
+**API:** `cosine_similarity(embedding_a, embedding_b)` — pass two 1-D
+embeddings (e.g. from `SpeakerEncoder.encode()`) to get back a Python
+`float`; pass two 2-D batches (`(batch, embedding_dim)`) to get back a
+`(batch,)` tensor of per-pair scores. Built on
+`torch.nn.functional.cosine_similarity` rather than a manual
+reimplementation.
+
+**Validation:** raises a specific, clearly-named error for `None`,
+non-tensor, non-floating, wrong-dimensionality, empty, mismatched
+embedding dimension, mismatched batch size, mismatched device, NaN/Inf,
+or zero-(or near-zero-)norm input — a zero-norm embedding raises rather
+than silently returning an arbitrary score, since cosine similarity is
+undefined for a zero vector.
+
+**Device handling:** both embeddings must already be on the same device
+(CPU or CUDA); the computation runs there without unnecessary transfers.
+Neither input tensor is modified.
+
+**Scope:** this module does not implement a threshold, a MATCH/NON_MATCH
+decision, FAR/FRR/EER/ROC, or calibration — see
+[Architecture](#architecture) above. **A raw cosine similarity score has
+no established meaning about whether two recordings are from the same
+speaker until it is interpreted against a threshold calibrated on
+representative genuine/impostor trial data (Phase 6).**
+
+### Running the similarity tests
+
+```bash
+pip install pytest
+pytest tests/test_similarity.py -v
+```
+
+These are deterministic tests against hand-constructed vectors (identical,
+scaled, orthogonal, opposite, mismatched, NaN/Inf, zero-vector, batched)
+with known expected scores — they do not require the pretrained model and
+run in any environment, CPU or CUDA.
+
+### Real ECAPA integration test (two audio files)
+
+```bash
+python scripts/test_similarity.py reference.wav test.wav
+```
+
+Runs both files through the existing audio preprocessing and
+`SpeakerEncoder`, then reports their cosine similarity — device, GPU (if
+any), both embeddings' shapes/devices, the similarity score, and the
+similarity computation's own timing (measured separately from ECAPA
+inference). It prints a raw score only — **no MATCH/NON_MATCH verdict is
+produced.**
+
+**Same-speaker / different-speaker testing:** any personal recordings
+used for this (e.g. under `tests/recording test/`, which is excluded via
+`.gitignore`) are for local, manual pipeline testing only. A same-speaker
+score is not an accuracy result, and an observed score should not be
+described as "good" or "bad" — that requires the threshold calibration
+in Phase 6.
+
+### Similarity limitations
+
+Like the encoder test, `scripts/test_similarity.py` requires downloading
+the pretrained model on first use, which this development sandbox's
+network policy blocks (see [Encoder limitations](#encoder-limitations)
+above) — so a real embeddings-based similarity score could not be
+produced here. `similarity.py`'s own logic is fully covered by
+deterministic unit tests that don't depend on the model (see above); the
+end-to-end integration script should be re-run on a machine with normal
+internet access (such as your own, where Phase 4 was already verified)
+to get a real score.

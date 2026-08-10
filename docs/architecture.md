@@ -1,37 +1,44 @@
 # Architecture
 
-Status: Phases 1–4 (foundation, environment, audio preprocessing,
-ECAPA-TDNN speaker encoder) are implemented. This document will continue
-to describe the detailed design of the speaker verification module as
-later phases are implemented.
+Status: Phases 1–5 (foundation, environment, audio preprocessing,
+ECAPA-TDNN speaker encoder, cosine similarity) are implemented. This
+document will continue to describe the detailed design of the speaker
+verification module as later phases are implemented.
 
 ## Pipeline overview
 
 ```
 Reference Audio
-       ↓
-Audio Preprocessing
-       ↓
+      ↓
+Preprocessing
+      ↓
 ECAPA-TDNN
-       ↓
-Reference Embedding
-
+      ↓
+Embedding A
+      │
+      │
+      ├── Cosine Similarity ──→ Similarity Score
+      │
+      │
+      ↓
+Embedding B
+      ↑
+ECAPA-TDNN
+      ↑
+Preprocessing
+      ↑
 Test Audio
-       ↓
-Audio Preprocessing
-       ↓
-ECAPA-TDNN
-       ↓
-Test Embedding
-
-Reference + Test Embeddings
-       ↓
-Cosine Similarity
-       ↓
-Threshold Calibration
-       ↓
-MATCH / NON_MATCH / UNCERTAIN
 ```
+
+**As of Phase 5, the pipeline stops at "Similarity Score."** The score is
+a raw cosine similarity value, approximately in `[-1.0, 1.0]`. It is
+**not** currently converted into a verification decision: there is no
+threshold, no MATCH/NON_MATCH/UNCERTAIN output, and no calibration.
+Threshold calibration will be performed in a later phase (Phase 6) using
+genuine and impostor trials on representative data. A high or low
+similarity score cannot be reliably interpreted as "same speaker" or
+"different speaker" until that calibration exists — this document and
+the code deliberately avoid making that claim.
 
 ## Audio preprocessing (Phase 3 — implemented)
 
@@ -134,6 +141,43 @@ This phase does **not** implement cosine similarity, threshold
 calibration, FAR/FRR/EER/ROC, MATCH/NON_MATCH/UNCERTAIN decisions, fuzzy
 logic, or deepfake detection — those remain later phases (see below).
 
+## Cosine similarity (Phase 5 — implemented)
+
+Expanding the "Cosine Similarity" step in the pipeline overview above, as
+implemented in `src/speaker_verification/similarity.py`:
+
+```
+embedding_a
+embedding_b
+      ↓
+cosine similarity = dot(A, B) / (||A|| · ||B||)
+      ↓
+single scalar score, range ≈ [-1.0, 1.0]
+```
+
+- **API**: `cosine_similarity(embedding_a, embedding_b)` — accepts a
+  single pair of 1-D embeddings (returns a Python `float`) or a batch of
+  2-D embeddings (returns a `(batch,)` tensor of per-pair scores).
+- **Implementation**: uses `torch.nn.functional.cosine_similarity`
+  (PyTorch's established, numerically-stable implementation) rather than
+  a manual re-implementation of the dot-product/norm formula.
+- **Validation**: rejects `None`, non-tensor, non-floating-point,
+  wrong-dimensionality, empty, mismatched-dimension, mismatched-device,
+  NaN/Inf, and zero-(or near-zero-)norm inputs with a specific exception
+  type and a clear message. A zero-norm embedding raises
+  `InvalidEmbeddingError` rather than silently returning an arbitrary
+  score — cosine similarity is mathematically undefined for a zero
+  vector.
+- **Purity**: neither input tensor is modified; no unnecessary device
+  transfers are performed (both embeddings must already be on the same
+  device — CPU or CUDA — and the computation runs there; only the final
+  scalar is copied to host memory, unavoidable for a Python `float`
+  return value).
+- **Scope**: this module answers only "how similar are these two
+  embeddings?" — it does not threshold, calibrate, or decide anything.
+  `speaker_verification.verifier` (a later phase) is where a similarity
+  score, once calibrated, would feed into an actual decision.
+
 ## Integration with B.S. Detector
 
 This module is invoked conditionally by the larger B.S. Detector pipeline,
@@ -144,7 +188,7 @@ audio that has already passed deepfake screening.
 
 - Audio preprocessing details (`audio.py`): **done, see above**
 - ECAPA-TDNN encoder details (`encoder.py`): **done, see above and docs/model.md**
-- Similarity scoring details (`similarity.py`)
+- Similarity scoring details (`similarity.py`): **done, see above**
 - Threshold calibration methodology (`calibration.py`): genuine/impostor
   trial scores, threshold calibration, FAR, FRR, EER, ROC/ROC-AUC
 - Evaluation methodology (`evaluation.py`)
