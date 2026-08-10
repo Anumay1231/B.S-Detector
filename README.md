@@ -5,11 +5,15 @@ a test audio sample and a reference audio sample were spoken by the same
 person, producing a `MATCH` / `NON_MATCH` / `UNCERTAIN` verdict.
 
 **Status: project foundation, environment, audio preprocessing, the
-ECAPA-TDNN speaker encoder, cosine similarity comparison, and the
-calibration/verification decision layer are complete (Phases 1–6).**
-**No real calibrated threshold exists yet** — this project has only one
-genuine trial and zero impostor trials, which is not enough data to
-calibrate. See [Status / Roadmap](#status--roadmap) and
+ECAPA-TDNN speaker encoder, cosine similarity comparison, the
+calibration/verification decision layer, and a large-scale VoxCeleb
+calibration pipeline are complete (Phases 1–7).** The VoxCeleb pipeline
+(code + tests) is fully built and verified against synthetic fixtures,
+but **has not yet been run on real VoxCeleb data in this environment**
+(VoxCeleb requires its own registration-gated download, and the
+pretrained model itself is blocked from downloading in this sandbox —
+see [Phase 7 dataset/access limitations](#calibration--verification-decision)).
+See [Status / Roadmap](#status--roadmap) and
 [docs/calibration.md](docs/calibration.md) below.
 
 ## Architecture
@@ -82,8 +86,13 @@ speaker-verification/
 │       ├── similarity.py
 │       ├── verifier.py
 │       ├── calibration.py
+│       ├── embedding_cache.py
 │       ├── evaluation.py
-│       └── types.py
+│       ├── types.py
+│       └── datasets/
+│           ├── __init__.py
+│           ├── trials.py
+│           └── voxceleb.py
 │
 ├── scripts/
 │   ├── verify.py
@@ -92,7 +101,12 @@ speaker-verification/
 │   ├── check_environment.py
 │   ├── test_audio_pipeline.py
 │   ├── test_encoder.py
-│   └── test_similarity.py
+│   ├── test_similarity.py
+│   ├── build_trials.py
+│   ├── extract_embeddings.py
+│   ├── score_trials.py
+│   ├── run_voxceleb_calibration.py
+│   └── score_personal_recording.py
 │
 ├── tests/
 │   ├── __init__.py
@@ -101,14 +115,31 @@ speaker-verification/
 │   ├── test_encoder.py
 │   ├── test_similarity.py
 │   ├── test_calibration.py
-│   └── test_verifier.py
+│   ├── test_verifier.py
+│   ├── test_datasets_trials.py
+│   ├── test_datasets_voxceleb.py
+│   ├── test_embedding_cache.py
+│   ├── test_extract_embeddings.py
+│   ├── test_score_trials.py
+│   ├── test_run_voxceleb_calibration.py
+│   ├── test_build_trials.py
+│   └── test_voxceleb_pipeline_integration.py
 │
 ├── data/
 │   ├── reference/
 │   ├── test/
-│   └── trials/
+│   ├── trials/
+│   └── voxceleb/
+│       ├── raw/
+│       ├── metadata/
+│       ├── trials/
+│       └── processed/
 │
 ├── outputs/
+│   ├── embeddings/
+│   ├── scores/
+│   ├── calibration/
+│   └── evaluation/
 │
 └── docs/
     ├── architecture.md
@@ -125,7 +156,11 @@ speaker-verification/
 - `data/test/` — test (query) audio samples to verify against a reference.
 - `data/trials/` — labeled trial pairs/metadata used for calibration and
   evaluation.
-- `outputs/` — generated artifacts (results, calibrated thresholds, reports).
+- `outputs/` — generated artifacts (results, calibrated thresholds, reports),
+  including `embeddings/`, `scores/`, `calibration/`, `evaluation/` (Phase 7).
+- `data/voxceleb/` — VoxCeleb-specific data (Phase 7): `raw/` audio,
+  `metadata/`, sampled `trials/` CSVs, and `processed/` artifacts. All
+  excluded from Git.
 - `docs/` — design and architecture documentation (`architecture.md`,
   `model.md`, `calibration.md`).
 
@@ -145,6 +180,12 @@ speaker-verification/
   calibrate on (raises `InsufficientCalibrationDataError`). See
   [Calibration & verification decision](#calibration--verification-decision)
   below.
+- Phase 7 — Large-scale VoxCeleb calibration pipeline: **COMPLETE (code +
+  tests)** — **not yet run on real VoxCeleb data.** See
+  [Calibration & verification decision](#calibration--verification-decision)
+  below and docs/calibration.md, "Phase 7", for what needs to be
+  obtained manually (VoxCeleb access is registration-gated, and this
+  sandbox cannot download the pretrained model either).
 - Deepfake detector integration: not started
 
 Phase 6 note: `calibration.py` and `verifier.py` are fully implemented
@@ -547,3 +588,73 @@ python scripts/verify.py reference.wav test.wav --threshold 0.6123 --calibrated
 `--threshold` is required — there is no default. Omit `--calibrated` for
 an ad-hoc/example threshold; the output is then clearly marked
 `UNCALIBRATED`.
+
+## Large-scale VoxCeleb calibration (Phase 7)
+
+Phase 6's calibration engine is real and tested, but this project only
+has one genuine trial and zero impostor trials of its own — nowhere
+near enough for a trustworthy threshold. Phase 7 adds a pipeline that
+feeds the same, unmodified `calibration.py` real genuine/impostor
+scores from [VoxCeleb](https://www.robots.ox.ac.uk/~vgg/data/voxceleb/),
+a standard public speaker-verification dataset, producing an actual
+data-driven baseline threshold. **ECAPA-TDNN is not fine-tuned or
+modified anywhere in this process.** Full methodology (calibration vs.
+evaluation split, speaker-leakage checks, embedding cache design,
+Hindi/Hinglish domain limitation) is in
+[docs/calibration.md, "Phase 7"](docs/calibration.md#phase-7-large-scale-calibration-using-voxceleb).
+
+**Status: the pipeline is fully implemented and tested against
+synthetic fixtures, but has not been run on real VoxCeleb data in this
+environment** — VoxCeleb requires completing VGG's own
+registration/access process (this project does not bypass that), and
+this sandbox also cannot download the pretrained ECAPA-TDNN model
+itself (see [Encoder limitations](#encoder-limitations)).
+
+### Running the Phase 7 tests
+
+```bash
+pip install pytest
+pytest tests/test_datasets_trials.py tests/test_datasets_voxceleb.py \
+       tests/test_embedding_cache.py tests/test_extract_embeddings.py \
+       tests/test_score_trials.py tests/test_run_voxceleb_calibration.py \
+       tests/test_build_trials.py tests/test_voxceleb_pipeline_integration.py -v
+```
+
+All synthetic (generated trial-list text, tiny WAV fixtures, stub
+encoders) — no real VoxCeleb data or pretrained model required.
+
+### Running the pipeline on real data
+
+Once you have obtained VoxCeleb audio and an official trial-list file
+yourself (see docs/calibration.md for exactly what to get and where):
+
+```bash
+python scripts/build_trials.py \
+    --trials <official_trial_list.txt> \
+    --audio-root <path_to_voxceleb_audio> \
+    --max-genuine 1000 --max-impostor 1000 --seed 42
+
+python scripts/extract_embeddings.py --trials data/voxceleb/trials/subset.csv
+python scripts/score_trials.py --trials data/voxceleb/trials/subset.csv
+python scripts/run_voxceleb_calibration.py --scores outputs/scores/voxceleb_scores.csv
+```
+
+`build_trials.py` samples a deterministic subset and splits it into
+speaker-disjoint calibration/evaluation sets;
+`extract_embeddings.py` loads the encoder once and caches embeddings
+(skipping any utterance already cached); `score_trials.py` computes
+cosine similarity via the existing `similarity.py`;
+`run_voxceleb_calibration.py` calibrates on the calibration split only
+and reports FAR/FRR of that threshold on the held-out evaluation split,
+plus a speaker-leakage check.
+
+### Personal recordings stay separate
+
+```bash
+python scripts/score_personal_recording.py
+```
+
+Scores this project's own two personal recordings (kept outside Git)
+using the same pipeline, explicitly labeled "Personal same-speaker
+validation (OUT-OF-DOMAIN)" — never mixed into VoxCeleb calibration and
+never used to change the VoxCeleb-derived threshold automatically.

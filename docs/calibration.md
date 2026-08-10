@@ -199,3 +199,250 @@ class that would be needed for a statistically reliable calibration.
 
 Fuzzy logic, ML-based classification, and ECAPA-TDNN fine-tuning are not
 introduced here — see docs/architecture.md.
+
+## Phase 7: large-scale calibration using VoxCeleb
+
+Phase 6 established the calibration *engine* (FAR/FRR/EER/ROC-AUC) and
+proved it works correctly on synthetic data, but this project had only
+one real genuine trial and zero impostor trials — nowhere near enough
+to produce a trustworthy threshold. Phase 7 does not change the
+calibration math at all; it builds a pipeline to feed
+`calibration.calibrate()` real, large-scale genuine/impostor scores
+from a public speaker-verification dataset, so a data-driven baseline
+threshold can actually be produced.
+
+**Phase 7 does not fine-tune or modify ECAPA-TDNN in any way.** The
+pretrained `speechbrain/spkrec-ecapa-voxceleb` checkpoint and the
+existing `audio.py` → `encoder.py` → `similarity.py` → `calibration.py`
+pipeline are reused exactly as built in Phases 3–6. Phase 7 only adds
+*more real trial data* flowing into that unchanged pipeline.
+
+### Why VoxCeleb
+
+[VoxCeleb](https://www.robots.ox.ac.uk/~vgg/data/voxceleb/) is the
+standard public benchmark for speaker verification: VoxCeleb1 has
+1,251 speakers and 150,000+ utterances; VoxCeleb2 has 6,112 speakers
+and 1,000,000+ utterances. VGG (the publisher) also distributes
+established verification trial-list protocols (VoxCeleb1, VoxCeleb1-E,
+VoxCeleb1-H, and "cleaned" variants), which is exactly the labeled
+genuine/impostor pair structure `calibration.py` needs — rather than
+this project inventing its own ad hoc pairing scheme. Using an
+established, published protocol also makes any resulting numbers
+comparable to other published ECAPA-TDNN/VoxCeleb results, as a sanity
+check on this project's own pipeline correctness.
+
+**Access**: VoxCeleb audio is not freely downloadable — VGG requires
+completing their own registration/access process. This project does
+not scrape, mirror, or bypass that process (see
+`src/speaker_verification/datasets/voxceleb.py`'s module docstring).
+The Phase 7 pipeline is built and tested against synthetic fixtures
+that reproduce VoxCeleb's file formats; running it on real data
+requires the user to obtain the trial-list file and audio separately
+(see "What you need to obtain manually" below).
+
+### Pipeline
+
+```
+VoxCeleb trial-list file (official format)
+        ↓
+scripts/build_trials.py
+  - parse_trial_list(): text parsing only, no audio touched
+  - validate_trials(): drop trials whose audio files don't exist
+  - sample_trials(): deterministic, seeded, non-first-N subset
+  - split_trials_by_speaker(): speaker-disjoint calibration/evaluation split
+        ↓
+data/voxceleb/trials/*.csv  (trial_id, reference_id, test_id,
+                              reference_path, test_path, label,
+                              reference_speaker, test_speaker, split)
+        ↓
+scripts/extract_embeddings.py
+  - loads SpeakerEncoder ONCE
+  - encoder.py + audio.py, exactly as in Phase 3/4 -- unmodified
+  - caches embeddings by utterance id (embedding_cache.py)
+        ↓
+outputs/embeddings/voxceleb/  (embeddings.pt + manifest.jsonl)
+        ↓
+scripts/score_trials.py
+  - EXISTING similarity.cosine_similarity() -- no reimplementation
+        ↓
+outputs/scores/voxceleb_scores.csv  (trial_id, reference, test, label,
+                                      score, split, reference_speaker,
+                                      test_speaker)
+        ↓
+scripts/run_voxceleb_calibration.py
+  - EXISTING calibration.calibrate() -- called ONLY on the
+    calibration-split scores
+  - FAR/FRR of the resulting threshold measured on the held-out
+    evaluation-split scores
+        ↓
+Calibration report (Phase 7J format, printed and optionally saved)
+```
+
+### Trial labels
+
+Following VoxCeleb's own trial-list convention: `1` = genuine
+(same-speaker pair), `0` = impostor (different-speaker pair). This is
+the same `score >= threshold -> MATCH` / genuine-vs-impostor framing
+`calibration.py` already used in Phase 6 — Phase 7 does not introduce a
+new labeling convention.
+
+### Deterministic subset sampling (Phase 7B)
+
+VoxCeleb trial-list files are commonly ordered by speaker block (every
+trial for one reference speaker appears consecutively). Taking the
+first N trials would concentrate a subset on a handful of speakers and
+bias anything calibrated from it. Instead, `trials.sample_trials()`
+separates genuine and impostor trials, shuffles each list with a seeded
+`random.Random(seed)`, and takes the first `max_genuine`/`max_impostor`
+of each shuffled list. This is deterministic for a given `(trials,
+seed)` pair (re-running with the same seed reproduces the exact same
+subset) and is a uniform sample over whatever trials were provided —
+see the docstring in `src/speaker_verification/datasets/trials.py` for
+the full reasoning.
+
+### Calibration vs. evaluation split (Phase 7F/7G)
+
+**This is the most important methodological point in Phase 7: the
+threshold is never chosen and measured on the same trials.**
+
+`trials.split_trials_by_speaker()` assigns every unique speaker
+appearing in the sampled subset to either the calibration side or the
+evaluation side (deterministically, by a seeded shuffle), then keeps a
+trial in the calibration set only if BOTH its speakers are on the
+calibration side, in the evaluation set only if BOTH are on the
+evaluation side, and **drops** any trial whose two speakers landed on
+opposite sides (since including it in either set would leak a speaker
+across the boundary). `scripts/run_voxceleb_calibration.py`:
+
+1. Runs `calibration.calibrate()` — and therefore selects the EER
+   threshold — using **only the calibration-split** genuine/impostor
+   scores.
+2. Applies that fixed threshold to the **evaluation-split** scores via
+   `calibration.compute_far()` / `compute_frr()`, producing the FAR/FRR
+   numbers that are reported as this baseline's actual performance.
+
+**On the official VoxCeleb protocol itself**: the official VoxCeleb1 /
+VoxCeleb1-E / VoxCeleb1-H trial lists are each a single evaluation
+protocol — VGG does not ship them pre-split into "calibration" and
+"evaluation" halves. The speaker-level split described above is this
+project's own addition, applied on top of whichever official trial
+list is supplied, specifically to avoid tuning and reporting on the
+same data. If a user instead wants results directly comparable to a
+published VoxCeleb1 EER number, they would run `calibration.calibrate()`
+on the *entire* official trial list as a single (uncalibrated-split)
+evaluation and report that separately — that is a valid, different use
+of this pipeline, not what `run_voxceleb_calibration.py` does by
+default.
+
+### Speaker leakage (Phase 7G)
+
+`trials.speaker_overlap()` independently re-checks — it does not just
+trust `split_trials_by_speaker()`'s construction — whether any speaker
+id appears in both the calibration and evaluation sets.
+`run_voxceleb_calibration.py` always reports this count; zero overlap
+is expected and required for the evaluation-set FAR/FRR to be a
+meaningful, unbiased estimate. If a user supplies pre-split trial data
+where the *official* protocol intentionally reuses speaker identities
+across trials, that must be documented explicitly rather than silently
+treated as speaker-disjoint — this project's own split
+(`split_trials_by_speaker`) guarantees disjointness by construction, so
+non-zero overlap should only occur if a user bypasses it.
+
+### Embedding cache design
+
+See the module docstring in
+`src/speaker_verification/embedding_cache.py` for the full reasoning.
+Summary: a consolidated `torch.save()` dict of
+`{utterance_id: embedding_tensor}` plus a JSON-Lines metadata manifest,
+chosen because Phase 7H's target scale (thousands, not millions, of
+utterances) does not need one-file-per-utterance or a sharded/columnar
+format. The cache is keyed by dataset-relative utterance id (not by
+audio file path), stores embedding dimension / model source / sample
+rate / extraction timestamp per entry, and never stores audio. Writes
+are atomic (temp file + `os.replace`). An utterance referenced by
+multiple trials is embedded exactly once (Phase 7K "duplicate
+utterance handling").
+
+### Threshold methodology (unchanged from Phase 6)
+
+The threshold reported by `run_voxceleb_calibration.py` is the **EER
+threshold from `calibration.calibrate()`**, run on real VoxCeleb
+calibration-split genuine/impostor scores — the exact same, unmodified
+Phase 6 algorithm described earlier in this document. It is never
+0.635386 (this project's one real personal-recording score — see
+above) and never any other hard-coded value. If the calibration split
+ends up with zero genuine or zero impostor scores (e.g. an
+under-sized `--max-genuine`/`--max-impostor` subset, or a
+speaker-split that happens to starve one side), `calibrate()` raises
+`InsufficientCalibrationDataError` and `run_voxceleb_calibration.py`
+reports "Calibration UNAVAILABLE" — it does not fall back to any
+default.
+
+### Personal recordings stay out of VoxCeleb calibration (Phase 7L)
+
+`scripts/score_personal_recording.py` scores this project's own two
+personal recordings (kept outside Git — see `.gitignore`) using the
+same pipeline, but labels the result explicitly **"Personal
+same-speaker validation (OUT-OF-DOMAIN / PROJECT-SPECIFIC)."** This
+score is never merged into the VoxCeleb genuine/impostor score pools
+and never changes the VoxCeleb-derived threshold automatically. It
+exists only as a sanity check that the pipeline runs correctly on real
+project audio.
+
+### Domain limitation: VoxCeleb vs. Hindi/Hinglish (Phase 7M)
+
+VoxCeleb is a broad, "in-the-wild" speaker dataset, predominantly
+English speech drawn from celebrity interviews. This project's actual
+target domain is bilingual Hindi/Hinglish speech. **A threshold or EER
+calibrated on VoxCeleb is a general-purpose baseline, not proof of
+performance on Hindi/Hinglish audio.** Concretely:
+
+1. VoxCeleb calibration (Phase 7) gives a real, data-derived *baseline*
+   threshold and measured FAR/FRR/EER — a large methodological upgrade
+   over the single uncalibrated 0.635386 data point, but still not
+   validated on this project's actual language domain.
+2. A later phase needs project-specific Indian/Hindi/Hinglish
+   genuine/impostor trial data (recorded or sourced separately) run
+   through this same, unmodified pipeline before any Hindi/Hinglish
+   accuracy claim can be made.
+3. Once both exist, a global (VoxCeleb) threshold, a domain-specific
+   (Hindi/Hinglish) threshold, and — only after that comparison —
+   whether a fuzzy/domain-adaptive decision layer would add value, can
+   all be compared. **Fuzzy logic is explicitly NOT implemented in
+   Phase 7** (see below).
+
+### Explicitly out of scope for Phase 7
+
+- ECAPA-TDNN fine-tuning or any modification to the pretrained model.
+- Fuzzy logic or any decision layer beyond the existing
+  `score >= threshold -> MATCH` rule.
+- Distributed computing, a vector database, or FAISS — the embedding
+  cache is a single consolidated file, and scoring is a plain Python
+  loop; see Phase 7I in the Phase 7 final report for the actual
+  measured throughput this achieves at the target scale.
+- Automatically downloading the full VoxCeleb2 dataset (1M+
+  utterances) — Phase 7H starts at ~1,000 genuine + ~1,000 impostor
+  trials and only scales up after that pipeline is verified working.
+
+### What you need to obtain manually to run this on real data
+
+This sandbox cannot download VoxCeleb (registration-gated, and this
+project does not bypass that) or the pretrained ECAPA-TDNN model
+(`huggingface.co` is blocked here — see docs/model.md). To actually run
+Phase 7 end-to-end on real data, from a machine with normal internet
+access:
+
+1. Register for and download VoxCeleb1 audio, plus an official
+   verification trial-list file (VoxCeleb1 / VoxCeleb1-E / VoxCeleb1-H,
+   cleaned or not), from
+   [the official VoxCeleb site](https://www.robots.ox.ac.uk/~vgg/data/voxceleb/).
+2. Extract the audio so it is laid out as
+   `<audio_root>/<speaker_id>/<video_id>/<utterance>.wav`.
+3. Run:
+   ```bash
+   python scripts/build_trials.py --trials <trial_list_file> --audio-root <audio_root> \
+       --max-genuine 1000 --max-impostor 1000 --seed 42
+   python scripts/extract_embeddings.py --trials data/voxceleb/trials/subset.csv
+   python scripts/score_trials.py --trials data/voxceleb/trials/subset.csv
+   python scripts/run_voxceleb_calibration.py --scores outputs/scores/voxceleb_scores.csv
+   ```

@@ -16,7 +16,26 @@ what remains to be confirmed on a machine with normal internet access.
   project, and it is SpeechBrain's standard, widely used pretrained
   ECAPA-TDNN speaker-embedding checkpoint. No substitute model was used.
 - **Usage here:** pretrained, frozen weights only. This project does not
-  train or fine-tune this model in any phase so far.
+  train or fine-tune this model in any phase so far (including Phase 7 —
+  see docs/calibration.md, "Phase 7": the VoxCeleb calibration pipeline
+  only generates scores with this unmodified model, it never updates its
+  weights).
+
+## Phase 7 caveat: the model was itself trained on VoxCeleb
+
+`speechbrain/spkrec-ecapa-voxceleb` was trained on VoxCeleb1 + VoxCeleb2
+(see "Architecture" above). Phase 7 calibrates a threshold using
+VoxCeleb trial data. This means VoxCeleb-based calibration/evaluation
+numbers are **not** an independent, out-of-domain test of the model —
+the model has already seen VoxCeleb-domain speech (though the official
+VoxCeleb1 test-trial protocol's speakers are held out from VoxCeleb1's
+own training/dev split, so it is not literally training-on-test-set,
+depending on which VoxCeleb2 training recipe was used to produce this
+specific checkpoint, which has not been independently re-verified
+here). Treat any VoxCeleb-derived EER/threshold as a best-case,
+in-domain baseline, not a guarantee of the same performance on
+genuinely novel audio (such as this project's actual Hindi/Hinglish
+target domain — see docs/calibration.md, "Phase 7M").
 
 ## Verified SpeechBrain API (installed version: speechbrain==1.1.0)
 
