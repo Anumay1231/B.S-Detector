@@ -1,0 +1,44 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+outputs/*
+!outputs/.gitkeep
+data/reference/*
+!data/reference/.gitkeep
+data/test/*
+!data/test/.gitkeep
+data/trials/*
+!data/trials/.gitkeep
+
+# Model weights / large artifacts
+*.pt
+*.pth
+*.ckpt
+*.bin

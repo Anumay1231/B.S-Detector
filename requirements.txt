@@ -1,0 +1,23 @@
+# Direct dependencies for the speaker-verification module.
+#
+# Versions below are pinned to what was actually installed and verified
+# together (see scripts/check_environment.py) in a Python 3.10 virtual
+# environment on 2026-08-10. torch/torchaudio versions are matched
+# (both 2.5.1) to avoid C++ ABI mismatches between the two packages.
+#
+# GPU note: torch's standard Linux/Windows wheel is CUDA-capable and will
+# automatically use an available NVIDIA GPU (e.g. RTX 3060) via
+# torch.cuda.is_available() — no separate GPU-only package is required.
+# Installing this file via `pip install -r requirements.txt` on a machine
+# with a compatible NVIDIA driver will pull in the necessary CUDA runtime
+# libraries (nvidia-cublas-cu12, nvidia-cudnn-cu12, etc.) automatically as
+# transitive dependencies of torch; they do not need to be listed here.
+
+torch==2.5.1
+torchaudio==2.5.1
+speechbrain==1.1.0
+numpy==2.2.6
+scipy==1.15.3
+scikit-learn==1.7.2
+matplotlib==3.10.9
+soundfile==0.14.0
