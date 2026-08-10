@@ -28,6 +28,13 @@ htmlcov/
 Thumbs.db
 
 # Project-specific
+#
+# NOTE on negated subdirectories: gitignore does not recurse into a
+# directory that an earlier pattern already excluded, so negating a
+# *file* inside an excluded directory (e.g. "!outputs/embeddings/.gitkeep")
+# has no effect unless the directory itself is un-excluded first (e.g.
+# "!outputs/embeddings/"). Every nested .gitkeep exception below
+# un-excludes its directory explicitly for this reason.
 outputs/*
 !outputs/.gitkeep
 data/reference/*
@@ -36,6 +43,44 @@ data/test/*
 !data/test/.gitkeep
 data/trials/*
 !data/trials/.gitkeep
+
+# Phase 7: VoxCeleb (and any other large external dataset) -- raw audio,
+# metadata, generated trial subsets, and processed artifacts must never
+# be committed. Only .gitkeep placeholders are tracked so the directory
+# structure itself is documented in Git.
+data/voxceleb/raw/*
+!data/voxceleb/raw/.gitkeep
+data/voxceleb/metadata/*
+!data/voxceleb/metadata/.gitkeep
+data/voxceleb/trials/*
+!data/voxceleb/trials/.gitkeep
+data/voxceleb/processed/*
+!data/voxceleb/processed/.gitkeep
+
+# Phase 7: generated embeddings, scores, and calibration/evaluation
+# reports are large, machine-specific, and reproducible from code +
+# data -- they do not belong in Git. These are subdirectories of
+# outputs/, which "outputs/*" above already excludes as directories, so
+# each one must be explicitly un-excluded before its own "*"/".gitkeep"
+# pair will take effect (see NOTE above).
+!outputs/embeddings/
+outputs/embeddings/*
+!outputs/embeddings/.gitkeep
+!outputs/scores/
+outputs/scores/*
+!outputs/scores/.gitkeep
+!outputs/calibration/
+outputs/calibration/*
+!outputs/calibration/.gitkeep
+!outputs/evaluation/
+outputs/evaluation/*
+!outputs/evaluation/.gitkeep
+
+# Common VoxCeleb/dataset archive formats, in case one is ever
+# downloaded into a Git-tracked location by mistake.
+*.tar
+*.tar.gz
+*.zip
 
 # Model weights / large artifacts
 *.pt

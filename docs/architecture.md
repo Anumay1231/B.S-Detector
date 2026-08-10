@@ -1,10 +1,11 @@
 # Architecture
 
-Status: Phases 1–6 (foundation, environment, audio preprocessing,
+Status: Phases 1–7 (foundation, environment, audio preprocessing,
 ECAPA-TDNN speaker encoder, cosine similarity, calibration and the
-verification decision layer) are implemented. This document will
-continue to describe the detailed design of the speaker verification
-module as later phases are implemented.
+verification decision layer, and a large-scale VoxCeleb calibration
+pipeline) are implemented. This document will continue to describe the
+detailed design of the speaker verification module as later phases are
+implemented.
 
 ## Pipeline overview
 
@@ -242,6 +243,71 @@ explicit `--threshold`. Neither script has a default/fallback threshold.
 This phase does not implement fuzzy logic, ML-based classification, or
 ECAPA-TDNN fine-tuning — see [Out of scope for the baseline](#out-of-scope-for-the-baseline)
 below.
+
+## Large-scale VoxCeleb calibration pipeline (Phase 7 — implemented)
+
+Phase 7 does not add a new stage to the core pipeline above -- it adds
+a parallel, offline **data pipeline** whose only job is to produce real
+genuine/impostor scores at scale for the EXISTING "Calibration" stage,
+using the EXISTING encoder/similarity/calibration code unmodified:
+
+```
+VoxCeleb trial-list file (official format, obtained by the user)
+        |
+src/speaker_verification/datasets/voxceleb.py  (parse only, no audio touched)
+        |
+src/speaker_verification/datasets/trials.py    (validate -> sample -> speaker-disjoint split)
+        |
+scripts/build_trials.py  -->  standardized trials CSV
+        |
+scripts/extract_embeddings.py
+        |   (encoder.py, audio.py -- UNCHANGED from Phase 3/4)
+        |   (src/speaker_verification/embedding_cache.py -- new, caches by utterance id)
+        v
+scripts/score_trials.py
+        |   (similarity.py -- UNCHANGED from Phase 5)
+        v
+scripts/run_voxceleb_calibration.py
+        |   (calibration.py -- UNCHANGED from Phase 6, called only on the
+        |    calibration split; evaluation split measures FAR/FRR of the
+        |    resulting threshold)
+        v
+Calibration report
+```
+
+- **Dataset adapter pattern**: `src/speaker_verification/datasets/`
+  splits into a dataset-agnostic `trials.py` (the `Trial` dataclass,
+  sampling, speaker-disjoint calibration/evaluation splitting,
+  file-existence validation) and a VoxCeleb-specific `voxceleb.py`
+  (trial-list text parsing, VoxCeleb path/speaker-id conventions). A
+  future second dataset would add a sibling adapter module, not touch
+  `trials.py` or the pipeline scripts.
+- **No embeddings are computed during parsing**: `voxceleb.py` and
+  `trials.py` do pure text/metadata handling; embedding extraction is a
+  fully separate stage (`extract_embeddings.py`), per Phase 7A's
+  explicit separation-of-concerns requirement.
+- **Embedding cache**: `src/speaker_verification/embedding_cache.py`
+  avoids recomputing an embedding for any utterance already processed
+  (including one referenced by multiple trials). See its module
+  docstring for the format choice (consolidated `torch.save()` dict +
+  JSON-Lines manifest) and its documented scale ceiling.
+- **Calibration/evaluation split**: threshold selection
+  (`calibration.calibrate()`) and threshold evaluation
+  (`calibration.compute_far()`/`compute_frr()`) are always run on
+  disjoint trial sets, split at the speaker level
+  (`trials.split_trials_by_speaker()`), with an independent
+  leakage re-check (`trials.speaker_overlap()`). See
+  docs/calibration.md, "Phase 7", for the full methodology and the
+  distinction from VGG's own (unsplit) official protocol.
+- **Personal recordings**: `scripts/score_personal_recording.py` reuses
+  this same pipeline for this project's own two recordings, but keeps
+  that score entirely separate from VoxCeleb calibration (labeled
+  out-of-domain/project-specific validation) -- see docs/calibration.md.
+
+This phase does not implement fuzzy logic, ML-based classification,
+ECAPA-TDNN fine-tuning, distributed computing, a vector database, or
+FAISS -- see [Out of scope for the baseline](#out-of-scope-for-the-baseline)
+and docs/calibration.md, "Phase 7", "Explicitly out of scope for Phase 7".
 
 ## Integration with B.S. Detector
 
