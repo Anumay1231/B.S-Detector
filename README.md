@@ -5,34 +5,35 @@ a test audio sample and a reference audio sample were spoken by the same
 person, producing a `MATCH` / `NON_MATCH` / `UNCERTAIN` verdict.
 
 **Status: project foundation, environment, audio preprocessing, the
-ECAPA-TDNN speaker encoder, and cosine similarity comparison are complete
-(Phases 1–5).** Threshold calibration (and therefore an actual
-MATCH/NON_MATCH/UNCERTAIN decision) has not been implemented yet. See
-[Status / Roadmap](#status--roadmap) below.
+ECAPA-TDNN speaker encoder, cosine similarity comparison, and the
+calibration/verification decision layer are complete (Phases 1–6).**
+**No real calibrated threshold exists yet** — this project has only one
+genuine trial and zero impostor trials, which is not enough data to
+calibrate. See [Status / Roadmap](#status--roadmap) and
+[docs/calibration.md](docs/calibration.md) below.
 
 ## Architecture
 
 ```
-Reference Audio
-      ↓
-Preprocessing
-      ↓
-ECAPA-TDNN
-      ↓
-Embedding A
-      │
-      │
-      ├── Cosine Similarity ──→ Similarity Score
-      │
-      │
-      ↓
-Embedding B
-      ↑
-ECAPA-TDNN
-      ↑
-Preprocessing
-      ↑
-Test Audio
+Reference Audio                          Test Audio
+      ↓                                        ↓
+Preprocessing                          Preprocessing
+      ↓                                        ↓
+ECAPA-TDNN                              ECAPA-TDNN
+      ↓                                        ↓
+Embedding A                            Embedding B
+      │                                        │
+      └──────────── Cosine Similarity ─────────┘
+                          ↓
+                   Similarity Score
+                          ↓
+                     Calibration
+                (genuine + impostor trials
+                    → FAR / FRR / EER)
+                          ↓
+                      Threshold
+                          ↓
+                  MATCH / NON_MATCH
 ```
 
 Reference audio and test audio are each independently preprocessed and
@@ -40,18 +41,20 @@ passed through an ECAPA-TDNN speaker encoder to produce fixed-size speaker
 embeddings. The two embeddings are compared using cosine similarity,
 producing a single scalar score in roughly `[-1.0, 1.0]`.
 
-**As of Phase 5, that score is the end of the pipeline.** It is **not**
-currently converted into a verification decision — there is no threshold
-and no `MATCH` / `NON_MATCH` / `UNCERTAIN` output yet. Threshold
-calibration (see `src/speaker_verification/calibration.py`) will be
-performed in a later phase using genuine and impostor trials on
-representative data. **A high or low similarity score cannot be reliably
-interpreted as a verification decision until that calibration exists.**
+**A raw similarity score is not itself a verification decision.**
+`src/speaker_verification/verifier.py` turns a score into `MATCH` /
+`NON_MATCH` only once given an explicit threshold (`score >= threshold ->
+MATCH`); it never invents or defaults one. `src/speaker_verification/calibration.py`
+computes FAR, FRR, EER, and ROC-AUC from labeled genuine/impostor trial
+scores so that threshold can be data-derived rather than guessed. **This
+project does not currently have enough trial data to produce a real
+calibrated threshold** — see
+[Calibration & verification decision](#calibration--verification-decision)
+below and [docs/calibration.md](docs/calibration.md) for the full
+methodology and honest data-requirement discussion.
 
-For the baseline architecture, `calibration.py` is scoped strictly to
-genuine/impostor trial score handling, threshold calibration, FAR, FRR, EER,
-and ROC/ROC-AUC computation. Fuzzy logic is not part of the baseline and is
-not implemented here — see [Status / Roadmap](#status--roadmap).
+Fuzzy logic and ML-based classification are not part of the baseline and
+are not implemented here — see [Status / Roadmap](#status--roadmap).
 
 ## Relationship to the B.S. Detector pipeline
 
@@ -97,6 +100,7 @@ speaker-verification/
 │   ├── test_audio.py
 │   ├── test_encoder.py
 │   ├── test_similarity.py
+│   ├── test_calibration.py
 │   └── test_verifier.py
 │
 ├── data/
@@ -108,7 +112,8 @@ speaker-verification/
 │
 └── docs/
     ├── architecture.md
-    └── model.md
+    ├── model.md
+    └── calibration.md
 ```
 
 - `src/speaker_verification/` — the installable Python package containing
@@ -122,7 +127,7 @@ speaker-verification/
   evaluation.
 - `outputs/` — generated artifacts (results, calibrated thresholds, reports).
 - `docs/` — design and architecture documentation (`architecture.md`,
-  `model.md`).
+  `model.md`, `calibration.md`).
 
 ## Status / Roadmap
 
@@ -133,9 +138,24 @@ speaker-verification/
   validated on the developer's NVIDIA GeForce RTX 3060 Laptop GPU, CUDA
   12.4: 192-dimensional embeddings)
 - Phase 5 — Cosine similarity scoring: **COMPLETE**
-- Phase 6 — Threshold calibration (genuine/impostor scores, FAR, FRR, EER,
-  ROC/ROC-AUC): not started
+- Phase 6 — Calibration (FAR/FRR/EER/ROC-AUC) and verification decision
+  layer: **COMPLETE (code + tests)** — **but no real calibrated
+  threshold exists.** This project currently has one genuine trial and
+  zero impostor trials, which `calibrate()` correctly refuses to
+  calibrate on (raises `InsufficientCalibrationDataError`). See
+  [Calibration & verification decision](#calibration--verification-decision)
+  below.
 - Deepfake detector integration: not started
+
+Phase 6 note: `calibration.py` and `verifier.py` are fully implemented
+and covered by 46 deterministic unit tests (27 + 19) using synthetic,
+hand-verified data — see
+[Calibration & verification decision](#calibration--verification-decision).
+The real-data path (`scripts/calibrate.py`, `scripts/verify.py`) is
+exercised end-to-end with a stub encoder in this sandbox (the pretrained
+model remains unreachable here — see
+[Encoder limitations](#encoder-limitations)); running them against real
+audio requires a machine with normal internet access, same as Phases 4–5.
 
 Phase 3 note: audio preprocessing correctness (validation, mono conversion,
 resampling) has been verified by unit tests (see
@@ -466,3 +486,64 @@ deterministic unit tests that don't depend on the model (see above); the
 end-to-end integration script should be re-run on a machine with normal
 internet access (such as your own, where Phase 4 was already verified)
 to get a real score.
+
+## Calibration & verification decision
+
+Full methodology (FAR/FRR/EER definitions, EER selection criterion,
+threshold direction, data requirements, and an honest discussion of this
+project's current data limitation) lives in
+[docs/calibration.md](docs/calibration.md). Summary:
+
+- `src/speaker_verification/calibration.py` — `calibrate(genuine_scores,
+  impostor_scores)` computes FAR/FRR at every candidate threshold, the
+  EER operating point, and ROC-AUC. It raises
+  `InsufficientCalibrationDataError` if either class is empty, and flags
+  `is_statistically_reliable=False` with explicit warnings when either
+  class has fewer than `MIN_RELIABLE_TRIALS_PER_CLASS` (30) trials —
+  never a silent/blocking failure, always a truthful result.
+- `src/speaker_verification/verifier.py` — `SpeakerVerifier(encoder,
+  threshold, is_calibrated=False)` applies `score >= threshold -> MATCH`
+  (else `NON_MATCH`). `threshold` has **no default**; it must always be
+  supplied by the caller. `is_calibrated` defaults to `False` so ad-hoc
+  thresholds are never mistaken for validated ones.
+
+**This project's real data status: one genuine trial (cosine similarity
+0.635386, see docs/calibration.md), zero impostor trials.** That is not
+enough to calibrate — `calibrate([0.635386], [])` correctly raises
+`InsufficientCalibrationDataError`. **0.635386 has never been used as a
+threshold anywhere in this codebase.**
+
+### Running the calibration tests
+
+```bash
+pip install pytest
+pytest tests/test_calibration.py tests/test_verifier.py -v
+```
+
+46 deterministic tests (27 calibration + 19 verifier) against synthetic,
+hand-verified data (perfect separation, full overlap, boundary/tie
+conditions, empty/one-sided data, NaN/Inf/out-of-range scores, exact
+threshold equality, etc.) — explicitly labeled as synthetic in both test
+files' module docstrings, not real speaker-verification evidence.
+
+### Calibrating against real trial data
+
+```bash
+python scripts/calibrate.py --trials data/trials.csv
+```
+
+Expects a CSV with columns `reference,test,label` (`label` is `genuine`
+or `impostor`). If `data/trials.csv` doesn't exist — which is the current
+state of this project — the script explains the exact format needed and
+exits cleanly (exit code 0), rather than erroring or fabricating a
+result.
+
+### Running a verification decision
+
+```bash
+python scripts/verify.py reference.wav test.wav --threshold 0.6123 --calibrated
+```
+
+`--threshold` is required — there is no default. Omit `--calibrated` for
+an ad-hoc/example threshold; the output is then clearly marked
+`UNCALIBRATED`.
