@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 import time
@@ -86,29 +87,35 @@ def generate_metadata_parquet(output_path: Path, audio_cache_dir: Optional[Path]
     if audio_cache_dir:
         audio_cache_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Fetch spoof from Shard 0, RG 0 (200 rows)
+    # 1. Fetch spoof from Shard 0, RG 0 and RG 1 (400 rows total)
     fpath_spoof = f"datasets/{dataset_name}/data/train/train-00000.parquet"
-    logger.info("  Reading Hindi spoof from Shard 0...")
+    logger.info("  Reading Hindi spoof from Shard 0 (RG 0 & 1)...")
     with fs.open(fpath_spoof, "rb") as f:
         pf = pq.ParquetFile(f)
-        df_spoof = pf.read_row_group(0).to_pandas()
+        df_spoof_0 = pf.read_row_group(0).to_pandas()
+        df_spoof_1 = pf.read_row_group(1).to_pandas()
+        df_spoof = pd.concat([df_spoof_0, df_spoof_1], ignore_index=True)
 
-    # 2. Fetch bonafide from Shard 2, RG 2 (200 rows)
+    # 2. Fetch bonafide from Shard 2, RG 2 and RG 3 (400 rows total)
     fpath_bonafide = f"datasets/{dataset_name}/data/train/train-00002.parquet"
-    logger.info("  Reading Hindi bonafide from Shard 2...")
+    logger.info("  Reading Hindi bonafide from Shard 2 (RG 2 & 3)...")
     with fs.open(fpath_bonafide, "rb") as f:
         pf = pq.ParquetFile(f)
-        df_bonafide = pf.read_row_group(2).to_pandas()
+        df_bonafide_2 = pf.read_row_group(2).to_pandas()
+        df_bonafide_3 = pf.read_row_group(3).to_pandas()
+        df_bonafide = pd.concat([df_bonafide_2, df_bonafide_3], ignore_index=True)
 
     meta_rows = []
     for df in [df_spoof, df_bonafide]:
         for idx, row in df.iterrows():
             rid = row["row_id"]
             if audio_cache_dir:
-                audio_dict = row["audio"]
-                waveform, sr = sf.read(io.BytesIO(audio_dict["bytes"]))
-                wf_tensor = torch.tensor(waveform, dtype=torch.float32)
-                torch.save({"waveform": wf_tensor, "sampling_rate": sr}, audio_cache_dir / f"{rid}.pt")
+                audio_file = audio_cache_dir / f"{rid}.pt"
+                if not audio_file.exists():
+                    audio_dict = row["audio"]
+                    waveform, sr = sf.read(io.BytesIO(audio_dict["bytes"]))
+                    wf_tensor = torch.tensor(waveform, dtype=torch.float32)
+                    torch.save({"waveform": wf_tensor, "sampling_rate": sr}, audio_file)
             meta_row = {k: v for k, v in row.items() if k != "audio"}
             meta_rows.append(meta_row)
 
@@ -331,6 +338,36 @@ def main():
     }
     print("\n")
     print_comparison_table(results)
+
+    # Save to outputs directory
+    outputs_dir = _PROJECT_ROOT / "outputs"
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    results_path = outputs_dir / "results_full_250.json"
+
+    def _serialize(obj):
+        if hasattr(obj, "tolist"):
+            return obj.tolist()
+        if hasattr(obj, "item"):
+            return obj.item()
+        return str(obj)
+
+    clean_results = {}
+    for exp_name, m_list in results.items():
+        clean_results[exp_name] = []
+        for m in m_list:
+            clean_m = {}
+            for k, v in m.items():
+                if hasattr(v, "tolist"):
+                    clean_m[k] = v.tolist()
+                elif hasattr(v, "item"):
+                    clean_m[k] = v.item()
+                else:
+                    clean_m[k] = v
+            clean_results[exp_name].append(clean_m)
+
+    with open(results_path, "w", encoding="utf-8") as f:
+        json.dump(clean_results, f, indent=2)
+    logger.info(f"Results saved to {results_path}")
 
     logger.info("\n" + "=" * 70)
     logger.info("All experiments complete!")

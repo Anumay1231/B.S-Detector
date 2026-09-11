@@ -73,7 +73,7 @@ def extract_and_cache_features(
         backbone = load_backbone(device=device)
 
     start_time = time.time()
-    batch_size = 4
+    batch_size = 2
 
     for start_idx in range(0, len(needed), batch_size):
         batch_rids = needed[start_idx : start_idx + batch_size]
@@ -91,10 +91,14 @@ def extract_and_cache_features(
 
         for b_idx, rid in enumerate(batch_rids):
             stacked = torch.stack(
-                [hs[b_idx] for hs in hidden_states]
-            ).half()  # (24, T, 1024)
+                [hs[b_idx].detach().cpu().half() for hs in hidden_states]
+            )  # (24, T, 1024) on CPU
             feat_path = feature_cache_dir / f"{rid}.pt"
             torch.save(stacked, feat_path)
+
+        del hidden_states, waveform_batch
+        if str(device).startswith("cuda"):
+            torch.cuda.empty_cache()
 
         curr_count = min(start_idx + batch_size, len(needed))
         if curr_count % 10 == 0 or curr_count == len(needed):

@@ -182,13 +182,8 @@ def train_fewshot(
     criterion = nn.NLLLoss(weight=weight_tensor)
     optimizer = torch.optim.Adam(sls_head.parameters(), lr=lr, weight_decay=1e-4)
 
-    # Pre-load all training features into memory (N is small)
     train_ids_list = list(train_row_ids)
     train_labels = [labels_dict[rid] for rid in train_ids_list]
-    logger.info(
-        f"Loading {len(train_ids_list)} training features into memory..."
-    )
-    train_features = load_features_batch(train_ids_list, feature_cache_dir)
 
     # Training loop
     indices = np.arange(len(train_ids_list))
@@ -199,7 +194,8 @@ def train_fewshot(
 
         for start in range(0, len(indices), batch_size):
             batch_idx = indices[start : start + batch_size]
-            batch_features = [train_features[i] for i in batch_idx]
+            batch_ids = [train_ids_list[i] for i in batch_idx]
+            batch_features = load_features_batch(batch_ids, feature_cache_dir)
             batch_labels = torch.tensor(
                 [train_labels[i] for i in batch_idx], dtype=torch.long
             ).to(device)
