@@ -30,12 +30,14 @@ Embedding A (192-D)                  Embedding B (192-D)
                   MATCH / NON_MATCH
 ```
 
-**As of Phase 5, the pipeline stopped at "Similarity Score."** As of
-Phase 6, the remaining stages exist in code
+**As of Phase 5, the pipeline stopped at "Similarity Score."** Phase 6
+added the remaining stages in code
 (`src/speaker_verification/calibration.py`,
-`src/speaker_verification/verifier.py`), but **this project does not yet
-have a real calibrated threshold** — only one genuine trial and zero
-impostor trials exist, which is insufficient data to calibrate (see
+`src/speaker_verification/verifier.py`), and **as of Phase 8B the
+pipeline is complete end to end with a real calibrated threshold of
+0.252784**, derived from 28,280 VoxCeleb1 trials (EER 0.87%). Until
+then this project had only one genuine trial and zero impostor trials,
+which was insufficient data to calibrate (see
 [Calibration & verification decision](#calibration--verification-decision-phase-6--implemented)
 below and [docs/calibration.md](calibration.md) for the full
 methodology). A raw similarity score is still not, by itself, a
@@ -328,9 +330,9 @@ audio that has already passed deepfake screening.
 - ECAPA-TDNN encoder details (`encoder.py`): **done, see above and docs/model.md**
 - Similarity scoring details (`similarity.py`): **done, see above**
 - Threshold calibration and verification decision (`calibration.py`,
-  `verifier.py`): **done, see above and docs/calibration.md** — code and
-  tests complete; no real calibrated threshold exists yet (insufficient
-  trial data)
+  `verifier.py`): **done, see above and docs/calibration.md** — code,
+  tests, and a real calibrated threshold (0.252784) from 28,280
+  VoxCeleb1 trials
 - Evaluation methodology (`evaluation.py`)
 - B.S. Detector pipeline integration contract
 

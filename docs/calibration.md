@@ -452,6 +452,82 @@ access:
    python scripts/run_voxceleb_calibration.py --scores outputs/scores/voxceleb_scores.csv
    ```
 
+## Phase 8B — First real calibration results (VoxCeleb1)
+
+**This project now has a real, data-derived threshold.** The pipeline
+described above was run end-to-end on the actual VoxCeleb1 test set on
+the developer's machine (RTX 3060 Laptop GPU, CUDA 12.4).
+
+### What was run
+
+```
+37,720 official trials  ->  28,280 kept after speaker-disjoint splitting
+4,715 unique utterances ->  4,715 embeddings (0 failures)
+```
+
+Embedding extraction: 23.66 ms/file, 42.27 files/sec, 940.5 MiB peak GPU
+memory, model loaded once (3.17 s).
+
+### Results
+
+| | Calibration split | Evaluation split (held out) |
+|---|---|---|
+| Genuine trials | 10,968 | 7,892 |
+| Impostor trials | 6,192 | 3,228 |
+| Speakers | 20 | 20 |
+| Genuine score mean | 0.593241 | 0.590961 |
+| Impostor score mean | 0.020799 | 0.023593 |
+
+```
+ROC-AUC:        0.998634
+EER:            0.008721   (0.87%)
+EER threshold:  0.252784   <-- the calibrated threshold
+FAR @ threshold on held-out evaluation split: 0.011462  (1.15%)
+FRR @ threshold on held-out evaluation split: 0.004815  (0.48%)
+Speaker overlap between splits: 0
+```
+
+The threshold was chosen using the calibration split only and then
+applied unchanged to the evaluation split, whose speakers the threshold
+never saw. That FAR/FRR pair is therefore an unbiased estimate.
+
+### How to read these numbers
+
+**Sanity check — this matches the literature.** SpeechBrain publishes
+approximately 0.80% EER for `spkrec-ecapa-voxceleb` on VoxCeleb1 test.
+Reaching 0.87% through an independently written pipeline is strong
+evidence that preprocessing, encoding, similarity, and calibration are
+all behaving correctly end to end.
+
+**Three limits on what this number means:**
+
+1. **It is not the official VoxCeleb1-O protocol.** 9,440 impostor
+   trials were dropped to keep calibration and evaluation
+   speaker-disjoint (an impostor trial survives only if both of its
+   speakers land on the same side of the split). This ran on a
+   28,280-trial subset, so it is close to but not directly comparable
+   with published VoxCeleb1-O figures.
+2. **It is a best-case, in-domain result.** ECAPA-TDNN was trained on
+   VoxCeleb — English celebrity interviews. This says nothing about
+   Hindi or Hinglish performance (see docs/model.md, "Cross-lingual
+   accuracy caveat"). Quote it as "VoxCeleb1 English baseline," never as
+   "the system's accuracy."
+3. **FAR (1.15%) exceeds FRR (0.48%) on the held-out split**, whereas at
+   the EER operating point they are equal by construction. This is a
+   normal generalization gap — the evaluation impostors score slightly
+   higher on average (0.0236 vs 0.0208) — but it means the threshold is
+   marginally permissive on unseen speakers.
+
+### Superseded: the 0.635386 figure
+
+Earlier phases repeatedly noted that this project had exactly one
+genuine trial, scoring 0.635386, and zero impostor trials — not enough
+to calibrate anything. That is now historical. **0.635386 was never used
+as a threshold**, and the real calibrated value (0.252784) is
+substantially lower, which is exactly why guessing a threshold from a
+single same-speaker score would have been a mistake: it would have
+rejected a large fraction of genuine pairs.
+
 ### Trial-list formats: numeric ids vs. speaker names
 
 The published VoxCeleb1 verification trial lists do not all use the
