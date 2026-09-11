@@ -639,6 +639,23 @@ python scripts/score_trials.py --trials data/voxceleb/trials/subset.csv
 python scripts/run_voxceleb_calibration.py --scores outputs/scores/voxceleb_scores.csv
 ```
 
+If your trial list identifies speakers by name
+(`Eartha_Kitt/x6uYqmx31kE_0000001.wav`) instead of by VoxCeleb id
+(`id10270/x6uYqmx31kE/00001.wav`), also pass VGG's speaker-metadata
+table so the names can be mapped to ids:
+
+```bash
+python scripts/build_trials.py \
+    --trials data/raw/voxceleb1/trials/voxceleb1_test.txt \
+    --audio-root data/raw/voxceleb1/vox1/test_wav/wav \
+    --meta data/raw/voxceleb1/vox1/vox1/vox1_meta.csv \
+    --output data/trials/voxceleb1_trials.csv \
+    --seed 42 --calibration-fraction 0.5 --split-seed 42
+```
+
+Both forms are normalized to the same canonical utterance id internally
+— see [docs/calibration.md, "Trial-list formats"](docs/calibration.md#trial-list-formats-numeric-ids-vs-speaker-names).
+
 `build_trials.py` samples a deterministic subset and splits it into
 speaker-disjoint calibration/evaluation sets;
 `extract_embeddings.py` loads the encoder once and caches embeddings

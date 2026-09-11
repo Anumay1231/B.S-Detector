@@ -438,11 +438,67 @@ access:
    [the official VoxCeleb site](https://www.robots.ox.ac.uk/~vgg/data/voxceleb/).
 2. Extract the audio so it is laid out as
    `<audio_root>/<speaker_id>/<video_id>/<utterance>.wav`.
-3. Run:
+3. Check which utterance-path convention your trial list uses (see
+   [Trial-list formats](#trial-list-formats-numeric-ids-vs-speaker-names)
+   below). If it names speakers rather than using `idNNNNN`, also obtain
+   VGG's `vox1_meta.csv` and pass it as `--meta`.
+4. Run:
    ```bash
    python scripts/build_trials.py --trials <trial_list_file> --audio-root <audio_root> \
+       [--meta <vox1_meta.csv>] \
        --max-genuine 1000 --max-impostor 1000 --seed 42
    python scripts/extract_embeddings.py --trials data/voxceleb/trials/subset.csv
    python scripts/score_trials.py --trials data/voxceleb/trials/subset.csv
    python scripts/run_voxceleb_calibration.py --scores outputs/scores/voxceleb_scores.csv
    ```
+
+### Trial-list formats: numeric ids vs. speaker names
+
+The published VoxCeleb1 verification trial lists do not all use the
+same utterance-path convention, and the difference matters because only
+one of them matches the on-disk audio layout.
+
+**Form 1 — canonical / numeric id** (matches the audio tree directly):
+
+```
+1 id10270/x6uYqmx31kE/00001.wav id10270/8jEAjG6SegY/00008.wav
+```
+
+**Form 2 — speaker name** (used by the widely mirrored
+`voxceleb1_test.txt` / `veri_test.txt`):
+
+```
+1 Eartha_Kitt/x6uYqmx31kE_0000001.wav Eartha_Kitt/8jEAjG6SegY_0000008.wav
+```
+
+Form 2 differs in two ways: the speaker is identified by their VGGFace1
+*name* instead of their VoxCeleb1 id, and the video id and utterance
+number are joined by an underscore rather than a directory separator.
+
+The name → id mapping is external data and is **not** guessed by this
+project. It comes from VGG's own `vox1_meta.csv`, a tab-separated table:
+
+```
+VoxCeleb1 ID    VGGFace1 ID    Gender    Nationality    Set
+id10270         Eartha_Kitt    f         USA            test
+```
+
+`datasets/voxceleb.py` reads that file (`load_speaker_name_map`) and
+normalizes form-2 ids to form 1 (`normalize_utterance_id`):
+
+```
+Eartha_Kitt/x6uYqmx31kE_0000001.wav  ->  id10270/x6uYqmx31kE/00001.wav
+```
+
+Two details that are easy to get wrong, and are covered by tests:
+
+- The video id is split on the **last** underscore, because VoxCeleb
+  video ids can themselves contain underscores (e.g. `5sJomL_D0_g`).
+- The utterance number is **re-padded**, not truncated: the trial list
+  pads to 7 digits (`0000001`) while the audio tree uses 5 (`00001.wav`).
+
+Parsing normalizes every id to form 1, so downstream stages (embedding
+cache keys, scores CSV, calibration report) always see one consistent
+identifier regardless of which list was used. Passing `--meta` with a
+form-1 list is harmless. Omitting it with a form-2 list raises a clear
+error naming the offending line rather than silently mis-resolving paths.

@@ -26,6 +26,12 @@ Usage:
         --calibration-fraction 0.5 \\
         --split-seed 42
 
+If the trial list identifies speakers by name rather than by VoxCeleb
+id (as the widely mirrored ``voxceleb1_test.txt`` does), also pass
+VGG's speaker-metadata table so the names can be mapped to ids::
+
+        --meta /path/to/vox1_meta.csv
+
 If --trials does not exist, this script explains exactly what needs to
 be obtained from the official VoxCeleb site and exits cleanly (exit
 code 0) rather than erroring or fabricating trial data.
@@ -90,6 +96,9 @@ def _explain_missing_trial_list(path: str) -> None:
     print("         1 id10270/x6uYqmx31kE/00001.wav id10270/8jEAjG6SegY/00008.wav")
     print("         0 id10270/x6uYqmx31kE/00001.wav id10300/ize_eiCFEg0/00003.wav")
     print("     (1 = genuine/same-speaker, 0 = impostor/different-speaker)")
+    print("     Some published lists name the speaker instead:")
+    print("         1 Eartha_Kitt/x6uYqmx31kE_0000001.wav Eartha_Kitt/8jEAjG6SegY_0000008.wav")
+    print("     Those also need --meta <vox1_meta.csv> to map names to ids.")
     print("  2. The corresponding audio files on disk, laid out as")
     print("     <audio_root>/<speaker_id>/<video_id>/<utterance>.wav")
     print()
@@ -166,6 +175,16 @@ def main() -> int:
     parser.add_argument("--dataset", default="voxceleb", choices=sorted(DATASET_PARSERS))
     parser.add_argument("--trials", required=True, help="Path to the official trial-list file.")
     parser.add_argument("--audio-root", required=True, help="Local directory containing the dataset audio.")
+    parser.add_argument(
+        "--meta",
+        default=None,
+        help=(
+            "Path to VoxCeleb's vox1_meta.csv. Required only when the "
+            "trial list identifies speakers by name "
+            "('Eartha_Kitt/x6uYqmx31kE_0000001.wav') rather than by id "
+            "('id10270/x6uYqmx31kE/00001.wav')."
+        ),
+    )
     parser.add_argument("--output", default="data/voxceleb/trials/subset.csv")
     parser.add_argument("--max-genuine", type=int, default=None)
     parser.add_argument("--max-impostor", type=int, default=None)
@@ -186,8 +205,10 @@ def main() -> int:
         return 0  # Clean exit -- this is expected/documented, not an error.
 
     parse_fn = DATASET_PARSERS[args.dataset]
-    all_trials = parse_fn(args.trials, args.audio_root)
+    all_trials = parse_fn(args.trials, args.audio_root, meta_path=args.meta)
     print(f"Parsed {len(all_trials)} trial(s) from '{args.trials}'.")
+    if args.meta:
+        print(f"Resolved speaker names using metadata: '{args.meta}'.")
 
     result = build_subset(
         all_trials,

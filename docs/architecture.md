@@ -275,6 +275,13 @@ scripts/run_voxceleb_calibration.py
 Calibration report
 ```
 
+- **Two trial-list conventions**: `voxceleb.py` accepts both the
+  canonical numeric-id form (`id10270/x6uYqmx31kE/00001.wav`) and the
+  speaker-name form (`Eartha_Kitt/x6uYqmx31kE_0000001.wav`) used by the
+  mirrored `voxceleb1_test.txt`. The latter is resolved via VGG's
+  `vox1_meta.csv` (passed as `--meta`), never by guessing; both are
+  normalized to the canonical id before any downstream stage sees them.
+  See docs/calibration.md, "Trial-list formats".
 - **Dataset adapter pattern**: `src/speaker_verification/datasets/`
   splits into a dataset-agnostic `trials.py` (the `Trial` dataclass,
   sampling, speaker-disjoint calibration/evaluation splitting,
