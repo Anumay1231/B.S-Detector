@@ -58,40 +58,64 @@ METADATA_COLUMNS = [
 ]
 
 
-def generate_metadata_parquet(output_path: Path, dataset_name: str = "Jack-ppkdczgx/SEA-Spoof") -> Path:
-    """Stream the full dataset (metadata only, no audio) and save as parquet.
+def generate_metadata_parquet(output_path: Path, audio_cache_dir: Optional[Path] = None, dataset_name: str = "Jack-ppkdczgx/SEA-Spoof") -> Path:
+    """Fetch targeted Hindi bonafide and spoof samples from SEA-Spoof shards.
 
-    This replaces the pre-existing parquet that was generated on a different
-    machine. Uses select_columns to avoid downloading audio bytes.
+    Reads 200 Hindi spoof rows from train shard 0 and 200 Hindi bonafide rows
+    from train shard 2 without downloading the full dataset. Also caches the audio.
 
     Args:
         output_path: Where to save the parquet file.
+        audio_cache_dir: Optional directory to save audio .pt files directly.
         dataset_name: HuggingFace dataset identifier.
 
     Returns:
         Path to the saved parquet file.
     """
+    import io
+    import fsspec
+    import pyarrow.parquet as pq
+    import soundfile as sf
+    import torch
     import pandas as pd
-    from datasets import load_dataset
 
     logger = logging.getLogger(__name__)
-    logger.info(f"Generating metadata parquet from {dataset_name} (streaming, metadata only)...")
+    logger.info(f"Fetching targeted Hindi samples (spoof & bonafide) from {dataset_name} shards...")
 
-    ds = load_dataset(dataset_name, split="train", streaming=True)
-    ds = ds.select_columns(METADATA_COLUMNS)
+    fs = fsspec.filesystem("hf")
+    if audio_cache_dir:
+        audio_cache_dir.mkdir(parents=True, exist_ok=True)
 
-    rows = []
-    for i, sample in enumerate(ds):
-        rows.append(sample)
-        if (i + 1) % 10000 == 0:
-            logger.info(f"  Streamed {i + 1:,} metadata rows...")
+    # 1. Fetch spoof from Shard 0, RG 0 (200 rows)
+    fpath_spoof = f"datasets/{dataset_name}/data/train/train-00000.parquet"
+    logger.info("  Reading Hindi spoof from Shard 0...")
+    with fs.open(fpath_spoof, "rb") as f:
+        pf = pq.ParquetFile(f)
+        df_spoof = pf.read_row_group(0).to_pandas()
 
-    logger.info(f"  Total rows streamed: {len(rows):,}")
+    # 2. Fetch bonafide from Shard 2, RG 2 (200 rows)
+    fpath_bonafide = f"datasets/{dataset_name}/data/train/train-00002.parquet"
+    logger.info("  Reading Hindi bonafide from Shard 2...")
+    with fs.open(fpath_bonafide, "rb") as f:
+        pf = pq.ParquetFile(f)
+        df_bonafide = pf.read_row_group(2).to_pandas()
 
-    df = pd.DataFrame(rows)
+    meta_rows = []
+    for df in [df_spoof, df_bonafide]:
+        for idx, row in df.iterrows():
+            rid = row["row_id"]
+            if audio_cache_dir:
+                audio_dict = row["audio"]
+                waveform, sr = sf.read(io.BytesIO(audio_dict["bytes"]))
+                wf_tensor = torch.tensor(waveform, dtype=torch.float32)
+                torch.save({"waveform": wf_tensor, "sampling_rate": sr}, audio_cache_dir / f"{rid}.pt")
+            meta_row = {k: v for k, v in row.items() if k != "audio"}
+            meta_rows.append(meta_row)
+
+    df_all = pd.DataFrame(meta_rows)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(output_path, index=False)
-    logger.info(f"Metadata parquet saved to {output_path}")
+    df_all.to_parquet(output_path, index=False)
+    logger.info(f"Targeted Hindi metadata ({len(df_all)} rows) saved to {output_path}")
     return output_path
 
 
@@ -100,6 +124,11 @@ def generate_metadata_parquet(output_path: Path, dataset_name: str = "Jack-ppkdc
 # ---------------------------------------------------------------------------
 
 def main():
+    if sys.stdout is not None and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+    if sys.stderr is not None and hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8")
+
     parser = argparse.ArgumentParser(
         description="Run audio deepfake detection experiments (zero-shot + few-shot)"
     )
@@ -132,6 +161,12 @@ def main():
         type=int,
         default=10,
         help="Training epochs for few-shot fine-tuning.",
+    )
+    parser.add_argument(
+        "--test-per-class",
+        type=int,
+        default=None,
+        help="Number of test samples per class (default: 50 for quick base tests, or 250).",
     )
     parser.add_argument(
         "--skip-streaming",
@@ -179,8 +214,8 @@ def main():
     logger.info("=" * 70)
 
     if not parquet_path.exists():
-        logger.info(f"Parquet not found at {parquet_path}, generating from HuggingFace...")
-        generate_metadata_parquet(parquet_path)
+        logger.info(f"Parquet not found at {parquet_path}, generating targeted sample from HuggingFace...")
+        generate_metadata_parquet(parquet_path, audio_cache_dir=audio_cache_dir)
 
     df_hindi = load_hindi_metadata(parquet_path)
 
@@ -189,8 +224,20 @@ def main():
     logger.info("STEP 2: Create test and few-shot splits")
     logger.info("=" * 70)
 
-    test_ids, test_df = create_test_split(df_hindi)
-    fewshot_pools = create_fewshot_pools(df_hindi, test_ids)
+    bonafide_avail = int((df_hindi["label"] == "bonafide").sum())
+    spoof_avail = int((df_hindi["label"] == "spoof").sum())
+    min_avail = min(bonafide_avail, spoof_avail)
+
+    if args.test_per_class is not None:
+        test_per_class = args.test_per_class
+    elif min_avail >= 300:
+        test_per_class = 250
+    else:
+        test_per_class = min(50, max(10, min_avail - 60))
+
+    logger.info(f"Using test_per_class={test_per_class} (available bonafide: {bonafide_avail}, spoof: {spoof_avail})")
+    test_ids, test_df = create_test_split(df_hindi, test_per_class=test_per_class)
+    fewshot_pools = create_fewshot_pools(df_hindi, test_ids, fewshot_sizes=[10, 50], num_seeds=3)
     all_needed_ids = get_all_needed_ids(test_ids, fewshot_pools)
     labels_dict = get_labels_for_ids(df_hindi, all_needed_ids)
 

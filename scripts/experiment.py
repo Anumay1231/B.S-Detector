@@ -127,7 +127,7 @@ def evaluate_zeroshot(
         feature_cache_dir=feature_cache_dir,
     )
 
-    print_metrics(metrics, title="Zero-Shot (Pretrained English → Hindi)")
+    print_metrics(metrics, title="Zero-Shot (Pretrained English -> Hindi)")
     return metrics
 
 
@@ -219,7 +219,7 @@ def train_fewshot(
 
         avg_loss = epoch_loss / max(n_batches, 1)
         if (epoch + 1) % 5 == 0 or epoch == 0:
-            logger.info(f"  Epoch {epoch + 1}/{epochs} — avg loss: {avg_loss:.4f}")
+            logger.info(f"  Epoch {epoch + 1}/{epochs} - avg loss: {avg_loss:.4f}")
 
     # Evaluate on test set
     test_ids_list = sorted(test_row_ids)
@@ -309,10 +309,10 @@ def run_fewshot_experiment(
     # Summary across seeds
     if all_metrics:
         metric_keys = ["accuracy", "eer", "precision", "recall", "f1"]
-        logger.info(f"\n--- N={n} Summary (mean ± std across {len(all_metrics)} seeds) ---")
+        logger.info(f"\n--- N={n} Summary (mean +/- std across {len(all_metrics)} seeds) ---")
         for key in metric_keys:
             vals = [m[key] * 100.0 for m in all_metrics if key in m]
             if vals:
-                logger.info(f"  {key}: {np.mean(vals):.2f} ± {np.std(vals):.2f}%")
+                logger.info(f"  {key}: {np.mean(vals):.2f} +/- {np.std(vals):.2f}%")
 
     return all_metrics

@@ -73,42 +73,36 @@ def extract_and_cache_features(
         backbone = load_backbone(device=device)
 
     start_time = time.time()
+    batch_size = 4
 
-    for i, rid in enumerate(needed):
-        # Load cached audio
-        if audio_cache_dir is not None:
-            from .streaming import CACHE_DIR
+    for start_idx in range(0, len(needed), batch_size):
+        batch_rids = needed[start_idx : start_idx + batch_size]
+        waveforms = []
+        for rid in batch_rids:
+            if audio_cache_dir is not None:
+                waveform = load_cached_audio(rid, cache_dir=audio_cache_dir)
+            else:
+                waveform = load_cached_audio(rid)
+            waveform = pad_or_truncate(waveform, INPUT_LENGTH)
+            waveforms.append(waveform)
 
-            waveform = load_cached_audio(rid, cache_dir=audio_cache_dir)
-        else:
-            waveform = load_cached_audio(rid)
-
-        # Pad or truncate to fixed length
-        waveform = pad_or_truncate(waveform, INPUT_LENGTH)
-
-        # Add batch dimension: (INPUT_LENGTH,) -> (1, INPUT_LENGTH)
-        waveform_batch = waveform.unsqueeze(0)
-
-        # Extract hidden states from all 24 transformer layers
+        waveform_batch = torch.stack(waveforms, dim=0)
         hidden_states = extract_hidden_states(backbone, waveform_batch, device=device)
 
-        # Stack into single tensor: list of (1, T, 1024) -> (24, T, 1024)
-        # Remove batch dim and convert to float16 to save space
-        stacked = torch.stack(
-            [hs.squeeze(0) for hs in hidden_states]
-        ).half()  # (24, T, 1024)
+        for b_idx, rid in enumerate(batch_rids):
+            stacked = torch.stack(
+                [hs[b_idx] for hs in hidden_states]
+            ).half()  # (24, T, 1024)
+            feat_path = feature_cache_dir / f"{rid}.pt"
+            torch.save(stacked, feat_path)
 
-        # Save to cache
-        feat_path = feature_cache_dir / f"{rid}.pt"
-        torch.save(stacked, feat_path)
-
-        # Progress logging
-        if (i + 1) % 10 == 0 or (i + 1) == len(needed):
+        curr_count = min(start_idx + batch_size, len(needed))
+        if curr_count % 10 == 0 or curr_count == len(needed):
             elapsed = time.time() - start_time
-            rate = (i + 1) / elapsed if elapsed > 0 else 0
-            eta = (len(needed) - i - 1) / rate if rate > 0 else 0
+            rate = curr_count / elapsed if elapsed > 0 else 0
+            eta = (len(needed) - curr_count) / rate if rate > 0 else 0
             logger.info(
-                f"  Extracted {i + 1}/{len(needed)} "
+                f"  Extracted {curr_count}/{len(needed)} "
                 f"({rate:.1f} clips/sec, ETA {eta:.0f}s)"
             )
 

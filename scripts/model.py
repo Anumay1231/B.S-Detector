@@ -122,14 +122,17 @@ def load_sls_checkpoint(sls_head: SLSHead, checkpoint_version='v1'):
     logger.info(f'Loading checkpoint from {ckpt_path}')
     state_dict = torch.load(ckpt_path, map_location='cpu', weights_only=False)
     
-    # Extract only SLS head keys (skip ssl_model.* backbone keys)
+    # Extract only SLS head keys (strip 'module.' if present, skip ssl_model.* backbone keys)
     sls_keys = {}
     skipped = 0
     for key, value in state_dict.items():
-        if key.startswith('ssl_model.'):
+        clean_key = key
+        if clean_key.startswith('module.'):
+            clean_key = clean_key[len('module.'):]
+        if clean_key.startswith('ssl_model.'):
             skipped += 1
             continue
-        sls_keys[key] = value
+        sls_keys[clean_key] = value
     
     logger.info(f'Checkpoint has {len(state_dict)} keys total, '
                 f'skipped {skipped} backbone keys, '

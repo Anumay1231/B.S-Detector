@@ -265,7 +265,7 @@ def print_comparison_table(
     results_dict : Mapping[str, Sequence[Mapping[str, Any]] | Mapping[str, Any]]
         Mapping of experiment name to a list of metrics dicts (or a single metrics dict).
         - For single-entry lists (zero-shot), displays the value.
-        - For multi-entry lists (few-shot seeds), displays mean ± std.
+        - For multi-entry lists (few-shot seeds), displays mean +/- std.
         Columns: Experiment | Accuracy | EER | Precision | Recall | F1
     """
     headers = ["Experiment", "Accuracy", "EER", "Precision", "Recall", "F1"]
@@ -300,7 +300,7 @@ def print_comparison_table(
                     vals_pct = [v * 100.0 if abs(v) <= 1.0 else v for v in vals]
                     mean_val = float(np.mean(vals_pct))
                     std_val = float(np.std(vals_pct))
-                    row.append(f"{mean_val:.2f} ± {std_val:.2f}%")
+                    row.append(f"{mean_val:.2f} +/- {std_val:.2f}%")
                 else:
                     row.append("N/A")
 
