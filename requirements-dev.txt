@@ -1,0 +1,15 @@
+# Development/test-only dependencies. Runtime dependencies are in
+# requirements.txt; these are needed only to run the test suite.
+#
+# Install into the SAME virtual environment as requirements.txt:
+#
+#     .\.venv\Scripts\Activate.ps1
+#     python -m pip install -r requirements-dev.txt
+#
+# and then always invoke the suite as `python -m pytest`, not `pytest`.
+# A bare `pytest` resolves against PATH, which on a machine with several
+# Python installations can silently run a different interpreter than the
+# activated venv -- producing confusing ModuleNotFoundError failures for
+# packages that are in fact installed (soundfile, speechbrain, ...).
+
+pytest==8.3.4

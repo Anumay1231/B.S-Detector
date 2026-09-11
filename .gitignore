@@ -44,6 +44,14 @@ data/test/*
 data/trials/*
 !data/trials/.gitkeep
 
+# Downloaded datasets. Anything under data/raw/ is externally obtained
+# (VoxCeleb1 audio, trial lists, metadata tables, ...) and must never be
+# committed: it is large, redistribution-restricted, and reproducible by
+# re-downloading from the official source. This is a directory-level
+# exclusion on purpose -- it covers dataset layouts we have not seen yet
+# (e.g. data/raw/kathbath/, data/raw/<whatever>/).
+data/raw/
+
 # Phase 7: VoxCeleb (and any other large external dataset) -- raw audio,
 # metadata, generated trial subsets, and processed artifacts must never
 # be committed. Only .gitkeep placeholders are tracked so the directory
