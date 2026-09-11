@@ -128,6 +128,13 @@ def run_calibration(scored_rows: List[dict]) -> dict:
         "speaker_overlap": overlap,
         "num_speakers_total": len(_speakers(scored_rows)),
         "num_utterances_total": len(_utterances(scored_rows)),
+        # Medians of the calibration split only, so they describe the same
+        # population as the calibration mean/std/min/max reported beside
+        # them. The dataset-wide medians below cover calibration +
+        # evaluation combined and are reported separately, never mixed
+        # into a per-split block.
+        "calibration_genuine_median": _median(cal_genuine),
+        "calibration_impostor_median": _median(cal_impostor),
         "dataset_genuine_median": _median(all_genuine),
         "dataset_impostor_median": _median(all_impostor),
     }
@@ -146,13 +153,13 @@ def _format_report(result: dict) -> str:
     lines.append(f"Number of impostor trials: {cal.num_impostor}")
     lines.append("Genuine score:")
     lines.append(f"    mean:   {cal.genuine_stats.mean:.6f}")
-    lines.append(f"    median: {result['dataset_genuine_median']:.6f}  (dataset-wide; see below for split-only median if needed)")
+    lines.append(f"    median: {result['calibration_genuine_median']:.6f}")
     lines.append(f"    std:    {cal.genuine_stats.std:.6f}")
     lines.append(f"    min:    {cal.genuine_stats.min:.6f}")
     lines.append(f"    max:    {cal.genuine_stats.max:.6f}")
     lines.append("Impostor score:")
     lines.append(f"    mean:   {cal.impostor_stats.mean:.6f}")
-    lines.append(f"    median: {result['dataset_impostor_median']:.6f}  (dataset-wide)")
+    lines.append(f"    median: {result['calibration_impostor_median']:.6f}")
     lines.append(f"    std:    {cal.impostor_stats.std:.6f}")
     lines.append(f"    min:    {cal.impostor_stats.min:.6f}")
     lines.append(f"    max:    {cal.impostor_stats.max:.6f}")

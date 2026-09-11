@@ -49,6 +49,39 @@ def _well_separated_rows():
 # --------------------------------------------------------------------------
 
 
+def test_calibration_medians_describe_the_calibration_split_only() -> None:
+    """The calibration block's median must come from the calibration
+    split alone, so it describes the same population as the mean/std
+    reported beside it -- not calibration + evaluation combined."""
+    import statistics
+
+    rows = _well_separated_rows()
+    result = run_calibration(rows)
+
+    cal_genuine = [r["score"] for r in rows if r["split"] == "calibration" and r["label"] == 1]
+    cal_impostor = [r["score"] for r in rows if r["split"] == "calibration" and r["label"] == 0]
+    all_genuine = [r["score"] for r in rows if r["label"] == 1]
+    all_impostor = [r["score"] for r in rows if r["label"] == 0]
+
+    assert result["calibration_genuine_median"] == statistics.median(cal_genuine)
+    assert result["calibration_impostor_median"] == statistics.median(cal_impostor)
+
+    # The fixture is built so the two populations genuinely differ; if
+    # they ever coincide this test would silently stop checking anything.
+    assert statistics.median(cal_genuine) != statistics.median(all_genuine)
+    assert statistics.median(cal_impostor) != statistics.median(all_impostor)
+
+
+def test_report_does_not_put_dataset_wide_median_in_calibration_block() -> None:
+    from run_voxceleb_calibration import _format_report
+
+    result = run_calibration(_well_separated_rows())
+    report = _format_report(result)
+
+    calibration_block = report.split("--- Evaluation set")[0]
+    assert "dataset-wide" not in calibration_block
+
+
 def test_run_calibration_produces_eer_and_threshold() -> None:
     result = run_calibration(_well_separated_rows())
     cal = result["calibration_result"]

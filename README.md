@@ -174,12 +174,12 @@ speaker-verification/
   12.4: 192-dimensional embeddings)
 - Phase 5 — Cosine similarity scoring: **COMPLETE**
 - Phase 6 — Calibration (FAR/FRR/EER/ROC-AUC) and verification decision
-  layer: **COMPLETE (code + tests)** — **but no real calibrated
-  threshold exists.** This project currently has one genuine trial and
-  zero impostor trials, which `calibrate()` correctly refuses to
-  calibrate on (raises `InsufficientCalibrationDataError`). See
-  [Calibration & verification decision](#calibration--verification-decision)
-  below.
+  layer: **COMPLETE** — and, as of Phase 8B, backed by a **real
+  calibrated threshold of 0.252784**, derived from 28,280 VoxCeleb1
+  trials (EER 0.87%, ROC-AUC 0.9986, speaker-disjoint evaluation:
+  FAR 1.15% / FRR 0.48%). See
+  [docs/calibration.md, "Phase 8B"](docs/calibration.md#phase-8b--first-real-calibration-results-voxceleb1)
+  for the full results and the three caveats on how to quote them.
 - Phase 7 — Large-scale VoxCeleb calibration pipeline: **COMPLETE (code +
   tests)** — **not yet run on real VoxCeleb data.** See
   [Calibration & verification decision](#calibration--verification-decision)
@@ -548,11 +548,13 @@ project's current data limitation) lives in
   supplied by the caller. `is_calibrated` defaults to `False` so ad-hoc
   thresholds are never mistaken for validated ones.
 
-**This project's real data status: one genuine trial (cosine similarity
-0.635386, see docs/calibration.md), zero impostor trials.** That is not
-enough to calibrate — `calibrate([0.635386], [])` correctly raises
-`InsufficientCalibrationDataError`. **0.635386 has never been used as a
-threshold anywhere in this codebase.**
+**This project's real data status (updated in Phase 8B): calibrated on
+28,280 real VoxCeleb1 trials, threshold = 0.252784.** Earlier phases had
+only one genuine trial (cosine similarity 0.635386) and zero impostor
+trials, which `calibrate()` correctly refused to calibrate on. That
+single score was never used as a threshold anywhere in this codebase —
+and the real calibrated value turned out to be much lower than it, which
+is precisely why it was right not to guess.
 
 ### Running the calibration tests
 
@@ -603,12 +605,13 @@ evaluation split, speaker-leakage checks, embedding cache design,
 Hindi/Hinglish domain limitation) is in
 [docs/calibration.md, "Phase 7"](docs/calibration.md#phase-7-large-scale-calibration-using-voxceleb).
 
-**Status: the pipeline is fully implemented and tested against
-synthetic fixtures, but has not been run on real VoxCeleb data in this
-environment** — VoxCeleb requires completing VGG's own
-registration/access process (this project does not bypass that), and
-this sandbox also cannot download the pretrained ECAPA-TDNN model
-itself (see [Encoder limitations](#encoder-limitations)).
+**Status: RUN ON REAL DATA (Phase 8B).** The full pipeline — 4,715
+utterances embedded on an RTX 3060, 28,280 trials scored and calibrated
+— produced EER 0.87% and threshold 0.252784. See
+[docs/calibration.md, "Phase 8B"](docs/calibration.md#phase-8b--first-real-calibration-results-voxceleb1).
+The development sandbox itself still cannot reach VoxCeleb or download
+the pretrained model (see [Encoder limitations](#encoder-limitations)),
+so these results were produced on the developer's own machine.
 
 ### Running the Phase 7 tests
 
