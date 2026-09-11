@@ -49,6 +49,59 @@ def _well_separated_rows():
 # --------------------------------------------------------------------------
 
 
+def test_far_frr_at_eer_threshold_are_reported_and_near_the_eer() -> None:
+    """At the EER operating point FAR and FRR should both sit close to
+    the reported EER -- that is what makes it the *equal* error rate."""
+    result = run_calibration(_well_separated_rows())
+    cal = result["calibration_result"]
+
+    far = result["calibration_far_at_eer_threshold"]
+    frr = result["calibration_frr_at_eer_threshold"]
+
+    assert 0.0 <= far <= 1.0
+    assert 0.0 <= frr <= 1.0
+    assert abs(far - cal.eer) <= 0.1
+    assert abs(frr - cal.eer) <= 0.1
+
+
+def test_external_threshold_is_absent_unless_requested() -> None:
+    result = run_calibration(_well_separated_rows())
+    assert result["external_threshold_evaluation"] is None
+
+
+def test_external_threshold_measured_over_all_trials_without_changing_calibration() -> None:
+    """An externally supplied threshold must be reported over every
+    scored trial and must not perturb the calibration result."""
+    rows = _well_separated_rows()
+    baseline = run_calibration(rows)
+    result = run_calibration(rows, external_threshold=0.5)
+
+    ext = result["external_threshold_evaluation"]
+    assert ext is not None
+    assert ext["threshold"] == 0.5
+    # All trials, both splits -- not just the calibration split.
+    assert ext["num_genuine"] == len([r for r in rows if r["label"] == 1])
+    assert ext["num_impostor"] == len([r for r in rows if r["label"] == 0])
+
+    # Threshold selection is untouched by the reporting-only argument.
+    assert result["calibration_result"].eer_threshold == baseline["calibration_result"].eer_threshold
+    assert result["calibration_result"].eer == baseline["calibration_result"].eer
+
+
+def test_single_split_protocol_keeps_every_trial_and_reports_no_evaluation() -> None:
+    """Full-protocol mode: when every speaker is on the calibration
+    side, no trial is dropped and there is no held-out split to report."""
+    rows = _well_separated_rows()
+    single = [dict(r, split="calibration") for r in rows]
+
+    result = run_calibration(single)
+
+    assert result["calibration_result"].num_genuine == len([r for r in rows if r["label"] == 1])
+    assert result["calibration_result"].num_impostor == len([r for r in rows if r["label"] == 0])
+    assert result["evaluation"] is None
+    assert result["speaker_overlap"] == set()
+
+
 def test_calibration_medians_describe_the_calibration_split_only() -> None:
     """The calibration block's median must come from the calibration
     split alone, so it describes the same population as the mean/std

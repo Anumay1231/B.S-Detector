@@ -605,10 +605,20 @@ evaluation split, speaker-leakage checks, embedding cache design,
 Hindi/Hinglish domain limitation) is in
 [docs/calibration.md, "Phase 7"](docs/calibration.md#phase-7-large-scale-calibration-using-voxceleb).
 
-**Status: RUN ON REAL DATA (Phase 8B).** The full pipeline — 4,715
-utterances embedded on an RTX 3060, 28,280 trials scored and calibrated
-— produced EER 0.87% and threshold 0.252784. See
-[docs/calibration.md, "Phase 8B"](docs/calibration.md#phase-8b--first-real-calibration-results-voxceleb1).
+**Status: RUN ON REAL DATA (Phases 8B and 8C).** The full pipeline —
+4,715 utterances embedded on an RTX 3060 — has been run two ways:
+
+| Run | Trials | EER | Threshold | Purpose |
+|---|---|---|---|---|
+| **8B** speaker-disjoint | 28,280 | 0.87% | **0.252784** | Chooses the threshold this project ships; held-out FAR 1.15% / FRR 0.48% is the unbiased estimate |
+| **8C** full official protocol | 37,720 | 1.04% | 0.272217 | Literature-comparable benchmark only (ROC-AUC 0.998945) |
+
+Both are documented in
+[docs/calibration.md, "Phase 8B"](docs/calibration.md#phase-8b--first-real-calibration-results-voxceleb1)
+and
+["Phase 8C"](docs/calibration.md#phase-8c--full-voxceleb1-official-protocol-benchmark),
+including why 8C scores worse than 8B and why 1.04% sits above the
+published ~0.80%.
 The development sandbox itself still cannot reach VoxCeleb or download
 the pretrained model (see [Encoder limitations](#encoder-limitations)),
 so these results were produced on the developer's own machine.

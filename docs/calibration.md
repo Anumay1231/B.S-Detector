@@ -528,6 +528,119 @@ substantially lower, which is exactly why guessing a threshold from a
 single same-speaker score would have been a mistake: it would have
 rejected a large fraction of genuine pairs.
 
+## Phase 8C — Full VoxCeleb1 official-protocol benchmark
+
+**This is a separate, literature-comparable benchmark. It does not
+replace, and did not alter, the Phase 8B speaker-disjoint result above —
+that remains the source of this project's operating threshold.**
+
+Phase 8B deliberately split VoxCeleb1 by speaker so a threshold could be
+chosen on one set of speakers and measured on another. That is the right
+methodology for *choosing* a threshold, but it costs 9,440 impostor
+trials and so is not comparable with published VoxCeleb1 numbers. This
+run uses the complete official trial list instead, with no split, purely
+to answer: does our pipeline reproduce the accepted benchmark?
+
+Reproduce with (`--calibration-fraction 1.0` puts every speaker on one
+side, so no trial is dropped; embeddings are reused from cache):
+
+```bash
+python scripts/build_trials.py --dataset voxceleb \
+    --trials data/raw/voxceleb1/trials/voxceleb1_test.txt \
+    --audio-root data/raw/voxceleb1/vox1/test_wav/wav \
+    --meta data/raw/voxceleb1/vox1/vox1/vox1_meta.csv \
+    --output data/trials/voxceleb1_trials_full_protocol.csv \
+    --seed 42 --calibration-fraction 1.0 --split-seed 42
+python scripts/score_trials.py \
+    --trials data/trials/voxceleb1_trials_full_protocol.csv \
+    --output outputs/scores/voxceleb_scores_full_protocol.csv
+python scripts/run_voxceleb_calibration.py \
+    --scores outputs/scores/voxceleb_scores_full_protocol.csv \
+    --threshold 0.252784 \
+    --report-out outputs/calibration/voxceleb1_full_protocol_report.txt
+```
+
+`build_trials.py` prints an "empty split" warning in this mode. That is
+expected: there is intentionally no evaluation split.
+
+### Results
+
+```
+Trials:          37,720   (18,860 genuine / 18,860 impostor)
+Speakers:        40
+Utterances:      4,715
+
+ROC-AUC:         0.998945
+EER:             0.010392   (1.04%)
+EER threshold:   0.272217
+FAR @ EER:       0.010392
+FRR @ EER:       0.010392
+EER method:      Exact match -- FAR == FRR at an evaluated candidate
+                 threshold, so no interpolation was required.
+```
+
+FAR and FRR are exactly equal here, which is a useful internal check:
+at this sample size the FAR and FRR step functions genuinely cross at an
+evaluated candidate rather than needing the interpolation fallback.
+
+Note this is the *same data the threshold was derived from*, so 1.04% is
+a benchmark figure, not an unbiased generalization estimate. The
+unbiased estimate is Phase 8B's held-out FAR 1.15% / FRR 0.48%.
+
+### The Phase 8B threshold, measured on the full protocol
+
+```
+Threshold 0.252784 (from the speaker-disjoint run)
+    FAR: 0.014740   (1.47%)
+    FRR: 0.007105   (0.71%)
+```
+
+The threshold this project actually ships is slightly permissive
+relative to the full protocol's own optimum (0.272217): it accepts more
+impostors and rejects fewer genuine pairs. That is the same asymmetry
+Phase 8B saw on its held-out split, now confirmed on a much larger and
+more diverse impostor population.
+
+### Why 1.04% and not the published ~0.80%
+
+SpeechBrain publishes approximately 0.80% EER for
+`spkrec-ecapa-voxceleb` on VoxCeleb1 test. Two differences account for
+the gap, and neither indicates a pipeline defect:
+
+1. **Original vs cleaned trial list.** This run uses the original
+   `voxceleb1_test.txt` (37,720 trials). Published figures are commonly
+   reported on the *cleaned* list (`veri_test2.txt`, 37,611 trials),
+   which exists specifically because the original contains some label
+   errors. Mislabeled trials put genuine pairs in the impostor set and
+   vice versa, which inflates measured EER. Original-list EERs are
+   consistently a little higher.
+2. **No score normalization.** This project compares raw cosine
+   similarity. Published leaderboard numbers frequently apply score
+   normalization (s-norm/as-norm), which typically improves EER.
+
+**Testable prediction:** re-running this exact pipeline against the
+cleaned list should move the EER measurably toward 0.80%. If it did not,
+that would be evidence of a real problem worth investigating. Nothing
+else in the pipeline would need to change -- only the `--trials` file.
+
+### Why the full protocol scores *worse* than the speaker-disjoint split
+
+Phase 8B calibration EER was 0.87%; this is 1.04%. The full protocol is
+the harder measurement, which is what we should expect:
+
+| | Phase 8B calibration | Full protocol |
+|---|---|---|
+| Impostor trials | 6,192 | 18,860 |
+| Impostor mean | 0.020799 | 0.023740 |
+| Impostor max | 0.407291 | 0.477637 |
+
+The speaker-disjoint split only keeps impostor pairs whose two speakers
+landed on the same half, so it sees a restricted slice of the possible
+speaker pairings. The full protocol includes every official impostor
+pair, among them harder confusions -- visible directly in the higher
+impostor mean and the higher impostor maximum. More opportunities to
+confuse two different speakers means a higher error rate.
+
 ### Trial-list formats: numeric ids vs. speaker names
 
 The published VoxCeleb1 verification trial lists do not all use the
