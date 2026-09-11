@@ -32,7 +32,7 @@ import csv
 import statistics
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 SRC_DIR = Path(__file__).resolve().parent.parent / "src"
 if str(SRC_DIR) not in sys.path:
@@ -75,7 +75,9 @@ def _utterances(rows: List[dict]) -> set:
     return utterances
 
 
-def run_calibration(scored_rows: List[dict]) -> dict:
+def run_calibration(
+    scored_rows: List[dict], external_threshold: Optional[float] = None
+) -> dict:
     """Pure (no I/O) analysis: split calibration/evaluation rows already
     labeled by the 'split' column, run calibration.calibrate() on the
     calibration split ONLY, and evaluate the resulting threshold's
@@ -97,6 +99,33 @@ def run_calibration(scored_rows: List[dict]) -> dict:
     eval_impostor = [r["score"] for r in evaluation_rows if r["label"] == 0]
 
     calibration_result = calibrate(cal_genuine, cal_impostor)  # may raise
+
+    # FAR/FRR of the chosen threshold measured on the very data it was
+    # chosen from. At the EER operating point these are both ~= the EER
+    # by construction; they are reported explicitly because "~= EER" is
+    # an assertion about the interpolation, not a measurement, and
+    # because a single-set protocol run (no held-out split) has no other
+    # FAR/FRR to report. This is NOT an unbiased performance estimate --
+    # see the evaluation-split block for that.
+    cal_far_at_eer = compute_far(cal_impostor, calibration_result.eer_threshold)
+    cal_frr_at_eer = compute_frr(cal_genuine, calibration_result.eer_threshold)
+
+    # Optionally measure a threshold that was derived elsewhere (e.g. the
+    # speaker-disjoint calibration run) against every scored trial here.
+    # Purely additive reporting: it never influences how
+    # calibration_result's own threshold was selected.
+    external = None
+    if external_threshold is not None:
+        ext_genuine = [r["score"] for r in scored_rows if r["label"] == 1]
+        ext_impostor = [r["score"] for r in scored_rows if r["label"] == 0]
+        if ext_genuine and ext_impostor:
+            external = {
+                "threshold": external_threshold,
+                "num_genuine": len(ext_genuine),
+                "num_impostor": len(ext_impostor),
+                "far": compute_far(ext_impostor, external_threshold),
+                "frr": compute_frr(ext_genuine, external_threshold),
+            }
 
     evaluation = None
     if eval_genuine and eval_impostor:
@@ -135,6 +164,9 @@ def run_calibration(scored_rows: List[dict]) -> dict:
         # into a per-split block.
         "calibration_genuine_median": _median(cal_genuine),
         "calibration_impostor_median": _median(cal_impostor),
+        "calibration_far_at_eer_threshold": cal_far_at_eer,
+        "calibration_frr_at_eer_threshold": cal_frr_at_eer,
+        "external_threshold_evaluation": external,
         "dataset_genuine_median": _median(all_genuine),
         "dataset_impostor_median": _median(all_impostor),
     }
@@ -167,6 +199,14 @@ def _format_report(result: dict) -> str:
     lines.append(f"EER: {cal.eer:.6f}")
     lines.append(f"EER threshold: {cal.eer_threshold:.6f}")
     lines.append(f"EER method: {cal.eer_method}")
+    lines.append(
+        f"FAR at EER threshold (same data): {result['calibration_far_at_eer_threshold']:.6f}"
+    )
+    lines.append(
+        f"FRR at EER threshold (same data): {result['calibration_frr_at_eer_threshold']:.6f}"
+    )
+    lines.append("    (Measured on the data the threshold was chosen from, so this is")
+    lines.append("     NOT an unbiased estimate -- see the evaluation-set block below.)")
     lines.append(f"Statistically reliable (>= 30 trials/class): {cal.is_statistically_reliable}")
     for w in cal.warnings:
         lines.append(f"    WARNING: {w}")
@@ -189,6 +229,17 @@ def _format_report(result: dict) -> str:
         lines.append(" to this held-out evaluation split.)")
     lines.append("")
 
+    ext = result.get("external_threshold_evaluation")
+    if ext is not None:
+        lines.append("--- Externally supplied threshold, measured on ALL scored trials ---")
+        lines.append(f"Threshold (not derived from this run): {ext['threshold']:.6f}")
+        lines.append(f"Trials: {ext['num_genuine']} genuine, {ext['num_impostor']} impostor")
+        lines.append(f"FAR: {ext['far']:.6f}")
+        lines.append(f"FRR: {ext['frr']:.6f}")
+        lines.append("(Reporting only -- this threshold was chosen elsewhere and did")
+        lines.append(" not influence any value computed above.)")
+        lines.append("")
+
     lines.append("--- Speaker leakage check ---")
     lines.append(f"Speakers overlapping between calibration and evaluation: {len(result['speaker_overlap'])}")
     if result["speaker_overlap"]:
@@ -210,6 +261,17 @@ def main() -> int:
     )
     parser.add_argument("--scores", required=True, help="Scored-trials CSV from scripts/score_trials.py.")
     parser.add_argument("--report-out", default=None, help="Optional path to also write the report as text.")
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help=(
+            "Optional externally-derived threshold to additionally measure "
+            "FAR/FRR for across ALL scored trials (e.g. a threshold "
+            "calibrated in a separate speaker-disjoint run). Reporting "
+            "only -- it never affects threshold selection here."
+        ),
+    )
     args = parser.parse_args()
 
     if not Path(args.scores).is_file():
@@ -222,7 +284,7 @@ def main() -> int:
         return 1
 
     try:
-        result = run_calibration(scored_rows)
+        result = run_calibration(scored_rows, external_threshold=args.threshold)
     except CalibrationError as exc:
         print(f"Calibration UNAVAILABLE: {exc}", file=sys.stderr)
         print(
