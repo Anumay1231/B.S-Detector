@@ -221,8 +221,14 @@ def main():
     logger.info("=" * 70)
 
     if not parquet_path.exists():
-        logger.info(f"Parquet not found at {parquet_path}, generating targeted sample from HuggingFace...")
-        generate_metadata_parquet(parquet_path, audio_cache_dir=audio_cache_dir)
+        logger.error(
+            f"Parquet not found at {parquet_path}.\n"
+            f"Run the corrected sampling script first:\n"
+            f"  .venv\\Scripts\\python.exe scripts\\generate_corrected_hindi_subset.py\n"
+            f"Then re-run this script with:\n"
+            f"  --parquet-path data\\sea_spoof_en_hi_metadata_v2.parquet"
+        )
+        sys.exit(1)
 
     df_hindi = load_hindi_metadata(parquet_path)
 

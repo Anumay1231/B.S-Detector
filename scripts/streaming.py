@@ -63,7 +63,9 @@ def stream_and_cache_audio(
 
     logger.info(f"Loading streaming dataset: {DATASET_NAME}")
     try:
+        import datasets
         ds = load_dataset(DATASET_NAME, split="train", streaming=True)
+        ds = ds.cast_column("audio", datasets.Audio(decode=False))
     except Exception as e:
         logger.error(
             f"Failed to load streaming dataset. "
@@ -122,8 +124,16 @@ def stream_and_cache_audio(
             # Extract and save audio
             audio_data = example.get("audio", {})
             if isinstance(audio_data, dict):
-                waveform = audio_data.get("array")
-                sr = audio_data.get("sampling_rate", 16000)
+                if "array" in audio_data and audio_data["array"] is not None:
+                    waveform = audio_data["array"]
+                    sr = audio_data.get("sampling_rate", 16000)
+                elif "bytes" in audio_data and audio_data["bytes"] is not None:
+                    import io
+                    import soundfile as sf
+                    waveform, sr = sf.read(io.BytesIO(audio_data["bytes"]))
+                else:
+                    logger.warning(f"No array or bytes in audio dict for {example_id}")
+                    continue
             else:
                 logger.warning(
                     f"Unexpected audio format for {example_id}: {type(audio_data)}"
