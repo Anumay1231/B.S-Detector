@@ -82,15 +82,16 @@ def fetch_target_audio_direct(
     logging.getLogger("fsspec").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-    from tqdm import tqdm
-
-    # Iterate shards and fetch only matching rows
-    saved_count = 0
-    start_time = time.time()
-    total_needed_start = len(still_needed)
+    # Only inspect shards that actually contain target rows!
+    # Shards 0, 1 contain rows 0-55k; Shards 13, 14 contain rows 356k-412k
+    target_shard_indices = {0, 1, 13, 14, 15}
+    relevant_shards = [
+        f for i, f in enumerate(shard_files) if i in target_shard_indices
+    ]
+    logger.info(f"Target clips exist ONLY in {len(relevant_shards)} specific shards (Shards 0, 1, 13, 14). Skipping all {len(shard_files) - len(relevant_shards)} intermediate shards!")
 
     # Progress bar 1: Shards
-    shard_pbar = tqdm(shard_files, desc="Scanning Shards", unit="shard", dynamic_ncols=True)
+    shard_pbar = tqdm(relevant_shards, desc="Scanning Shards", unit="shard", dynamic_ncols=True)
     # Progress bar 2: Audio clips cached
     clip_pbar = tqdm(total=total_needed_start, desc="Caching Clips", unit="clip", dynamic_ncols=True)
 
