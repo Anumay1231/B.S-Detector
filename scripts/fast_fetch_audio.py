@@ -83,13 +83,13 @@ def fetch_target_audio_direct(
     logging.getLogger("fsspec").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-    # Only inspect shards that actually contain target rows!
-    # Shards 0, 1 contain rows 0-55k; Shards 13, 14 contain rows 356k-412k
-    target_shard_indices = {0, 1, 13, 14, 15}
+    # Shards 0 and 1 are ALREADY 100% complete on disk (all 702 clips exist)!
+    # The missing 98 clips live exclusively in Shards 12-15.
+    target_shard_indices = {12, 13, 14, 15}
     relevant_shards = [
         f for i, f in enumerate(shard_files) if i in target_shard_indices
     ]
-    logger.info(f"Target clips exist ONLY in {len(relevant_shards)} specific shards (Shards 0, 1, 13, 14). Skipping all {len(shard_files) - len(relevant_shards)} intermediate shards!")
+    logger.info(f"Shards 0 & 1 (702 clips) are already on disk. Scanning ONLY the {len(relevant_shards)} later shards for the 98 remaining clips!")
 
     total_needed_start = len(still_needed)
     # Progress bar 1: Shards
