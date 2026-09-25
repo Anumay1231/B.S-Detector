@@ -295,6 +295,16 @@ def main():
         )
         logger.info(f"Feature extraction completed in {time.time() - t0:.0f}s")
 
+    # ---- Filter to only IDs with cached features ----
+    cached_feats = {p.stem for p in feature_cache_dir.glob("*.pt")}
+    missing_feats = all_needed_ids - cached_feats
+    if missing_feats:
+        logger.warning(f"{len(missing_feats)} IDs have no cached features and will be excluded.")
+        test_ids -= missing_feats
+        for key in list(fewshot_pools.keys()):
+            fewshot_pools[key]["row_ids"] -= missing_feats
+    logger.info(f"Effective test set: {len(test_ids)} samples")
+
     # ---- Step 5: Zero-shot evaluation ----
     logger.info("\n" + "=" * 70)
     logger.info("STEP 5: Zero-shot evaluation")

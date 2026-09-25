@@ -78,18 +78,26 @@ def extract_and_cache_features(
     for start_idx in range(0, len(needed), batch_size):
         batch_rids = needed[start_idx : start_idx + batch_size]
         waveforms = []
+        valid_rids = []
         for rid in batch_rids:
-            if audio_cache_dir is not None:
-                waveform = load_cached_audio(rid, cache_dir=audio_cache_dir)
-            else:
-                waveform = load_cached_audio(rid)
-            waveform = pad_or_truncate(waveform, INPUT_LENGTH)
-            waveforms.append(waveform)
+            try:
+                if audio_cache_dir is not None:
+                    waveform = load_cached_audio(rid, cache_dir=audio_cache_dir)
+                else:
+                    waveform = load_cached_audio(rid)
+                waveform = pad_or_truncate(waveform, INPUT_LENGTH)
+                waveforms.append(waveform)
+                valid_rids.append(rid)
+            except FileNotFoundError:
+                logger.warning(f"Audio not cached, skipping: {rid}")
+
+        if not waveforms:
+            continue
 
         waveform_batch = torch.stack(waveforms, dim=0)
         hidden_states = extract_hidden_states(backbone, waveform_batch, device=device)
 
-        for b_idx, rid in enumerate(batch_rids):
+        for b_idx, rid in enumerate(valid_rids):
             stacked = torch.stack(
                 [hs[b_idx].detach().cpu().half() for hs in hidden_states]
             )  # (24, T, 1024) on CPU

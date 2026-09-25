@@ -1,4 +1,4 @@
-# Agent Handoff: Audio Deepfake Detection (SLS on XLS-R 300M) — Full Benchmark Completed
+# Agent Handoff: Audio Deepfake Detection (SLS on XLS-R 300M) — V2 Benchmark Completed
 
 ## 1. Project & Status Overview
 This project benchmarks audio deepfake detection on **Hindi speech** using the **Sensitive Layer Summarization (SLS)** architecture on top of a frozen **Wav2Vec2 XLS-R 300M** backbone (`facebook/wav2vec2-xls-r-300m`).
@@ -12,25 +12,39 @@ The full benchmark protocol (**250 bonafide / 250 spoof = 500 test samples**) ha
 
 ---
 
-## 2. Final Frozen Benchmark Results (500 Test Samples)
+## 2. Benchmark Results — V1 (Biased) vs V2 (Balanced)
+
+### V1 Dataset (DEPRECATED — Single-source bias, do not use for final paper)
+Spoof clips skewed to 1–2 TTS models; bonafide from IndicTTS only. Results were inflated.
+
+| Experiment | Accuracy (%) | EER (%) |
+| :--- | :---: | :---: |
+| Zero-Shot | 69.20% | 10.60% |
+| Few-Shot N=10 | 97.53 ± 0.68% | 1.97 ± 0.67% |
+| Few-Shot N=50 | **99.20 ± 0.00%** | **0.40 ± 0.01%** |
+
+### V2 Dataset ✅ (CURRENT — Stratified across 5 TTS models)
+800 clips: 400 bonafide (IndicTTS 61% + CommonVoice 39%), 400 spoof (80 clips × 5 TTS models: indic_tts, edge_tts, xtts-v2, vits_mms, elevenlabs). ~72 clips unavailable (streaming gap), effective test set ~446 samples.
 
 | Experiment | Accuracy (%) | EER (%) | Precision (%) | Recall (%) | F1 Score (%) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Zero-Shot** (English $\to$ Hindi) | **69.20%** | **10.60%** | **62.18%** | **98.00%** | **76.09%** |
-| **Few-Shot $N=10$** (mean $\pm$ std) | **97.53 $\pm$ 0.68%** | **1.97 $\pm$ 0.67%** | **96.39 $\pm$ 1.55%** | **98.80 $\pm$ 0.86%** | **97.57 $\pm$ 0.65%** |
-| **Few-Shot $N=50$** (mean $\pm$ std) | **99.20 $\pm$ 0.00%** | **0.40 $\pm$ 0.01%** | **100.00 $\pm$ 0.00%** | **98.40 $\pm$ 0.00%** | **99.19 $\pm$ 0.00%** |
+| **Zero-Shot** (English → Hindi) | **68.61%** | **28.52%** | **64.47%** | **98.00%** | **77.78%** |
+| **Few-Shot N=10** (mean ± std) | **71.45 ± 4.90%** | **22.69 ± 0.54%** | **76.84 ± 6.53%** | **74.53 ± 21.44%** | **73.00 ± 9.46%** |
+| **Few-Shot N=50** (mean ± std) | **88.71 ± 1.64%** | **9.86 ± 0.80%** | **86.09 ± 4.18%** | **95.73 ± 2.64%** | **90.53 ± 1.04%** |
 
-### Per-Seed Metrics
-- **Zero-Shot**: Acc: 69.20%, EER: 10.60%, CM: `[[101, 149], [5, 245]]`
-- **Few-Shot $N=10$**:
-  - Seed 0 (1000): Acc: 98.20%, EER: 1.07%, Prec: 96.89%, Rec: 99.60%, F1: 98.22%
-  - Seed 1 (1001): Acc: 96.60%, EER: 2.67%, Prec: 94.30%, Rec: 99.20%, F1: 96.69%
-  - Seed 2 (1002): Acc: 97.80%, EER: 2.17%, Prec: 97.99%, Rec: 97.60%, F1: 97.80%
-- **Few-Shot $N=50$**:
-  - Seed 0 (1000): Acc: 99.20%, EER: 0.40%, Prec: 100.00%, Rec: 98.40%, F1: 99.19%
-  - Seed 1 (1001): Acc: 99.20%, EER: 0.39%, Prec: 100.00%, Rec: 98.40%, F1: 99.19%
-  - Seed 2 (1002): Acc: 99.20%, EER: 0.40%, Prec: 100.00%, Rec: 98.40%, F1: 99.19%
-  - Confusion Matrix for all 3 seeds: `[[250, 0], [4, 246]]` (0 false alarms on spoof!).
+### V2 Per-Seed Metrics
+- **Zero-Shot**: Acc: 68.61%, EER: 28.52%, CM: `[[61, 135], [5, 245]]`
+- **Few-Shot N=10**:
+  - Seed 0 (1000): Acc: 73.09%, EER: 22.40%, Prec: 67.96%, Rec: 98.40%, F1: 80.39%
+  - Seed 1 (1001): Acc: 76.46%, EER: 23.44%, Prec: 79.12%, Rec: 78.80%, F1: 78.96%
+  - Seed 2 (1002): Acc: 64.80%, EER: 22.22%, Prec: 83.45%, Rec: 46.40%, F1: 59.64%
+- **Few-Shot N=50**:
+  - Seed 0 (1000): Acc: 91.03%, EER: 8.72%, Prec: 92.00%, Rec: 92.00%, F1: 92.00%
+  - Seed 1 (1001): Acc: 87.67%, EER: 10.45%, Prec: 83.28%, Rec: 97.60%, F1: 89.87%
+  - Seed 2 (1002): Acc: 87.44%, EER: 10.41%, Prec: 82.99%, Rec: 97.60%, F1: 89.71%
+
+### Key Scientific Insight (Bias Confirmed)
+The dramatic drop from V1→V2 (EER: 0.40% → 9.86% for N=50; EER: 1.97% → 22.69% for N=10) **confirms the dataset bias hypothesis**. V1 results were inflated because the model exploited artifacts from a narrow set of TTS generators. V2 reflects true cross-generator generalization performance.
 
 ---
 
@@ -65,29 +79,39 @@ The full benchmark protocol (**250 bonafide / 250 spoof = 500 test samples**) ha
 ---
 
 ## 4. Key Artifacts on Disk
-- **Metadata Parquet**: `data/sea_spoof_en_hi_metadata.parquet` (800 rows: 400 bonafide, 400 spoof).
-- **Audio Cache**: `data/deepfake_cache/audio/` (800 `.pt` files).
-- **Feature Cache**: `data/deepfake_cache/features/` (709 `.pt` files).
-- **Results JSON**: `outputs/results_full_250.json`.
+- **V1 Metadata (deprecated)**: `data/sea_spoof_en_hi_metadata.parquet` (800 rows, biased).
+- **V2 Metadata (current)**: `data/sea_spoof_en_hi_metadata_v2.parquet` (800 rows, balanced 5-model stratification).
+- **Hindi Pool**: `data/hindi_full_pool.parquet` (16,382 discovered Hindi rows from full corpus scan).
+- **Audio Cache**: `data/deepfake_cache/audio/` (637 `.pt` files for V2).
+- **Feature Cache**: `data/deepfake_cache/features/` (637 `.pt` files for V2).
+- **V2 Results JSON**: `outputs/results_full_250.json` (V2 benchmark results).
 - **Protocol Document**: `docs/EXPERIMENT_PROTOCOL_AND_RESULTS.md`.
+- **Audit & Pipeline Report**: `docs/DATASET_V2_AUDIT_AND_PIPELINE_REPORT.md`.
 - **Full Academic Paper Draft**: `paper/sls_hindi_deepfake_detection.md`.
+- **Knowledge Graph**: `graphify-out/` (125 nodes, 242 edges, 8 communities).
 
 ---
 
 ## 5. How to Reproduce / Re-run
-To re-run the entire pipeline in under 30 seconds using cached features on GPU:
+To re-run V2 experiment using cached features on GPU:
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_deepfake_detection.py --device cuda --test-per-class 250 --skip-streaming --skip-features
+.\.venv\Scripts\python.exe scripts\run_deepfake_detection.py `
+  --parquet-path data\sea_spoof_en_hi_metadata_v2.parquet `
+  --device cuda --test-per-class 250 --skip-streaming --skip-features
 ```
 
 Or on CPU:
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_deepfake_detection.py --device cpu --test-per-class 250 --skip-streaming --skip-features
+.\.venv\Scripts\python.exe scripts\run_deepfake_detection.py `
+  --parquet-path data\sea_spoof_en_hi_metadata_v2.parquet `
+  --device cpu --test-per-class 250 --skip-streaming --skip-features
 ```
 
 ---
 
 ## 6. Next Steps for Next Session
-1. **Paper Polishing**: Review and refine `paper/sls_hindi_deepfake_detection.md` for target conference formatting (e.g. converting markdown to LaTeX / IEEEtran / Interspeech template).
-2. **Figures Generation**: Generate publication figures (ROC curves, layer-weight importance bar charts from `fc0.weight`, score distribution histograms).
-3. **Cross-Language Expansion** (Optional): Apply the exact same frozen pipeline to Tamil, Bengali, or Telugu samples from SEA-Spoof.
+1. **Update Paper**: Revise `paper/sls_hindi_deepfake_detection.md` with V2 results and the V1-vs-V2 dataset bias analysis as a key finding.
+2. **Fetch Remaining 72 Clips**: Use `fsspec` direct shard reader to fetch the missing bonafide/spoof clips and rebalance the test set to full 500 samples.
+3. **Figures Generation**: Generate publication figures — ROC curves for V1 vs V2, TTS-model breakdown bar charts, score distribution histograms.
+4. **Cross-Language Expansion** (Optional): Apply the pipeline to Tamil, Bengali, or Telugu samples from SEA-Spoof.
+5. **LaTeX Conversion**: Convert paper draft to IEEEtran / Interspeech template format.
