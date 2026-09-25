@@ -1,0 +1,10 @@
+# B.S. Detector Frontend Dependencies
+streamlit>=1.30.0
+torch>=2.0.0
+transformers>=4.35.0
+huggingface_hub>=0.20.0
+soundfile>=0.12.0
+scipy>=1.10.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+pandas>=2.0.0
