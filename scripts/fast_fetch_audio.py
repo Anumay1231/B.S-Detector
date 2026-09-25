@@ -83,13 +83,32 @@ def fetch_target_audio_direct(
     logging.getLogger("fsspec").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-    # Shards 0 and 1 are ALREADY 100% complete on disk (all 702 clips exist)!
-    # The missing 98 clips live exclusively in Shards 12-15.
-    target_shard_indices = {12, 13, 14, 15}
+    start_time = time.time()
+    saved_count = 0
+
+    # Dynamically determine which shards contain the still_needed row_ids.
+    # SEA-Spoof has ~439,000 rows partitioned across 30 shards (~14,640 rows per shard).
+    target_shard_indices = set()
+    for rid in still_needed:
+        try:
+            int_id = int(str(rid).split("_")[-1])
+            est_shard = int_id // 14640
+            for s in [est_shard - 1, est_shard, est_shard + 1]:
+                if 0 <= s < len(shard_files):
+                    target_shard_indices.add(s)
+        except Exception:
+            pass
+
+    if not target_shard_indices:
+        target_shard_indices = set(range(len(shard_files)))
+
     relevant_shards = [
         f for i, f in enumerate(shard_files) if i in target_shard_indices
     ]
-    logger.info(f"Shards 0 & 1 (702 clips) are already on disk. Scanning ONLY the {len(relevant_shards)} later shards for the 98 remaining clips!")
+    logger.info(
+        f"Scanning {len(relevant_shards)} relevant shards (out of {len(shard_files)}) "
+        f"for {len(still_needed)} needed clips: {[f.split('/')[-1] for f in relevant_shards]}"
+    )
 
     total_needed_start = len(still_needed)
     # Progress bar 1: Shards
@@ -158,6 +177,7 @@ def fetch_target_audio_direct(
                         clip_pbar.update(1)
 
         except Exception as e:
+            logger.warning(f"Error processing {shard_name}: {e}")
             continue
 
     shard_pbar.close()
