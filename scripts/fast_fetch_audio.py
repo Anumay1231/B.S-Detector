@@ -91,6 +91,7 @@ def fetch_target_audio_direct(
     ]
     logger.info(f"Target clips exist ONLY in {len(relevant_shards)} specific shards (Shards 0, 1, 13, 14). Skipping all {len(shard_files) - len(relevant_shards)} intermediate shards!")
 
+    total_needed_start = len(still_needed)
     # Progress bar 1: Shards
     shard_pbar = tqdm(relevant_shards, desc="Scanning Shards", unit="shard", dynamic_ncols=True)
     # Progress bar 2: Audio clips cached
