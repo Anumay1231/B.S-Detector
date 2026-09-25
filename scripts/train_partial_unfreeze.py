@@ -201,6 +201,7 @@ def main():
     parser.add_argument("--grad-accum", type=int, default=2, help="Gradient accumulation steps (default: 2)")
     parser.add_argument("--backbone-lr", type=float, default=1e-6, help="Learning rate for unfrozen XLS-R layers")
     parser.add_argument("--head-lr", type=float, default=1e-5, help="Learning rate for SLS head")
+    parser.add_argument("--loss-weight", type=float, nargs=2, default=[0.5, 0.5], help="Loss weights [spoof_w, bonafide_w], default [0.5, 0.5] balanced")
     parser.add_argument("--num-seeds", type=int, default=3, help="Number of random seeds (default: 3)")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--output-json", type=str, default="outputs/results_unfreeze_l4.json")
@@ -264,6 +265,7 @@ def main():
             grad_accum_steps=args.grad_accum,
             backbone_lr=args.backbone_lr,
             head_lr=args.head_lr,
+            loss_weight=args.loss_weight,
             audio_cache_dir=audio_cache_dir,
         )
         seed_metrics.append(metrics)
