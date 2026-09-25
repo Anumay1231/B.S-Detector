@@ -627,47 +627,149 @@ with tabs[1]:
 # TAB 3 — EMPIRICAL BENCHMARKS
 # ------------------------------------------------------------
 with tabs[2]:
-    st.markdown("#### Empirical Benchmark Results (SEA-Spoof Hindi Test Set)")
-    st.caption("Rigorous evaluation on balanced 400-sample test set (200 bonafide / 200 spoof) using XLS-R 300M + Selective Layer Summarization.")
+    st.markdown("#### Empirical Benchmark Results & Evaluation Reports")
+    st.caption("Inspect and visualize offline evaluation benchmark files stored in outputs/.")
 
-    b1, b2, b3 = st.columns(3)
-    with b1:
-        st.markdown("""
-        <div class="bsd-card" style="text-align:center;">
-            <div class="bsd-mono" style="font-size:0.75rem; color:#94a3b8;">ZERO-SHOT (EN → HI)</div>
-            <h2 style="color:#f59e0b; margin:6px 0;">60.00%</h2>
-            <div class="bsd-mono">EER: 28.90%<br>Recall: 98.00%<br>F1: 71.01%</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # Locate available results JSON files
+    outputs_dir = os.path.join(PROJECT_ROOT, "outputs")
+    available_json_files = []
+    if os.path.exists(outputs_dir):
+        available_json_files = [f for f in os.listdir(outputs_dir) if f.endswith(".json")]
 
-    with b2:
-        st.markdown("""
-        <div class="bsd-card" style="text-align:center;">
-            <div class="bsd-mono" style="font-size:0.75rem; color:#00f0ff;">FEW-SHOT (N = 10)</div>
-            <h2 style="color:#00f0ff; margin:6px 0;">65.83%</h2>
-            <div class="bsd-mono">EER: 26.88%<br>Recall: 94.50%<br>F1: 73.61%</div>
-        </div>
-        """, unsafe_allow_html=True)
+    selected_json = st.selectbox(
+        "Select Evaluation Benchmark Report:",
+        available_json_files if available_json_files else ["No JSON files found in outputs/"],
+        index=available_json_files.index("results_full_250.json") if "results_full_250.json" in available_json_files else 0
+    )
 
-    with b3:
-        st.markdown("""
-        <div class="bsd-card" style="text-align:center; border-color:#00ff88; background:rgba(0,255,136,0.06);">
-            <div class="bsd-mono" style="font-size:0.75rem; color:#00ff88;">FEW-SHOT (N = 50)</div>
-            <h2 style="color:#00ff88; margin:6px 0;">79.67%</h2>
-            <div class="bsd-mono">EER: 19.70%<br>F1: 80.05%<br>+19.67% Acc Gain</div>
-        </div>
-        """, unsafe_allow_html=True)
+    if available_json_files and selected_json in available_json_files:
+        json_path = os.path.join(outputs_dir, selected_json)
+        try:
+            with open(json_path, "r") as jf:
+                bench_data = json.load(jf)
+            
+            # Overview Cards
+            col_b1, col_b2, col_b3 = st.columns(3)
+            
+            # Helper to extract stats
+            def extract_regime_summary(regime_list):
+                if not regime_list:
+                    return "N/A", "N/A", "N/A"
+                if "accuracy_mean" in regime_list[0]:
+                    acc = f"{regime_list[0]['accuracy_mean']*100:.2f} ± {regime_list[0].get('accuracy_std', 0)*100:.2f}%"
+                    eer = f"{regime_list[0]['eer_mean']*100:.2f} ± {regime_list[0].get('eer_std', 0)*100:.2f}%"
+                    f1 = f"{regime_list[0]['f1_mean']*100:.2f}%"
+                else:
+                    accs = [entry["accuracy"] * 100 for entry in regime_list if "accuracy" in entry]
+                    eers = [entry["eer"] * 100 for entry in regime_list if "eer" in entry]
+                    f1s = [entry["f1"] * 100 for entry in regime_list if "f1" in entry]
+                    acc = f"{np.mean(accs):.2f}%" if len(accs) == 1 else f"{np.mean(accs):.2f} ± {np.std(accs):.2f}%"
+                    eer = f"{np.mean(eers):.2f}%" if len(eers) == 1 else f"{np.mean(eers):.2f} ± {np.std(eers):.2f}%"
+                    f1 = f"{np.mean(f1s):.2f}%" if len(f1s) == 1 else f"{np.mean(f1s):.2f} ± {np.std(f1s):.2f}%"
+                return acc, eer, f1
 
-    st.markdown("---")
-    st.markdown("##### 📈 Adaptation Scaling Performance")
-    
-    # Render mini benchmark comparison table
-    benchmark_table = [
-        {"Regime": "Zero-shot Baseline", "Accuracy": "60.00%", "EER": "28.90%", "Precision": "55.68%", "Recall": "98.00%", "F1-Score": "71.01%"},
-        {"Regime": "Few-shot N=10 (3 seeds)", "Accuracy": "65.83 ± 5.87%", "EER": "26.88 ± 1.83%", "Precision": "60.81 ± 5.16%", "Recall": "94.50 ± 6.42%", "F1-Score": "73.61 ± 2.35%"},
-        {"Regime": "Few-shot N=50 (3 seeds)", "Accuracy": "79.67 ± 0.47%", "EER": "19.70 ± 0.57%", "Precision": "78.82 ± 3.58%", "Recall": "81.83 ± 5.25%", "F1-Score": "80.05 ± 0.88%"},
-    ]
-    st.table(benchmark_table)
+            regimes = list(bench_data.keys())
+            if len(regimes) >= 1:
+                acc0, eer0, f10 = extract_regime_summary(bench_data[regimes[0]])
+                with col_b1:
+                    st.markdown(f"""
+                    <div class="bsd-card" style="text-align:center;">
+                        <div class="bsd-mono" style="font-size:0.75rem; color:#94a3b8;">{regimes[0].upper()}</div>
+                        <h2 style="color:#f59e0b; margin:6px 0;">{acc0}</h2>
+                        <div class="bsd-mono">EER: {eer0}<br>F1: {f10}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            if len(regimes) >= 2:
+                acc1, eer1, f11 = extract_regime_summary(bench_data[regimes[1]])
+                with col_b2:
+                    st.markdown(f"""
+                    <div class="bsd-card" style="text-align:center;">
+                        <div class="bsd-mono" style="font-size:0.75rem; color:#00f0ff;">{regimes[1].upper()}</div>
+                        <h2 style="color:#00f0ff; margin:6px 0;">{acc1}</h2>
+                        <div class="bsd-mono">EER: {eer1}<br>F1: {f11}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            if len(regimes) >= 3:
+                acc2, eer2, f12 = extract_regime_summary(bench_data[regimes[2]])
+                with col_b3:
+                    st.markdown(f"""
+                    <div class="bsd-card" style="text-align:center; border-color:#00ff88; background:rgba(0,255,136,0.06);">
+                        <div class="bsd-mono" style="font-size:0.75rem; color:#00ff88;">{regimes[2].upper()}</div>
+                        <h2 style="color:#00ff88; margin:6px 0;">{acc2}</h2>
+                        <div class="bsd-mono">EER: {eer2}<br>F1: {f12}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            st.markdown("---")
+            st.markdown("##### 📋 Detailed Seed-by-Seed Evaluation Table")
+            
+            table_rows = []
+            for regime_name, entries in bench_data.items():
+                for seed_idx, entry in enumerate(entries):
+                    seed_label = f"Seed {seed_idx + 1}" if len(entries) > 1 else "Zero-shot Run"
+                    if "accuracy" in entry:
+                        table_rows.append({
+                            "Experiment Regime": regime_name,
+                            "Seed / Trial": seed_label,
+                            "Accuracy": f"{entry['accuracy']*100:.2f}%",
+                            "EER": f"{entry['eer']*100:.2f}%",
+                            "Precision": f"{entry.get('precision', 0)*100:.2f}%",
+                            "Recall": f"{entry.get('recall', 0)*100:.2f}%",
+                            "F1-Score": f"{entry.get('f1', 0)*100:.2f}%"
+                        })
+                    elif "accuracy_mean" in entry:
+                        table_rows.append({
+                            "Experiment Regime": regime_name,
+                            "Seed / Trial": "Aggregated Mean",
+                            "Accuracy": f"{entry['accuracy_mean']*100:.2f} ± {entry.get('accuracy_std', 0)*100:.2f}%",
+                            "EER": f"{entry['eer_mean']*100:.2f} ± {entry.get('eer_std', 0)*100:.2f}%",
+                            "Precision": f"{entry.get('precision_mean', 0)*100:.2f}%",
+                            "Recall": f"{entry.get('recall_mean', 0)*100:.2f}%",
+                            "F1-Score": f"{entry.get('f1_mean', 0)*100:.2f}%"
+                        })
+
+            if table_rows:
+                st.dataframe(table_rows, use_container_width=True)
+
+            # Confusion Matrices (if present)
+            matrices = []
+            for reg, entries in bench_data.items():
+                for idx, entry in enumerate(entries):
+                    if "confusion_matrix" in entry:
+                        matrices.append((f"{reg} (Trial {idx+1})", np.array(entry["confusion_matrix"])))
+
+            if matrices:
+                st.markdown("##### 🔲 Evaluation Confusion Matrices")
+                st.caption("Rows: True Class (0: Spoof, 1: Bonafide) | Columns: Predicted Class (0: Spoof, 1: Bonafide)")
+                
+                m_cols = st.columns(min(3, len(matrices)))
+                for i, (m_title, cm) in enumerate(matrices[:6]):
+                    with m_cols[i % len(m_cols)]:
+                        import matplotlib.pyplot as plt
+                        fig_cm, ax_cm = plt.subplots(figsize=(2.8, 2.4), facecolor="#070a12")
+                        ax_cm.set_facecolor("#0d1322")
+                        cax = ax_cm.matshow(cm, cmap="Blues", alpha=0.85)
+                        for r in range(cm.shape[0]):
+                            for c in range(cm.shape[1]):
+                                ax_cm.text(c, r, str(cm[r, c]), va="center", ha="center", color="#ffffff", fontsize=9, fontweight="bold")
+                        ax_cm.set_title(m_title, color="#00f0ff", fontsize=8, pad=8)
+                        ax_cm.set_xticks([0, 1])
+                        ax_cm.set_yticks([0, 1])
+                        ax_cm.set_xticklabels(["Spoof", "Bona"], color="#94a3b8", fontsize=7)
+                        ax_cm.set_yticklabels(["Spoof", "Bona"], color="#94a3b8", fontsize=7)
+                        ax_cm.tick_params(colors="#64748b", labelsize=7)
+                        for spine in ax_cm.spines.values():
+                            spine.set_color("#1e293b")
+                        plt.tight_layout()
+                        st.pyplot(fig_cm)
+                        plt.close(fig_cm)
+
+        except Exception as read_err:
+            st.error(f"Error parsing benchmark JSON file: {read_err}")
+    else:
+        st.info("No results files currently found in outputs/ directory.")
 
 
 # ------------------------------------------------------------
