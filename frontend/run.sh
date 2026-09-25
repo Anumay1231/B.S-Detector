@@ -39,8 +39,10 @@ echo "============================================================"
 
 cd "${REPO_DIR}"
 "${STREAMLIT_BIN}" run frontend/app.py \
-    --server.address localhost \
+    --server.headless true \
+    --server.address 127.0.0.1 \
     --server.port 8501 \
+    --browser.gatherUsageStats false \
     --theme.base dark \
     --theme.primaryColor "#00f0ff" \
     --theme.backgroundColor "#070a12" \
