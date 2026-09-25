@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 import soundfile as sf
 import torch
+from tqdm import tqdm
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _SCRIPT_DIR.parent
