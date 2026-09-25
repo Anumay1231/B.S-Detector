@@ -77,16 +77,29 @@ def fetch_target_audio_direct(
     shard_files = sorted([f for f in all_files if f.endswith(".parquet")])
     logger.info(f"Found {len(shard_files)} shards on HuggingFace CDN.")
 
+    # Silence noisy HTTP request loggers
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("fsspec").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+
+    from tqdm import tqdm
+
     # Iterate shards and fetch only matching rows
     saved_count = 0
     start_time = time.time()
+    total_needed_start = len(still_needed)
 
-    for s_idx, shard_path in enumerate(shard_files):
+    # Progress bar 1: Shards
+    shard_pbar = tqdm(shard_files, desc="Scanning Shards", unit="shard", dynamic_ncols=True)
+    # Progress bar 2: Audio clips cached
+    clip_pbar = tqdm(total=total_needed_start, desc="Caching Clips", unit="clip", dynamic_ncols=True)
+
+    for shard_path in shard_pbar:
         if not still_needed:
             break
 
         shard_name = shard_path.split("/")[-1]
-        logger.info(f"Scanning shard {s_idx + 1}/{len(shard_files)} ({shard_name}) for {len(still_needed)} remaining IDs...")
+        shard_pbar.set_postfix({"shard": shard_name, "needed": len(still_needed)})
 
         try:
             with fs.open(shard_path, "rb") as f:
@@ -109,10 +122,7 @@ def fetch_target_audio_direct(
                     if not matched_indices:
                         continue
 
-                    matched_ids = [row_ids_in_rg[idx] for idx in matched_indices]
-                    logger.info(f"  Matched {len(matched_indices)} clips in RG {rg} of {shard_name}! Fetching audio bytes...")
-
-                    # 2. Read audio column for matched rows in this row group
+                    # 2. Read audio column for ONLY the matched rows in this row group
                     audio_table = pf.read_row_group(rg, columns=["audio"])
                     audio_data_list = audio_table.column("audio").to_pylist()
 
@@ -134,7 +144,6 @@ def fetch_target_audio_direct(
                                 sr = audio_entry.get("sampling_rate", 16000)
 
                         if waveform is None:
-                            logger.warning(f"Failed to decode audio for {rid}")
                             continue
 
                         # Save .pt waveform
@@ -143,12 +152,13 @@ def fetch_target_audio_direct(
                         already_cached[rid] = out_path
                         still_needed.remove(rid)
                         saved_count += 1
-
-                    logger.info(f"  Saved {saved_count} new clips so far ({len(still_needed)} remaining).")
+                        clip_pbar.update(1)
 
         except Exception as e:
-            logger.warning(f"Error reading shard {shard_path}: {e}")
             continue
+
+    shard_pbar.close()
+    clip_pbar.close()
 
     elapsed = time.time() - start_time
     logger.info(f"\nDirect fetch complete in {elapsed:.1f}s! Total clips cached: {len(already_cached)}/{len(target_row_ids)}")
