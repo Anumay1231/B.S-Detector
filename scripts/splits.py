@@ -198,6 +198,106 @@ def get_labels_for_ids(df_hindi: pd.DataFrame, row_ids: Iterable[Any]) -> dict:
     return labels
 
 
+def create_balanced_cached_splits(
+    df_hindi: pd.DataFrame,
+    cached_ids: set,
+    test_per_class: int = 200,
+    fewshot_sizes: list[int] = FEWSHOT_SIZES,
+    num_seeds: int = NUM_SEEDS,
+    seed: int = 42,
+) -> tuple[set, pd.DataFrame, dict]:
+    """Create strictly balanced test and few-shot splits directly from cached audio files.
+
+    Eliminates class imbalance and generator bias by:
+    1. Filtering exclusively to row IDs present in cached_ids.
+    2. Balancing Bonafide and Spoof 1:1 in the test set.
+    3. Evenly stratifying spoof clips across all available TTS generators (e.g., 40 clips/generator).
+    4. Constructing few-shot pools (N=10, 50) that are strictly 1:1 balanced and generator-stratified.
+
+    Args:
+        df_hindi: DataFrame of Hindi metadata.
+        cached_ids: Set of row_ids that exist on disk in audio_cache_dir.
+        test_per_class: Number of samples per class in test set (default: 200).
+        fewshot_sizes: List of few-shot pool sizes N (default: [10, 50]).
+        num_seeds: Number of random seeds to evaluate (default: 3).
+        seed: Random seed for test split (default: 42).
+
+    Returns:
+        Tuple of (test_ids, test_df, fewshot_pools).
+    """
+    df_cached = df_hindi[df_hindi["row_id"].isin(cached_ids)].copy()
+
+    def get_clean_model(m):
+        m = str(m).lower()
+        if "edge" in m:
+            return "edge_tts"
+        if "vits" in m:
+            return "vits_mms"
+        if "xtts" in m:
+            return "xtts-v2"
+        if "fastspeech" in m:
+            return "fastspeech"
+        if "indic-tts" in m or "indic_tts" in m:
+            return "indic_tts"
+        return m
+
+    df_cached["clean_model"] = df_cached["source_model"].apply(get_clean_model)
+    bonafide_df = df_cached[df_cached["label"] == "bonafide"]
+    spoof_df = df_cached[df_cached["label"] == "spoof"]
+
+    models = sorted(spoof_df["clean_model"].unique())
+    num_models = len(models)
+    per_model_test = test_per_class // num_models
+
+    rng = np.random.RandomState(seed)
+    test_bonafide = bonafide_df.sample(n=test_per_class, random_state=rng)
+    test_spoof_list = [
+        grp.sample(n=per_model_test, random_state=rng)
+        for _, grp in spoof_df.groupby("clean_model")
+    ]
+    test_spoof = pd.concat(test_spoof_list)
+    test_df = pd.concat([test_bonafide, test_spoof])
+    test_ids = set(test_df["row_id"])
+
+    rem_bonafide = bonafide_df[~bonafide_df["row_id"].isin(test_ids)]
+    rem_spoof = spoof_df[~spoof_df["row_id"].isin(test_ids)]
+
+    pools = {}
+    for seed_idx in range(num_seeds):
+        seed_value = 1000 + seed_idx
+        rng_s = np.random.RandomState(seed_value)
+        for n in fewshot_sizes:
+            fs_bonafide = rem_bonafide.sample(n=n, random_state=rng_s)
+            per_model_fs = max(1, n // num_models)
+            fs_spoof_list = []
+            for _, grp in rem_spoof.groupby("clean_model"):
+                take_k = min(len(grp), per_model_fs)
+                fs_spoof_list.append(grp.sample(n=take_k, random_state=rng_s))
+            fs_spoof = pd.concat(fs_spoof_list)
+            # Adjust if exact N needed
+            if len(fs_spoof) < n:
+                extra_needed = n - len(fs_spoof)
+                extra_candidates = rem_spoof[~rem_spoof["row_id"].isin(fs_spoof["row_id"])]
+                fs_spoof = pd.concat([fs_spoof, extra_candidates.sample(n=extra_needed, random_state=rng_s)])
+            elif len(fs_spoof) > n:
+                fs_spoof = fs_spoof.sample(n=n, random_state=rng_s)
+
+            pool_df = pd.concat([fs_bonafide, fs_spoof])
+            pools[(n, seed_idx)] = {
+                "row_ids": set(pool_df["row_id"]),
+                "df": pool_df,
+            }
+
+    print("Strictly balanced cached splits created:")
+    print(f"  Test: {len(test_df)} samples ({len(test_bonafide)} bonafide, {len(test_spoof)} spoof)")
+    for (n, seed_idx), pool_info in pools.items():
+        b_count = (pool_info["df"]["label"] == "bonafide").sum()
+        s_count = (pool_info["df"]["label"] == "spoof").sum()
+        print(f"  Pool (N={n}, seed={seed_idx}): {len(pool_info['df'])} ({b_count} bonafide, {s_count} spoof)")
+
+    return test_ids, test_df, pools
+
+
 if __name__ == "__main__":
     if PARQUET_PATH.exists():
         print(f"Loading metadata from {PARQUET_PATH}...")

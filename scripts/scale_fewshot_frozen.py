@@ -39,6 +39,7 @@ from scripts.features import (
 from scripts.metrics import print_comparison_table
 from scripts.model import load_backbone
 from scripts.splits import (
+    create_balanced_cached_splits,
     create_fewshot_pools,
     create_test_split,
     get_all_needed_ids,
@@ -55,10 +56,11 @@ def main():
     parser.add_argument("--parquet-path", type=str, default="data/sea_spoof_en_hi_metadata.parquet")
     parser.add_argument("--audio-cache-dir", type=str, default="data/deepfake_cache/audio")
     parser.add_argument("--feature-cache-dir", type=str, default="data/deepfake_cache/features")
-    parser.add_argument("--fewshot-sizes", type=int, nargs="+", default=[10, 25, 50, 100, 200], help="List of N values to test")
-    parser.add_argument("--test-per-class", type=int, default=250, help="Test samples per class (default: 250)")
+    parser.add_argument("--fewshot-sizes", type=int, nargs="+", default=[10, 25, 50], help="List of N values to test (default: 10 25 50)")
+    parser.add_argument("--test-per-class", type=int, default=200, help="Test samples per class (default: 200)")
     parser.add_argument("--epochs", type=int, default=10, help="Training epochs for SLS head (default: 10)")
     parser.add_argument("--num-seeds", type=int, default=3, help="Number of random seeds (default: 3)")
+    parser.add_argument("--from-cached", action="store_true", help="Build strictly balanced test & few-shot splits directly from cached audio files (eliminates class imbalance and generator bias).")
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--output-json", type=str, default="outputs/results_scale_n_frozen.json")
     args = parser.parse_args()
@@ -89,15 +91,29 @@ def main():
 
     # 1. Load Metadata & Generate Splits
     df_hindi = load_hindi_metadata(parquet_path)
-    test_ids, test_df = create_test_split(df_hindi, test_per_class=args.test_per_class, seed=42)
-    fewshot_pools = create_fewshot_pools(
-        df_hindi,
-        test_ids=test_ids,
-        fewshot_sizes=args.fewshot_sizes,
-        num_seeds=args.num_seeds,
-    )
-    all_needed_ids = get_all_needed_ids(test_ids, fewshot_pools)
-    labels_dict = get_labels_for_ids(df_hindi, all_needed_ids)
+    if args.from_cached:
+        cached_audio_ids = {p.stem for p in audio_cache_dir.glob("*.pt")}
+        logger.info(f"Using --from-cached: found {len(cached_audio_ids)} cached audio clips on disk.")
+        test_ids, test_df, fewshot_pools = create_balanced_cached_splits(
+            df_hindi,
+            cached_ids=cached_audio_ids,
+            test_per_class=args.test_per_class,
+            fewshot_sizes=args.fewshot_sizes,
+            num_seeds=args.num_seeds,
+            seed=42,
+        )
+        all_needed_ids = get_all_needed_ids(test_ids, fewshot_pools)
+        labels_dict = get_labels_for_ids(df_hindi, all_needed_ids)
+    else:
+        test_ids, test_df = create_test_split(df_hindi, test_per_class=args.test_per_class, seed=42)
+        fewshot_pools = create_fewshot_pools(
+            df_hindi,
+            test_ids=test_ids,
+            fewshot_sizes=args.fewshot_sizes,
+            num_seeds=args.num_seeds,
+        )
+        all_needed_ids = get_all_needed_ids(test_ids, fewshot_pools)
+        labels_dict = get_labels_for_ids(df_hindi, all_needed_ids)
 
     # 2. Extract & Cache Features on GPU for all cached audio
     # Check which audio clips are available

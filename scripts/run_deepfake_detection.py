@@ -36,6 +36,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 # Imports from the scripts package
 # ---------------------------------------------------------------------------
 from scripts.splits import (
+    create_balanced_cached_splits,
     create_fewshot_pools,
     create_test_split,
     get_all_needed_ids,
@@ -185,6 +186,11 @@ def main():
         action="store_true",
         help="Skip feature extraction (assume already cached).",
     )
+    parser.add_argument(
+        "--from-cached",
+        action="store_true",
+        help="Build strictly balanced test & few-shot splits directly from cached audio files (eliminates class imbalance and generator bias).",
+    )
     args = parser.parse_args()
 
     # ---- Logging ----
@@ -241,18 +247,37 @@ def main():
     spoof_avail = int((df_hindi["label"] == "spoof").sum())
     min_avail = min(bonafide_avail, spoof_avail)
 
-    if args.test_per_class is not None:
-        test_per_class = args.test_per_class
-    elif min_avail >= 300:
-        test_per_class = 250
+    if args.from_cached:
+        cached_audio_ids = {p.stem for p in audio_cache_dir.glob("*.pt")}
+        logger.info(f"Using --from-cached: found {len(cached_audio_ids)} cached audio clips on disk.")
+        test_per_class = args.test_per_class if args.test_per_class is not None else 200
+        test_ids, test_df, fewshot_pools = create_balanced_cached_splits(
+            df_hindi,
+            cached_ids=cached_audio_ids,
+            test_per_class=test_per_class,
+            fewshot_sizes=[10, 50],
+            num_seeds=3,
+            seed=42,
+        )
+        all_needed_ids = get_all_needed_ids(test_ids, fewshot_pools)
+        labels_dict = get_labels_for_ids(df_hindi, all_needed_ids)
     else:
-        test_per_class = min(50, max(10, min_avail - 60))
+        bonafide_avail = int((df_hindi["label"] == "bonafide").sum())
+        spoof_avail = int((df_hindi["label"] == "spoof").sum())
+        min_avail = min(bonafide_avail, spoof_avail)
 
-    logger.info(f"Using test_per_class={test_per_class} (available bonafide: {bonafide_avail}, spoof: {spoof_avail})")
-    test_ids, test_df = create_test_split(df_hindi, test_per_class=test_per_class)
-    fewshot_pools = create_fewshot_pools(df_hindi, test_ids, fewshot_sizes=[10, 50], num_seeds=3)
-    all_needed_ids = get_all_needed_ids(test_ids, fewshot_pools)
-    labels_dict = get_labels_for_ids(df_hindi, all_needed_ids)
+        if args.test_per_class is not None:
+            test_per_class = args.test_per_class
+        elif min_avail >= 300:
+            test_per_class = 250
+        else:
+            test_per_class = min(50, max(10, min_avail - 60))
+
+        logger.info(f"Using test_per_class={test_per_class} (available bonafide: {bonafide_avail}, spoof: {spoof_avail})")
+        test_ids, test_df = create_test_split(df_hindi, test_per_class=test_per_class)
+        fewshot_pools = create_fewshot_pools(df_hindi, test_ids, fewshot_sizes=[10, 50], num_seeds=3)
+        all_needed_ids = get_all_needed_ids(test_ids, fewshot_pools)
+        labels_dict = get_labels_for_ids(df_hindi, all_needed_ids)
 
     logger.info(f"Test set: {len(test_ids)} samples")
     logger.info(f"Total unique IDs needed: {len(all_needed_ids)}")
@@ -263,8 +288,8 @@ def main():
     logger.info("STEP 3: Stream and cache audio")
     logger.info("=" * 70)
 
-    if args.skip_streaming:
-        logger.info("Skipping audio streaming (--skip-streaming)")
+    if args.skip_streaming or args.from_cached:
+        logger.info("Skipping audio streaming (--skip-streaming or --from-cached)")
     else:
         t0 = time.time()
         found = stream_and_cache_audio(all_needed_ids, cache_dir=audio_cache_dir)
