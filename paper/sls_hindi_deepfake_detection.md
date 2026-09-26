@@ -9,7 +9,7 @@
 ## Abstract
 Recent advances in neural voice cloning and text-to-speech synthesis (TTS) have made audio deepfakes a pervasive security threat, particularly in non-English linguistic regions where dedicated spoofing benchmarks and language-specific detectors are scarce. In this work, we evaluate the cross-lingual generalization and parameter-efficient adaptation of **Sensitive Layer Summarization (SLS)** on top of a frozen multilingual foundation model (**Wav2Vec2 XLS-R 300M**) for Hindi audio deepfake detection. 
 
-We identify and demonstrate a critical methodological pitfall in cross-lingual benchmarking: **generator acoustic bias**. When evaluated on single-source synthetic audio (V1), detectors exploit spurious synthesis shortcuts, producing an artificially low Equal Error Rate (EER) of **0.40%**. To eliminate this shortcut, we construct a strictly balanced, multi-generator benchmark (V2) comprising 400 test samples (200 bonafide from studio and crowdsourced recordings; 200 spoof evenly stratified across 5 distinct TTS architectures: Edge-TTS, FastSpeech, Indic-TTS, VITS-MMS, and XTTS-v2). 
+To enable rigorous cross-lingual benchmarking without distributional artifacts, we construct a strictly balanced, multi-generator benchmark comprising 400 held-out test samples (200 bonafide from studio and crowdsourced recordings; 200 spoof evenly stratified across 5 distinct TTS architectures: Edge-TTS, FastSpeech, Indic-TTS, VITS-MMS, and XTTS-v2). 
 
 Evaluating an English-pretrained SLS checkpoint zero-shot on Hindi reveals a substantial cross-lingual domain shift: genuine Hindi speech is detected with 98.00% recall, but synthetic speech frequently evades detection, yielding an EER of **28.90%** and **60.00% accuracy**. Fine-tuning only the lightweight SLS classifier head (~22.8M parameters) with few-shot Hindi supervision rapidly closes this gap: with as few as $N=10$ samples per class, EER improves to **26.88%** ($65.83\%$ accuracy); scaling to $N=50$ samples per class reduces EER to **19.70%** and drives accuracy to **79.67%** (a 9.2% absolute EER reduction). 
 
@@ -27,7 +27,7 @@ Building dedicated large-scale deepfake datasets for every under-resourced langu
 This work provides a rigorous investigation into this question using the **Selective / Sensitive Layer Summarization (SLS)** framework built on a frozen **XLS-R 300M** foundation model. Specifically, our contributions are:
 
 1. **Quantifying Cross-Lingual Domain Shift**: We evaluate an English-pretrained SLS detector on Hindi speech without target-language adaptation (Zero-Shot), demonstrating an asymmetric failure mode where genuine speech is preserved (98.00% recall) while 44.3% of synthetic speech evades detection (28.90% EER).
-2. **Uncovering and Resolving Generator Bias**: We demonstrate that evaluating synthetic speech detectors on unstratified datasets (V1) creates spurious correlation shortcuts, artificially deflating EER to 0.40%. We formalize a 5-generator stratified evaluation protocol (V2) that prevents acoustic shortcut learning and measures true cross-generator generalization.
+2. **Stratified Multi-Generator Benchmark**: We establish a strictly balanced 400-sample test suite stratified equally across 5 state-of-the-art TTS architectures (Edge-TTS, FastSpeech, Indic-TTS, VITS-MMS, XTTS-v2) alongside diverse studio and in-the-wild bonafide speech, establishing an unbiased evaluation standard for Indic deepfake detection.
 3. **Parameter-Efficient Few-Shot Adaptation**: We show that fine-tuning solely the lightweight SLS head with $N \in \{10, 50\}$ Hindi samples per class achieves monotonic performance gains, decreasing EER from 28.90% to 19.70% and increasing accuracy from 60.00% to 79.67%.
 4. **Backbone Unfreezing vs. Frozen Foundation Analysis**: On an NVIDIA L4 GPU, we show that unfreezing transformer backbone layers during few-shot adaptation causes severe overfitting, confirming that keeping the 315M-parameter foundation backbone completely frozen provides optimal regularization.
 
@@ -84,18 +84,13 @@ SLS addresses this by learning a soft attention gate over all 24 transformer rep
 
 ---
 
-## 3. Dataset Construction & The Generator Bias Phenomenon
+## 3. Benchmark Construction & Generator Stratification
 
 ![Dataset Architecture](outputs/figures/fig4_generator_stratification.png)
-*Figure 1: Architecture of the V2 Balanced Benchmark: 50/50 Binary Class Balance (left) and strict 20% stratification across 5 distinct TTS generator architectures (right).*
+*Figure 1: Architecture of the Balanced Benchmark: 50/50 Binary Class Balance (left) and strict 20% stratification across 5 distinct TTS generator architectures (right).*
 
-### 3.1 The Dataset Bias Hypothesis (V1 Pitfall)
-In preliminary experiments (designated **V1**), synthetic audio was sampled uniformly from the SEA-Spoof Hindi corpus without controlling for generator provenance. This resulted in an evaluation set where spoof audio was heavily dominated by a single voice synthesizer (`indic_tts`). 
-
-Under this setting, the model achieved an apparent Equal Error Rate of **0.40%** at $N=50$. However, auditing the learned attention weights and latent space revealed that the classifier was not learning general deepfake artifacts; rather, it was learning the specific spectral signature and vocoder artifacts of the dominant TTS engine.
-
-### 3.2 Formalizing the V2 Stratified Benchmark
-To prevent shortcut learning and measure genuine cross-generator generalization, we constructed the **V2 Benchmark** from the SEA-Spoof Hindi subset (54,938 total candidate utterances):
+### 3.1 Stratified Multi-Generator Architecture
+To prevent shortcut learning on isolated vocoder signatures and measure genuine cross-generator generalization, we constructed the Hindi evaluation benchmark from the SEA-Spoof Hindi subset (54,938 total candidate utterances):
 - **Bonafide Class (400 samples total)**: Balanced between high-quality studio recordings (IndicTTS, ~60%) and in-the-wild crowdsourced acoustic environments (Mozilla Common Voice Hindi, ~40%).
 - **Spoof Class (400 samples total)**: Equally stratified across **5 distinct TTS architectures** (80 samples each, exactly 20.0% per generator):
   1. `edge_tts`: Microsoft cloud neural TTS (fast, production voice cloning).
@@ -171,30 +166,21 @@ With only 100 training examples ($N=50$), gradient updates through the high-capa
 
 ---
 
-## 6. The V1 vs. V2 Benchmark Comparison
-
-![Dataset Bias Phenomenon](outputs/figures/fig1_dataset_bias_v1_vs_v2.png)
-*Figure 4: The Dataset Bias Phenomenon. V1 (red) exploited acoustic shortcuts in single-source synthetic audio, achieving an artificially low EER of 0.40%. V2 (blue) stratifies 5 distinct TTS generators, revealing true cross-generator generalization difficulty.*
-
-**Table 3: Empirical Comparison between Biased (V1) and Stratified (V2) Benchmarks**
-
-| Setting | V1 EER (Single-Source) | V2 EER (5-Generator Stratified) | Performance Discrepancy |
-| :--- | :---: | :---: | :---: |
-| **Zero-Shot** | 10.60% | 28.90% | +18.30% (Severe generalization gap) |
-| **Few-Shot $N=10$** | 1.97% | 26.88% | +24.91% (V1 shortcut exploited) |
-| **Few-Shot $N=50$** | 0.40% | 19.70% | +19.30% (Realistic frontier established) |
-
-This comparison highlights a critical insight for speech deepfake research: **reported sub-1% EERs in cross-lingual benchmarks must be scrutinized for generator monoculture**. Only stratified multi-generator evaluations reflect real-world defense efficacy.
+## 6. Discussion & Practical Deployment
+Our empirical findings highlight key practical insights for defending low-resource languages against voice spoofing:
+1. **Rapid Field Calibration**: Adapting solely the lightweight SLS head with $N=50$ samples per class requires under 15 seconds of compute time on an L4 GPU. This enables rapid, cost-effective calibration to new dialects and languages without expensive retraining of multi-hundred-million-parameter foundation backbones.
+2. **The Necessity of Freezing Foundation Backbones**: The sharp degradation observed when unfreezing top transformer layers (+5.61% EER) demonstrates that low-data regimes cannot support fine-tuning foundation representations without catastrophic overfitting. Freezing 100% of the backbone provides a vital regularization anchor.
+3. **Asymmetric Risk Management**: While zero-shot transfer yields 98.00% recall on genuine speech, its 55.68% precision on synthetic speech leaves organizations vulnerable. Few-shot calibration directly remedies this by tightening the spoof decision boundary without compromising bonafide throughput.
 
 ---
 
 ## 7. Conclusion
-In this work, we presented an empirical benchmark for cross-lingual audio deepfake detection on low-resource Hindi speech using Sensitive Layer Summarization on top of a frozen XLS-R 300M backbone. We identified the generator bias trap that artificially inflates detection metrics on single-source synthetic audio, and introduced a 50/50 balanced, 5-generator stratified benchmark. 
+In this work, we presented an empirical benchmark for cross-lingual audio deepfake detection on low-resource Hindi speech using Sensitive Layer Summarization on top of a frozen XLS-R 300M backbone evaluated on a strictly balanced, 5-generator stratified benchmark. 
 
 Our findings demonstrate that:
-1. Zero-shot transfer from English leaves an asymmetric spoof vulnerability (28.90% EER).
-2. Fine-tuning only the SLS head with $N=50$ samples reduces EER to 19.70% and boosts accuracy to 79.67%.
-3. Fully freezing the foundation backbone is essential, as unfreezing transformer layers causes catastrophic few-shot overfitting (+5.6% EER degradation).
+1. Zero-shot cross-lingual transfer from English leaves an asymmetric spoof vulnerability (28.90% EER, 60.00% accuracy).
+2. Parameter-efficient fine-tuning of solely the SLS head with $N=50$ samples reduces EER to 19.70% and boosts accuracy to 79.67%.
+3. Fully freezing the foundation backbone is essential, as unfreezing upper transformer layers causes severe few-shot overfitting (+5.61% EER degradation).
 
 ---
 
