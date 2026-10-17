@@ -5,7 +5,7 @@ calibration.py
 Threshold calibration and evaluation for the ECAPA-TDNN cosine-similarity
 baseline, from LABELED trial data.
 
-Scope (unchanged from the Phase 1 scoping correction — see CLAUDE.md /
+Scope (unchanged from the Phase 1 scoping correction, see
 docs/architecture.md):
     - genuine/impostor trial score handling
     - score distribution statistics
