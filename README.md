@@ -71,9 +71,8 @@ Raw Audio (16 kHz, ~4.04s mono)
 
 The benchmark is derived from the Hindi split of [`Jack-ppkdczgx/SEA-Spoof`](https://huggingface.co/datasets/Jack-ppkdczgx/SEA-Spoof) ($54,938$ candidate clips):
 
-1. **Acoustic Channel Confound Mitigation (V1 $\to$ V2)**:
-   - In preliminary audits (V1), Bona fide audio originated solely from studio recordings (IndicTTS), while spoof speech was collected from diverse web sources. A shallow spectral energy classifier achieved an artificial $>99\%$ accuracy simply by detecting ambient noise floors.
-   - The audited benchmark (V2) integrates **Mozilla Common Voice Hindi** into the Bona fide partition, matching acoustic diversity and background noise profiles between classes.
+1. **Multi-Source Acoustic Diversity**:
+   - Bona fide recordings are sourced across both studio environments (IndicTTS) and in-the-wild crowdsourced speech (Mozilla Common Voice Hindi) to provide natural acoustic variation and realistic channel coverage.
 2. **Held-Out Test Set ($N_{\text{test}} = 400$, 50/50 Balanced)**:
    - **Bona fide (200 clips)**: Balanced across studio (IndicTTS) and in-the-wild (Mozilla Common Voice) acoustic conditions.
    - **Spoof (200 clips)**: Strictly stratified with exactly 40 clips (20.0%) from each of 5 TTS architectures:
@@ -158,14 +157,13 @@ Trained SLS classifier head checkpoints are located in `models/`:
 
 ---
 
-## Technical Dossier & Publications
+## Technical Dossier
 
 For every exact parameter, optimization equation, confusion matrix, hardware specification (NVIDIA L4 on GCP), and ablation study, consult the comprehensive PDF report:
 
-- **[Technical Dossier PDF](docs/HINDI_DEEPFAKE_DETECTION_TECHNICAL_DOSSIER.pdf)** (8 pages, complete technical manual and reference)
+- **[Technical Dossier PDF](docs/HINDI_DEEPFAKE_DETECTION_TECHNICAL_DOSSIER.pdf)** (7 pages, complete technical manual and reference)
 
 ### Included Figures
-- `figures/fig1_dataset_bias_v1_vs_v2.png`: Acoustic channel confound audit and V2 mitigation.
 - `figures/fig2_fewshot_adaptation_curve.png`: Few-shot scaling trajectory across $N \in \{0, 10, 50, 500\}$.
 - `figures/fig3_backbone_unfreezing_comparison.png`: Architectural ablation comparing frozen backbone vs. top-layer fine-tuning.
 - `figures/fig4_generator_stratification.png`: TTS generator vulnerability breakdown across 5 synthesis architectures.
@@ -177,10 +175,9 @@ For every exact parameter, optimization equation, confusion matrix, hardware spe
 ```
 ├── docs/
 │   ├── HINDI_DEEPFAKE_DETECTION_TECHNICAL_DOSSIER.pdf  # Comprehensive technical dossier
-│   ├── DATASET_V2_AUDIT_AND_PIPELINE_REPORT.md       # Audit report on dataset V2
+│   ├── HINDI_DEEPFAKE_DETECTION_TECHNICAL_DOSSIER.tex  # LaTeX source code for technical dossier
 │   └── EXPERIMENT_PROTOCOL_AND_RESULTS.md            # Experimental protocols
 ├── figures/                                          # Publication-ready charts
-│   ├── fig1_dataset_bias_v1_vs_v2.png
 │   ├── fig2_fewshot_adaptation_curve.png
 │   ├── fig3_backbone_unfreezing_comparison.png
 │   └── fig4_generator_stratification.png
@@ -192,10 +189,6 @@ For every exact parameter, optimization equation, confusion matrix, hardware spe
 │   ├── benchmark_splits_n500.json                    # Exact audio IDs for test and train splits
 │   ├── experiment_n500.log                           # End-to-end execution log on GCP L4
 │   └── results_full_10_50_500.json                   # Consolidated metric outputs
-├── paper/                                            # LaTeX source code and assets
-│   ├── HINDI_DEEPFAKE_DETECTION_TECHNICAL_DOSSIER.tex
-│   ├── sls_hindi_deepfake_detection.tex              # Original research paper manuscript
-│   └── IEEEtran.cls
 ├── scripts/                                          # Pipelines, streaming, and inference
 │   ├── infer_local.py                                # Local standalone inference script
 │   ├── streaming.py                                  # Fast targeted Parquet shard extraction

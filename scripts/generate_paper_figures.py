@@ -3,10 +3,9 @@
 Generate publication-quality figures for the Audio Deepfake Detection paper.
 
 Produces:
-  1. fig1_dataset_bias_v1_vs_v2.png: The Dataset Bias Phenomenon (V1 Shortcut vs V2 Realistic Benchmark)
-  2. fig2_fewshot_adaptation_curve.png: Accuracy and EER across N in {0, 10, 50} with standard deviation
-  3. fig3_backbone_unfreezing_comparison.png: Frozen Backbone vs Unfrozen Top-2 Layers vs Top-4 Layers
-  4. fig4_generator_stratification.png: Balanced 5-Generator and Multi-Source Bonafide Dataset Architecture
+  1. fig2_fewshot_adaptation_curve.png: Accuracy and EER across N in {0, 10, 50, 500} with standard deviation
+  2. fig3_backbone_unfreezing_comparison.png: Frozen Backbone vs Unfrozen Top-2 Layers vs Top-4 Layers
+  3. fig4_generator_stratification.png: Balanced 5-Generator and Multi-Source Bonafide Dataset Architecture
 """
 
 from pathlib import Path
@@ -31,63 +30,6 @@ plt.rcParams.update({
 
 OUTPUT_DIR = Path("outputs/figures")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def plot_fig1_dataset_bias():
-    """Fig 1: The Dataset Bias Phenomenon (V1 Shortcut vs V2 Realistic Benchmark)."""
-    fig, ax = plt.subplots(figsize=(7, 4.2))
-
-    categories = ["Zero-Shot\n(N=0)", "Few-Shot\n(N=10)", "Few-Shot\n(N=50)"]
-    x = np.arange(len(categories))
-    width = 0.35
-
-    # EER values
-    v1_eer = [10.60, 1.97, 0.40]
-    v2_eer = [28.90, 26.88, 19.70]
-
-    rects1 = ax.bar(x - width/2, v1_eer, width, label="V1 (Biased, Single-Source)", color="#e74c3c", alpha=0.88, edgecolor="#c0392b", linewidth=1.2)
-    rects2 = ax.bar(x + width/2, v2_eer, width, label="V2 (Balanced, 5 Generators)", color="#2980b9", alpha=0.88, edgecolor="#1c5980", linewidth=1.2)
-
-    ax.set_ylabel("Equal Error Rate (EER %)", fontweight="bold")
-    ax.set_title("Cross-Lingual Deepfake Detection: The Dataset Bias Phenomenon", fontweight="bold", pad=12)
-    ax.set_xticks(x)
-    ax.set_xticklabels(categories, fontweight="bold")
-    ax.set_ylim(0, 38)
-    ax.legend(frameon=True, facecolor="white", edgecolor="#bdc3c7", loc="upper left")
-
-    # Add data labels
-    for rect in rects1:
-        h = rect.get_height()
-        ax.annotate(f"{h:.2f}%",
-                    xy=(rect.get_x() + rect.get_width() / 2, h),
-                    xytext=(0, 3), textcoords="offset points",
-                    ha="center", va="bottom", fontsize=10, fontweight="bold", color="#c0392b")
-
-    for rect in rects2:
-        h = rect.get_height()
-        ax.annotate(f"{h:.2f}%",
-                    xy=(rect.get_x() + rect.get_width() / 2, h),
-                    xytext=(0, 3), textcoords="offset points",
-                    ha="center", va="bottom", fontsize=10, fontweight="bold", color="#1c5980")
-
-    # Add explanatory annotation
-    ax.annotate("V1 exploited generator\nshortcuts (artificially low EER)",
-                xy=(1.82, 0.6), xytext=(1.05, 8.5),
-                arrowprops=dict(arrowstyle="->", color="#c0392b", lw=1.5),
-                fontsize=9.5, color="#c0392b", fontweight="bold",
-                bbox=dict(boxstyle="round,pad=0.3", fc="#fadbd8", ec="#e74c3c", lw=1))
-
-    ax.annotate("V2 tests true cross-generator\ngeneralization across 5 TTS models",
-                xy=(2.18, 20.0), xytext=(0.85, 30.5),
-                arrowprops=dict(arrowstyle="->", color="#1c5980", lw=1.5),
-                fontsize=9.5, color="#1c5980", fontweight="bold",
-                bbox=dict(boxstyle="round,pad=0.3", fc="#ebf5fb", ec="#2980b9", lw=1))
-
-    plt.tight_layout()
-    out_path = OUTPUT_DIR / "fig1_dataset_bias_v1_vs_v2.png"
-    plt.savefig(out_path)
-    plt.close()
-    print(f"Saved: {out_path}")
 
 
 def plot_fig2_adaptation_curve():
@@ -234,12 +176,11 @@ def plot_fig4_generator_stratification():
 
 
 def main():
-    print("Generating publication figures...")
-    plot_fig1_dataset_bias()
+    print("Generating figures...")
     plot_fig2_adaptation_curve()
     plot_fig3_unfreezing()
     plot_fig4_generator_stratification()
-    print("All publication figures successfully created in outputs/figures/!")
+    print("All figures successfully created in outputs/figures/!")
 
 
 if __name__ == "__main__":

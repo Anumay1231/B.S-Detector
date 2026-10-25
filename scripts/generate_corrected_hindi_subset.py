@@ -331,7 +331,7 @@ def main():
     if old_path.exists():
         df_old = pd.read_parquet(old_path)
         overlap = set(df_old["row_id"]) & set(df_sampled["row_id"])
-        print(f"\nOverlap with old v1 subset: {len(overlap)}/{len(df_old)} row_ids")
+        print(f"\nOverlap with previous subset: {len(overlap)}/{len(df_old)} row_ids")
         print("(Some overlap is expected by chance; the key is diversity, not disjointness)")
 
     logger.info("\n" + "=" * 70)

@@ -25,7 +25,7 @@
 \lhead{\small\textit{Engineering Dossier \& Parameter Reference}}
 \cfoot{\thepage}
 
-\graphicspath{{figures/}{../figures/}{./}}
+\graphicspath{{../figures/}{figures/}{./}}
 
 \definecolor{headergray}{gray}{0.92}
 \definecolor{codegray}{gray}{0.96}
@@ -53,7 +53,7 @@ Branch: \texttt{base} \quad | \quad Date: October 2026}
 \maketitle
 
 \begin{abstract}
-This technical dossier provides an exhaustive specification of every architectural parameter, hyperparameter, dataset partition rule, optimization detail, hardware environment, and empirical finding for the parameter-efficient audio deepfake detection benchmark on low-resource Hindi speech. The system couples a frozen multilingual \textbf{Wav2Vec2 XLS-R 300M} foundation encoder with a trainable \textbf{Sensitive Layer Selection (SLS)} head. We document the scaling trajectory from zero-shot English transfer ($N=0$) through few-shot supervision at $N=10$, $N=50$, and $N=500$ samples per class across three independent deterministic seeds, alongside backbone unfreezing ablations, dataset bias audits, and generator-stratified evaluations. Trained and evaluated on an NVIDIA L4 GPU instance on Google Cloud Platform, the system attains a state-of-the-art \textbf{2.66\% Equal Error Rate (EER)} and \textbf{96.83\% Accuracy} at $N=500$ (with peak seed performance of \textbf{98.00\% Accuracy} and \textbf{2.12\% EER}).
+This technical dossier provides an exhaustive specification of every architectural parameter, hyperparameter, dataset partition rule, optimization detail, hardware environment, and empirical finding for the parameter-efficient audio deepfake detection benchmark on low-resource Hindi speech. The system couples a frozen multilingual \textbf{Wav2Vec2 XLS-R 300M} foundation encoder with a trainable \textbf{Sensitive Layer Selection (SLS)} head. We document the scaling trajectory from zero-shot English transfer ($N=0$) through few-shot supervision at $N=10$, $N=50$, and $N=500$ samples per class across three independent deterministic seeds, alongside backbone unfreezing ablations and multi-generator stratified evaluations. Trained and evaluated on an NVIDIA L4 GPU instance on Google Cloud Platform, the system attains a state-of-the-art \textbf{2.66\% Equal Error Rate (EER)} and \textbf{96.83\% Accuracy} at $N=500$ (with peak seed performance of \textbf{98.00\% Accuracy} and \textbf{2.12\% EER}).
 \end{abstract}
 
 \vspace{0.5em}
@@ -218,7 +218,7 @@ The benchmark is constructed from the Hindi split of \texttt{Jack-ppkdczgx/SEA-S
     \item \textbf{Candidate Pool}: $16,182$ Bona fide samples, $38,756$ Spoof samples.
     \item \textbf{Held-Out Balanced Test Set ($N_{\text{test}} = 400$)}:
     \begin{itemize}
-        \item \textbf{Bona fide Class (200 clips)}: Multi-source balanced between studio acoustic environments (IndicTTS) and in-the-wild crowdsourced speech (Mozilla Common Voice Hindi).
+        \item \textbf{Bona fide Class (200 clips)}: Multi-source balanced between studio acoustic environments (IndicTTS) and in-the-wild crowdsourced speech (Mozilla Common Voice Hindi) to provide robust, realistic acoustic coverage.
         \item \textbf{Spoof Class (200 clips)}: Strictly stratified with exactly 40 clips (20.0\%) from each of \textbf{5 state-of-the-art TTS architectures}:
         \begin{enumerate}
             \item \texttt{edge\_tts}: Microsoft Azure Neural cloud voice synthesizer.
@@ -234,16 +234,6 @@ The benchmark is constructed from the Hindi split of \texttt{Jack-ppkdczgx/SEA-S
     \mathcal{D}_{\text{train}}^{(N=10, s)} \subset \mathcal{D}_{\text{train}}^{(N=50, s)} \subset \mathcal{D}_{\text{train}}^{(N=500, s)}
     \end{equation}
 \end{itemize}
-
-\subsection{Dataset Bias Audit: V1 vs. V2 Mitigation}
-During dataset formulation, audit of Dataset V1 uncovered a critical acoustic channel confound: Bona fide audio was drawn exclusively from studio recordings (IndicTTS) whereas spoof speech spanned diverse web sources. A shallow spectral energy detector achieved artificial $>99\%$ accuracy simply by identifying ambient noise floor variations. Dataset V2 resolved this by injecting Mozilla Common Voice recordings into the Bona fide split, balancing SNR and channel characteristics (Figure \ref{fig:bias_audit}).
-
-\begin{figure}[h!]
-\centering
-\includegraphics[width=0.85\columnwidth]{fig1_dataset_bias_v1_vs_v2.png}
-\caption{Dataset Bias Audit and Mitigation. Comparison of Dataset V1 (channel-confounded) versus Dataset V2 (audited benchmark with matched acoustic diversity between bona fide and spoof speech).}
-\label{fig:bias_audit}
-\end{figure}
 
 \subsection{Parquet Shard Indexing Math}
 The SEA-Spoof repository organizes training audio into 30 Parquet files (\texttt{train-00000.parquet} to \texttt{train-00029.parquet}). Shard and row-group boundaries obey strict mathematical determinism:
@@ -371,7 +361,7 @@ Evaluating backbone layer unfreezing on the NVIDIA L4 GPU reveals severe few-sho
 \end{figure}
 
 \subsection{Generator Stratification \& Detection Vulnerability}
-Figure \ref{fig:generator_strat} illustrates spoof detection accuracy across the five distinct text-to-speech architectures. While zero-shot transfer fails dramatically on neural diffusion models like \texttt{xtts-v2} and end-to-end models like \texttt{vits\_mms}, few-shot adaptation at $N=500$ achieves over $96\%$ detection accuracy uniformly across all five generator paradigms.
+Figure \ref{fig:generator_strat} illustrates spoof detection accuracy across the five distinct text-to-speech architectures. While zero-shot transfer exhibits vulnerability to neural diffusion models like \texttt{xtts-v2} and end-to-end models like \texttt{vits\_mms}, few-shot adaptation at $N=500$ achieves over $96\%$ detection accuracy uniformly across all five generator paradigms.
 
 \begin{figure}[h!]
 \centering
