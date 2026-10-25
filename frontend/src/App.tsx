@@ -9,6 +9,7 @@ import { Analyzer, type SampleRequest } from './components/Analyzer'
 import { Findings } from './components/Findings'
 import { Method } from './components/Method'
 import { Footer } from './components/Footer'
+import { Cursor } from './components/Cursor'
 
 const initial: Status = { state: 'connecting', message: 'Connecting to the local server…', device: null, checkpoint: 'v1', windowSeconds: 4.0375 }
 
@@ -73,6 +74,7 @@ export default function App() {
     const el = document.getElementById('nav-status')
     if (!el) return
     el.textContent = statusText(status)
+    el.dataset.state = status.state === 'ready' && status.verifier?.state === 'ready' ? 'ready' : status.state
     el.title = [status.message, status.verifier?.message].filter(Boolean).join(' ')
   }, [status])
 
@@ -103,6 +105,7 @@ export default function App() {
       <Findings />
       <Method />
       {footer && createPortal(<Footer />, footer)}
+      <Cursor />
     </>
   )
 }

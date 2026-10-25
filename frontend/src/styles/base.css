@@ -262,3 +262,204 @@ canvas {
     transform: none;
   }
 }
+
+/* ================================================================ lively copy */
+
+/* Italic words in headings: sienna, with a peach marker that swipes in under them. */
+h1 em,
+h2 em {
+  color: var(--color-sienna-brown);
+  padding-inline: 0.06em;
+  margin-inline: -0.06em;
+  background: linear-gradient(var(--pop-wash), var(--pop-wash)) no-repeat 0 76% / 0% 0.3em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-size var(--dur-slow) var(--ease-out) 260ms;
+}
+
+.hero-title em {
+  animation: marker 760ms var(--ease-out) 420ms both;
+}
+
+.is-visible h2 em,
+h2.is-visible em {
+  background-size: 100% 0.3em;
+}
+
+@keyframes marker {
+  from {
+    background-size: 0% 0.3em;
+  }
+  to {
+    background-size: 100% 0.3em;
+  }
+}
+
+/* The question mark tilts its head, suspicious, when you look at the headline. */
+.qmark {
+  display: inline-block;
+  transform-origin: 40% 90%;
+}
+
+.hero-title:hover .qmark {
+  animation: head-tilt 900ms var(--ease-in-out);
+}
+
+@keyframes head-tilt {
+  25% {
+    rotate: -14deg;
+  }
+  55% {
+    rotate: 9deg;
+  }
+  80% {
+    rotate: -3deg;
+  }
+}
+
+/* Pills squish when pressed and warm up on hover. */
+.pill {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out),
+    scale var(--dur-base) var(--ease-bounce);
+}
+
+.pill:active:not(:disabled) {
+  scale: 0.95;
+  transition-duration: 80ms;
+}
+
+.pill-filled:hover:not(:disabled) {
+  background: var(--color-sienna-brown);
+  border-color: var(--color-sienna-brown);
+}
+
+.pill-ghost:hover:not(:disabled) {
+  background: var(--color-blush-peach);
+  border-color: var(--color-sienna-brown);
+  color: var(--color-sienna-brown);
+}
+
+/* Arrow links lean toward where they go. */
+.text-link span[aria-hidden] {
+  display: inline-block;
+  transition: translate var(--dur-base) var(--ease-bounce);
+}
+
+.text-link:hover span[aria-hidden] {
+  translate: 4px 0;
+}
+
+/* Nav links: the underline is drawn in, in the pop colour. */
+.nav-links a {
+  background: linear-gradient(var(--pop), var(--pop)) no-repeat 0 100% / 0% 2px;
+  transition:
+    background-size var(--dur-base) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.nav-links a:hover {
+  text-decoration: none;
+  color: var(--color-sienna-brown);
+  background-size: 100% 2px;
+}
+
+/* Logo: the five bars bob like a level meter, once on load and again on hover. */
+
+.logo svg g rect {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: logo-eq 700ms var(--ease-in-out) both;
+  animation-delay: calc(var(--n, 0) * 70ms + 200ms);
+}
+
+.logo svg g rect:nth-child(1) { --n: 0; }
+.logo svg g rect:nth-child(2) { --n: 1; }
+.logo svg g rect:nth-child(3) { --n: 2; }
+.logo svg g rect:nth-child(4) { --n: 3; }
+.logo svg g rect:nth-child(5) { --n: 4; }
+
+.logo:hover svg g rect {
+  animation: logo-eq-hover 520ms var(--ease-in-out) infinite alternate;
+  animation-delay: calc(var(--n, 0) * -110ms);
+}
+
+.logo:hover svg g {
+  fill: var(--pop-wash);
+}
+
+@keyframes logo-eq {
+  40% {
+    scale: 1 0.35;
+  }
+  70% {
+    scale: 1 1.15;
+  }
+}
+
+@keyframes logo-eq-hover {
+  from {
+    scale: 1 0.4;
+  }
+  to {
+    scale: 1 1.12;
+  }
+}
+
+/* Listening bars, used by the run button while a check runs. */
+.eq {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+}
+
+.eq i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: currentColor;
+  scale: 1 0.3;
+  animation: eq 560ms var(--ease-in-out) infinite alternate;
+}
+
+.eq i:nth-child(2) {
+  animation-delay: -180ms;
+}
+
+.eq i:nth-child(3) {
+  animation-delay: -360ms;
+}
+
+.eq i:nth-child(4) {
+  animation-delay: -90ms;
+}
+
+@keyframes eq {
+  to {
+    scale: 1 1;
+  }
+}
+
+/* Reveals land with a hint of bounce. */
+.reveal {
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-bounce);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  h1 em,
+  h2 em {
+    background-size: 100% 0.3em;
+    animation: none;
+  }
+  .logo svg g rect,
+  .logo:hover svg g rect,
+  .hero-title:hover .qmark {
+    animation: none;
+  }
+}

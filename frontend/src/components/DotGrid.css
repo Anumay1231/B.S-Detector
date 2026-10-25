@@ -113,3 +113,35 @@
     max-width: none;
   }
 }
+
+/* ---------------------------------------------------------- lively copy */
+
+/* Switching views: the dots hop to their new piles one after another, with a spring. */
+.dot {
+  transition:
+    transform 760ms var(--ease-bounce),
+    background-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+  transition-delay: calc((var(--c) + var(--r)) * 9ms);
+}
+
+.dotgrid-tab[aria-selected='true'] {
+  background: var(--color-blush-peach);
+  border-color: transparent;
+  color: var(--color-sienna-brown);
+}
+
+.dotgrid-tab {
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    scale var(--dur-base) var(--ease-bounce);
+}
+
+.dotgrid-field:hover .dot {
+  scale: 0.9;
+}
+
+.dotgrid-field .dot:hover {
+  scale: 1.5;
+}

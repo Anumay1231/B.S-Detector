@@ -174,3 +174,70 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------------------------------------------------------- lively copy */
+
+/* The signal flows left to right: nodes pop in in order once the diagram is on screen. */
+.flowchart .fc-node {
+  opacity: 0;
+  translate: 0 10px;
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    translate var(--dur-slow) var(--ease-bounce);
+  transition-delay: calc(200ms + var(--i) * 110ms);
+}
+
+.flowchart.is-visible .fc-node {
+  opacity: 1;
+  translate: none;
+}
+
+.fc-node .fc-glyph {
+  transition:
+    rotate var(--dur-base) var(--ease-bounce),
+    scale var(--dur-base) var(--ease-bounce),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.fc-node:hover .fc-glyph {
+  rotate: -8deg;
+  scale: 1.15;
+  color: var(--pop);
+}
+
+/* The interlock's padlock snaps shut after the last node lands. */
+.interlock .shackle {
+  translate: 0 -3.5px;
+  transition: translate 300ms var(--ease-bounce) 1150ms;
+}
+
+.flowchart.is-visible .interlock .shackle {
+  translate: none;
+}
+
+.interlock svg {
+  color: var(--pop);
+}
+
+.flowchart.is-visible .interlock svg {
+  animation: lock-jolt 260ms var(--ease-out) 1420ms;
+}
+
+@keyframes lock-jolt {
+  40% {
+    rotate: -10deg;
+  }
+  75% {
+    rotate: 5deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flowchart .fc-node {
+    opacity: 1;
+    translate: none;
+  }
+  .interlock .shackle {
+    translate: none;
+  }
+}

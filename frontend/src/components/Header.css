@@ -85,3 +85,35 @@
     color: var(--color-slate-gray);
   }
 }
+
+/* Live dot before the model status: pulses in the pop colour while loading, settles to ink when ready. */
+.nav-status::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--pop);
+  vertical-align: 1px;
+  animation: live-pulse 1.1s var(--ease-in-out) infinite;
+}
+
+.nav-status[data-state='ready']::before {
+  background: #2f7a4f;
+  animation: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #2f7a4f 18%, transparent);
+}
+
+.nav-status[data-state='offline']::before,
+.nav-status[data-state='error']::before {
+  background: var(--color-sienna-brown);
+  animation: none;
+}
+
+@keyframes live-pulse {
+  50% {
+    opacity: 0.25;
+    scale: 0.7;
+  }
+}

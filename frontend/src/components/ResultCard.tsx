@@ -37,7 +37,10 @@ export function ResultCard({ run }: { run: Run }) {
   const v = verify?.verification ?? null
 
   return (
-    <article className="result" aria-live="polite" aria-labelledby="rc-s1">
+    <article className={`result${flagged ? ' is-flagged' : ''}`} aria-live="polite" aria-labelledby="rc-s1">
+      <span className={`rc-stamp ${flagged ? 'is-bs' : 'is-legit'}`} aria-hidden="true">
+        {flagged ? 'B.S.' : 'Legit'}
+      </span>
       <section className="rc-stage">
         <h3 className="rc-word serif" id="rc-s1">
           {lead} <em>{em}</em>

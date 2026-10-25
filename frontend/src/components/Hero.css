@@ -279,3 +279,93 @@
     display: none;
   }
 }
+
+/* ---------------------------------------------------------- lively copy */
+
+/* Cards tilt a hair and lift when you hover them, each leaning its own way. */
+.artifact {
+  transition:
+    rotate var(--dur-base) var(--ease-bounce),
+    scale var(--dur-base) var(--ease-bounce),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+
+.artifact:hover {
+  rotate: var(--tilt, -1.5deg);
+  scale: 1.03;
+  box-shadow:
+    0 0 0 1px rgba(93, 42, 26, 0.12),
+    0 26px 32px -8px rgba(93, 42, 26, 0.16),
+    0 10px 12px -6px rgba(0, 0, 0, 0.08);
+}
+
+.artifact-stage1 { --tilt: 1.8deg; }
+.artifact-layers { --tilt: 1.2deg; }
+.artifact-stage2 { --tilt: -1.8deg; }
+
+/* The layer bars grow up from the floor one after another, with a little spring. */
+.mini-bars span {
+  animation: bar-up 620ms var(--ease-bounce) both;
+  animation-delay: calc(600ms + var(--b) * 28ms);
+  transition:
+    height var(--dur-slow) var(--ease-bounce),
+    background-color var(--dur-base) var(--ease-out);
+}
+
+.mini-bars span.is-top {
+  background: var(--pop);
+}
+
+.artifact-layers:hover .mini-bars span {
+  animation: bar-bob 480ms var(--ease-in-out) infinite alternate;
+  animation-delay: calc(var(--b) * -60ms);
+}
+
+@keyframes bar-up {
+  from {
+    scale: 1 0;
+  }
+}
+
+@keyframes bar-bob {
+  to {
+    scale: 1 0.55;
+  }
+}
+
+/* The ring overshoots slightly as it settles on its value. */
+.ring-value {
+  stroke: var(--pop);
+  transition: stroke-dashoffset 1100ms var(--ease-bounce);
+}
+
+.match-value {
+  stroke: var(--pop);
+}
+
+/* Playhead in the pop colour, with a small head. */
+.artifact-playhead {
+  background: var(--pop);
+}
+
+.artifact-playhead::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pop);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .artifact:hover {
+    rotate: none;
+    scale: none;
+  }
+  .mini-bars span,
+  .artifact-layers:hover .mini-bars span {
+    animation: none;
+  }
+}

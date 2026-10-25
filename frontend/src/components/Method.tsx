@@ -103,7 +103,7 @@ export function Method() {
           </div>
           <ol className="flowchart-nodes">
             {NODES.map((n, i) => (
-              <li key={n.title} className={`fc-node${n.stage === 2 ? ' is-stage2' : ''}${i === 5 ? ' after-lock' : ''}`}>
+              <li key={n.title} className={`fc-node${n.stage === 2 ? ' is-stage2' : ''}${i === 5 ? ' after-lock' : ''}`} style={{ '--i': i } as React.CSSProperties}>
                 <svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true" className="fc-glyph">
                   {n.glyph}
                 </svg>
@@ -116,7 +116,7 @@ export function Method() {
           <figcaption className="interlock">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
               <rect x="5" y="11" width="14" height="10" rx="2.5" fill="currentColor" />
-              <path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" strokeWidth="2" />
+              <path className="shackle" d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" strokeWidth="2" />
             </svg>
             <p>
               <strong>The interlock.</strong> If the verdict says generated, the voiceprint step never runs. B.S. Detector never confirms who is

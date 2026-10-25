@@ -40,6 +40,11 @@ export function Analyzer({ status, manifest, request }: Props) {
   const busy = test.busy || known.busy
   const latest = runs[0]
 
+  // the custom cursor spins while a check is listening
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-busy', running)
+  }, [running])
+
   const loadSample = async (id: string, run: boolean) => {
     if (!manifest) return
     setError(null)
@@ -171,7 +176,14 @@ export function Analyzer({ status, manifest, request }: Props) {
 
         <div className="actions">
           <button type="button" className="pill pill-filled" onClick={run} disabled={!test.clip || !ready || running || busy}>
-            {running && <span className="spinner" aria-hidden="true" />}
+            {running && (
+              <span className="eq" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+                <i />
+              </span>
+            )}
             {label}
           </button>
           <p className="actions-hint">{hint}</p>

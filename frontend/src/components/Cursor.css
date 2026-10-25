@@ -1,0 +1,166 @@
+/* Custom cursor: fine pointers only, added by Cursor.tsx. Text fields keep the I-beam. */
+html.has-cursor,
+html.has-cursor * {
+  cursor: none !important;
+}
+
+html.has-cursor input:not([type='range']):not([type='file']),
+html.has-cursor textarea {
+  cursor: text !important;
+}
+
+.cursor-dot,
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  pointer-events: none;
+  transform: translate3d(-100px, -100px, 0);
+}
+
+.cursor-dot::before {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--color-ink-black);
+  transition:
+    scale var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.cursor-ring::before {
+  content: '';
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-ink-black);
+  opacity: 0.35;
+  transition:
+    scale var(--dur-base) var(--ease-bounce),
+    opacity var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+/* over something pressable: the ring swells into a peach blot */
+.cursor-ring[data-mode='link']::before {
+  scale: 1.45;
+  opacity: 1;
+  border-color: var(--pop);
+  background: color-mix(in srgb, var(--color-blush-peach) 55%, transparent);
+}
+
+.cursor-dot[data-mode='link']::before {
+  background: var(--pop);
+  scale: 0.75;
+}
+
+.cursor-ring.is-down::before {
+  scale: 0.8;
+}
+
+/* over audio: the ring becomes an ear, three bars bobbing */
+.cursor-bars {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  translate: -50% -50%;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.cursor-bars i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--pop);
+  transform-origin: center;
+  scale: 1 0.3;
+}
+
+.cursor-ring[data-mode='listen']::before {
+  scale: 1.2;
+  opacity: 1;
+  border-color: var(--color-sienna-brown);
+  background: var(--color-paper-white);
+}
+
+.cursor-ring[data-mode='listen'] .cursor-bars {
+  opacity: 1;
+}
+
+.cursor-ring[data-mode='listen'] .cursor-bars i {
+  animation: eq 640ms var(--ease-in-out) infinite alternate;
+}
+
+.cursor-ring[data-mode='listen'] .cursor-bars i:nth-child(2) {
+  animation-delay: -220ms;
+}
+
+.cursor-ring[data-mode='listen'] .cursor-bars i:nth-child(3) {
+  animation-delay: -430ms;
+}
+
+.cursor-dot[data-mode='listen']::before {
+  scale: 0;
+}
+
+/* while a check runs: the ring is a dashed dial spinning */
+.cursor-ring[data-mode='busy']::before {
+  opacity: 1;
+  border-style: dashed;
+  border-color: var(--pop);
+  animation: cursor-spin 1.4s linear infinite;
+}
+
+/* text fields: the custom cursor steps aside */
+.cursor-ring[data-mode='text'],
+.cursor-dot[data-mode='text'],
+html.cursor-out .cursor-ring,
+html.cursor-out .cursor-dot {
+  opacity: 0;
+}
+
+.cursor-ring,
+.cursor-dot {
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.cursor-ripple {
+  position: fixed;
+  z-index: 9998;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  border: 1.5px solid var(--pop);
+  pointer-events: none;
+  animation: ripple 520ms var(--ease-out) forwards;
+}
+
+@keyframes ripple {
+  to {
+    scale: 5;
+    opacity: 0;
+  }
+}
+
+@keyframes eq {
+  to {
+    scale: 1 1;
+  }
+}
+
+@keyframes cursor-spin {
+  to {
+    rotate: 1turn;
+  }
+}
