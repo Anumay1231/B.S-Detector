@@ -132,3 +132,5 @@ models/*.pth
 *.toc
 missfont.log
 paper/
+
+models/*.part

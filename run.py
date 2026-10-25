@@ -8,7 +8,9 @@ B.S. Detector — one-command local launcher.
 
 First run creates ./.venv and installs server/requirements.txt (PyTorch is the
 big one). The model weights (~1.3 GB) download from Hugging Face the first time
-the server starts and are cached after that. Uses the standard library only.
+the server starts and are cached after that. The team's Hindi-adapted detector
+head (~89 MB) downloads once from the GitHub release into models/. Uses the
+standard library only.
 """
 
 import argparse
@@ -31,6 +33,10 @@ REQUIREMENTS = ROOT / "server" / "requirements.txt"
 STAMP = VENV / ".bsd-requirements"
 FRONTEND = ROOT / "frontend"
 DIST = FRONTEND / "dist"
+
+# The Hindi-adapted SLS head is too big for Git; it ships as a GitHub release asset.
+HEAD_FILE = ROOT / "models" / "sls_head_n500_seed2_best.pth"
+HEAD_URL = "https://github.com/Anumay1231/B.S-Detector/releases/download/hindi-head-n500/sls_head_n500_seed2_best.pth"
 
 
 def say(msg: str) -> None:
@@ -69,6 +75,28 @@ def ensure_frontend() -> None:
     subprocess.check_call([npm, "run", "build"], cwd=FRONTEND)
 
 
+def ensure_hindi_head() -> None:
+    """Fetch the Hindi head once. Without it the app falls back to the English checkpoint."""
+    if os.environ.get("BSD_HEAD") or HEAD_FILE.exists():
+        return
+    say("Downloading the Hindi detector head (~89 MB) ...")
+    part = HEAD_FILE.with_suffix(".part")
+    try:
+        HEAD_FILE.parent.mkdir(exist_ok=True)
+        with urllib.request.urlopen(HEAD_URL, timeout=30) as res, open(part, "wb") as out:
+            shutil.copyfileobj(res, out, 1 << 20)
+        # a PyTorch checkpoint is a zip archive; anything else is an error page or a cut-off download
+        with open(part, "rb") as f:
+            if f.read(2) != b"PK" or part.stat().st_size < 10_000_000:
+                raise ValueError("the download isn't a PyTorch checkpoint")
+        part.replace(HEAD_FILE)
+        say("Hindi head ready.")
+    except Exception as exc:
+        part.unlink(missing_ok=True)
+        say(f"Couldn't get the Hindi head ({exc}). Using the English checkpoint, which misses most Hindi fakes.")
+        say(f"To add it by hand, put sls_head_n500_seed2_best.pth in {HEAD_FILE.parent}.")
+
+
 def port_free(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(("127.0.0.1", port)) != 0
@@ -96,6 +124,7 @@ def main() -> None:
     print("\nB.S. Detector\n")
     py = ensure_environment()
     ensure_frontend()
+    ensure_hindi_head()
 
     port = args.port
     while not port_free(port):
