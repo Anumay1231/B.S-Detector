@@ -37,6 +37,12 @@ export function useClip(onLevel: LevelSink) {
     setPhase('decoding')
     try {
       const c = await decodeToClip(blob, name, source)
+      // a virtual or muted input (Steam, a disconnected headset) hands the browser pure silence
+      if (source === 'microphone' && !c.samples.some((x) => Math.abs(x) > 1e-4)) {
+        throw new Error(
+          'The microphone recorded silence. Pick your real mic: click the icon left of the address bar, open Microphone, and choose it. Virtual inputs such as Steam Streaming Microphone record nothing.',
+        )
+      }
       // give the browser a frame to paint the decoding state before the FFT
       await new Promise((r) => requestAnimationFrame(() => r(null)))
       setImage(paintSpectrogram(computeSpectrogram(c.samples)))
