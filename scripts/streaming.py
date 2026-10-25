@@ -14,7 +14,9 @@ import torch
 logger = logging.getLogger(__name__)
 
 DATASET_NAME = "Jack-ppkdczgx/SEA-Spoof"
-CACHE_DIR = Path("/Users/yashgarg/Documents/bsdetector/B.S-Detector/data/deepfake_cache/audio")
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent
+CACHE_DIR = _PROJECT_ROOT / "data" / "deepfake_cache" / "audio"
 
 
 def stream_and_cache_audio(

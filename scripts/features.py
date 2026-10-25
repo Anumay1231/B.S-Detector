@@ -22,9 +22,9 @@ from .streaming import load_cached_audio
 
 logger = logging.getLogger(__name__)
 
-FEATURE_CACHE_DIR = Path(
-    "/Users/yashgarg/Documents/bsdetector/B.S-Detector/data/deepfake_cache/features"
-)
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent
+FEATURE_CACHE_DIR = _PROJECT_ROOT / "data" / "deepfake_cache" / "features"
 
 
 def extract_and_cache_features(

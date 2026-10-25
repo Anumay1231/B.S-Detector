@@ -9,9 +9,9 @@ import numpy as np
 import pandas as pd
 
 # Constants
-PARQUET_PATH = Path(
-    "/Users/yashgarg/Documents/bsdetector/B.S-Detector/data/sea_spoof_en_hi_metadata.parquet"
-)
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent
+PARQUET_PATH = _PROJECT_ROOT / "data" / "sea_spoof_en_hi_metadata.parquet"
 TEST_PER_CLASS = 250
 FEWSHOT_SIZES = [10, 50]
 NUM_SEEDS = 3
