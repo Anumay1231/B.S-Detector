@@ -12,3 +12,4 @@ graphify-out/.graphify_python
 graphify-out/.graphify_root
 .DS_Store
 .mplconfig/
+models/*.pth

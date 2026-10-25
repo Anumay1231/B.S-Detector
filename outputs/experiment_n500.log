@@ -1,0 +1,328 @@
+2026-10-25 15:20:32 [INFO] deepfake_detection: ======================================================================
+2026-10-25 15:20:32 [INFO] deepfake_detection: Audio Deepfake Detection — XLS-R + SLS Pipeline
+2026-10-25 15:20:32 [INFO] deepfake_detection: ======================================================================
+2026-10-25 15:20:32 [INFO] deepfake_detection: Parquet:          /home/yashgarg/B.S-Detector/data/sea_spoof_en_hi_metadata.parquet
+2026-10-25 15:20:32 [INFO] deepfake_detection: Audio cache:      /home/yashgarg/B.S-Detector/data/deepfake_cache/audio
+2026-10-25 15:20:32 [INFO] deepfake_detection: Feature cache:    /home/yashgarg/B.S-Detector/data/deepfake_cache/features
+2026-10-25 15:20:32 [INFO] deepfake_detection: Device:           cuda
+2026-10-25 15:20:32 [INFO] deepfake_detection: Epochs:           10
+2026-10-25 15:20:32 [INFO] deepfake_detection: 
+======================================================================
+2026-10-25 15:20:32 [INFO] deepfake_detection: STEP 1: Load Hindi metadata
+2026-10-25 15:20:32 [INFO] deepfake_detection: ======================================================================
+Loaded Hindi metadata: 54938 total rows (16182 bonafide, 38756 spoof)
+2026-10-25 15:20:32 [INFO] deepfake_detection: 
+======================================================================
+2026-10-25 15:20:32 [INFO] deepfake_detection: STEP 2: Create test and few-shot splits
+2026-10-25 15:20:32 [INFO] deepfake_detection: ======================================================================
+2026-10-25 15:20:32 [INFO] deepfake_detection: Using test_per_class=200 (available bonafide: 16182, spoof: 38756)
+Few-shot pools summary:
+  Pool (N=10, seed_idx=0): 20 rows (10 bonafide, 10 spoof, 20 unique IDs)
+  Pool (N=50, seed_idx=0): 100 rows (50 bonafide, 50 spoof, 100 unique IDs)
+  Pool (N=500, seed_idx=0): 1000 rows (500 bonafide, 500 spoof, 1000 unique IDs)
+  Pool (N=10, seed_idx=1): 20 rows (10 bonafide, 10 spoof, 20 unique IDs)
+  Pool (N=50, seed_idx=1): 100 rows (50 bonafide, 50 spoof, 100 unique IDs)
+  Pool (N=500, seed_idx=1): 1000 rows (500 bonafide, 500 spoof, 1000 unique IDs)
+  Pool (N=10, seed_idx=2): 20 rows (10 bonafide, 10 spoof, 20 unique IDs)
+  Pool (N=50, seed_idx=2): 100 rows (50 bonafide, 50 spoof, 100 unique IDs)
+  Pool (N=500, seed_idx=2): 1000 rows (500 bonafide, 500 spoof, 1000 unique IDs)
+Total unique IDs needed: 3331
+2026-10-25 15:20:32 [INFO] deepfake_detection: Test set: 400 samples
+2026-10-25 15:20:32 [INFO] deepfake_detection: Total unique IDs needed: 3331
+2026-10-25 15:20:32 [INFO] deepfake_detection: Labels extracted: 3331
+2026-10-25 15:20:32 [INFO] deepfake_detection: 
+======================================================================
+2026-10-25 15:20:32 [INFO] deepfake_detection: STEP 3: Stream and cache audio
+2026-10-25 15:20:32 [INFO] deepfake_detection: ======================================================================
+2026-10-25 15:20:32 [INFO] scripts.streaming: Need to fetch 3331 clips (0 already cached)
+2026-10-25 15:20:32 [INFO] scripts.streaming: Targeted shard extraction: 3331 clips span 5 shards and 276 row groups.
+2026-10-25 15:20:32 [INFO] scripts.streaming:   Opening shard 00000 (75 row groups, 649 target clips)...
+2026-10-25 15:22:14 [INFO] scripts.streaming:   Shard 00000 complete. Progress: 649/3331 cached.
+2026-10-25 15:22:14 [INFO] scripts.streaming:   Opening shard 00001 (64 row groups, 575 target clips)...
+2026-10-25 15:23:58 [INFO] scripts.streaming:   Shard 00001 complete. Progress: 1224/3331 cached.
+2026-10-25 15:23:58 [INFO] scripts.streaming:   Opening shard 00002 (74 row groups, 1488 target clips)...
+2026-10-25 15:26:17 [INFO] scripts.streaming:   Shard 00002 complete. Progress: 2712/3331 cached.
+2026-10-25 15:26:17 [INFO] scripts.streaming:   Opening shard 00003 (8 row groups, 167 target clips)...
+2026-10-25 15:26:40 [INFO] scripts.streaming:   Shard 00003 complete. Progress: 2879/3331 cached.
+2026-10-25 15:26:40 [INFO] scripts.streaming:   Opening shard 00025 (55 row groups, 452 target clips)...
+2026-10-25 15:27:57 [INFO] scripts.streaming:   Shard 00025 complete. Progress: 3331/3331 cached.
+2026-10-25 15:27:57 [INFO] scripts.streaming: Audio caching complete: 3331/3331 clips ready.
+2026-10-25 15:27:57 [INFO] deepfake_detection: Audio streaming completed in 445s, found 3331 clips
+2026-10-25 15:27:57 [INFO] deepfake_detection: 
+======================================================================
+2026-10-25 15:27:57 [INFO] deepfake_detection: STEP 4: Extract and cache XLS-R features
+2026-10-25 15:27:57 [INFO] deepfake_detection: ======================================================================
+2026-10-25 15:27:57 [INFO] scripts.features: Extracting features for 3331 clips (0 already cached)
+2026-10-25 15:27:57 [INFO] scripts.model: Loading XLS-R 300M backbone from HuggingFace...
+2026-10-25 15:28:00 [INFO] scripts.model: Backbone loaded on cuda, 315.4M params (all frozen)
+2026-10-25 15:28:15 [INFO] scripts.features:   Extracted 400/3331 (26.2 clips/sec, ETA 112s)
+2026-10-25 15:28:31 [INFO] scripts.features:   Extracted 800/3331 (25.6 clips/sec, ETA 99s)
+2026-10-25 15:28:50 [INFO] scripts.features:   Extracted 1200/3331 (23.9 clips/sec, ETA 89s)
+2026-10-25 15:29:12 [INFO] scripts.features:   Extracted 1600/3331 (22.1 clips/sec, ETA 78s)
+2026-10-25 15:29:35 [INFO] scripts.features:   Extracted 2000/3331 (21.1 clips/sec, ETA 63s)
+2026-10-25 15:29:57 [INFO] scripts.features:   Extracted 2400/3331 (20.4 clips/sec, ETA 46s)
+2026-10-25 15:30:20 [INFO] scripts.features:   Extracted 2800/3331 (20.0 clips/sec, ETA 27s)
+2026-10-25 15:30:42 [INFO] scripts.features:   Extracted 3200/3331 (19.7 clips/sec, ETA 7s)
+2026-10-25 15:30:49 [INFO] scripts.features:   Extracted 3331/3331 (19.6 clips/sec, ETA 0s)
+2026-10-25 15:30:49 [INFO] scripts.features: Feature extraction complete: 3331 clips in 170s
+2026-10-25 15:30:49 [INFO] deepfake_detection: Feature extraction completed in 172s
+2026-10-25 15:30:49 [INFO] deepfake_detection: Effective test set: 400 samples
+2026-10-25 15:30:49 [INFO] deepfake_detection: 
+======================================================================
+2026-10-25 15:30:49 [INFO] deepfake_detection: STEP 5: Zero-shot evaluation
+2026-10-25 15:30:49 [INFO] deepfake_detection: ======================================================================
+2026-10-25 15:30:49 [INFO] scripts.experiment: === Zero-Shot Evaluation ===
+2026-10-25 15:30:50 [INFO] scripts.model: Downloading SLS checkpoint: v1/epoch_2.pth
+2026-10-25 15:31:14 [INFO] scripts.model: Loading checkpoint from /home/yashgarg/.cache/huggingface/hub/models--sukhdeveyash--XLS-R-SLS-Deepfake-Detection/snapshots/045fce76cf953b2ea7f2e02b1a117838698a2b56/v1/epoch_2.pth
+2026-10-25 15:31:15 [INFO] scripts.model: Checkpoint has 440 keys total, skipped 429 backbone keys, loading 11 SLS head keys
+2026-10-25 15:31:15 [INFO] scripts.model: SLS head keys: ['first_bn.weight', 'first_bn.bias', 'first_bn.running_mean', 'first_bn.running_var', 'first_bn.num_batches_tracked', 'fc0.weight', 'fc0.bias', 'fc1.weight', 'fc1.bias', 'fc3.weight', 'fc3.bias']
+2026-10-25 15:31:15 [INFO] scripts.model: SLS head weights loaded successfully
+2026-10-25 15:31:15 [INFO] scripts.experiment: Evaluating on 400 test samples...
+=== Zero-Shot (Pretrained English -> Hindi) ===
+Accuracy:         61.75%
+EER:              32.25%
+Precision:        56.70%
+Recall:           99.50%
+F1:               72.23%
+
+Confusion Matrix:
+                     Pred Spoof (0)    Pred Bonafide (1)
+  True Spoof (0)                 48                  152
+  True Bonafide (1)               1                  199
+2026-10-25 15:31:21 [INFO] deepfake_detection: 
+======================================================================
+2026-10-25 15:31:21 [INFO] deepfake_detection: STEP 6: Few-shot experiments
+2026-10-25 15:31:21 [INFO] deepfake_detection: ======================================================================
+2026-10-25 15:31:21 [INFO] scripts.experiment: 
+=== Few-Shot Experiment N=10 (3 seeds) ===
+2026-10-25 15:31:21 [INFO] scripts.experiment: 
+--- Seed 0 (seed_value=1000), N=10 per class, 20 training samples ---
+2026-10-25 15:31:22 [INFO] scripts.model: Downloading SLS checkpoint: v1/epoch_2.pth
+2026-10-25 15:31:22 [INFO] scripts.model: Loading checkpoint from /home/yashgarg/.cache/huggingface/hub/models--sukhdeveyash--XLS-R-SLS-Deepfake-Detection/snapshots/045fce76cf953b2ea7f2e02b1a117838698a2b56/v1/epoch_2.pth
+2026-10-25 15:31:22 [INFO] scripts.model: Checkpoint has 440 keys total, skipped 429 backbone keys, loading 11 SLS head keys
+2026-10-25 15:31:22 [INFO] scripts.model: SLS head keys: ['first_bn.weight', 'first_bn.bias', 'first_bn.running_mean', 'first_bn.running_var', 'first_bn.num_batches_tracked', 'fc0.weight', 'fc0.bias', 'fc1.weight', 'fc1.bias', 'fc3.weight', 'fc3.bias']
+2026-10-25 15:31:22 [INFO] scripts.model: SLS head weights loaded successfully
+2026-10-25 15:31:23 [INFO] scripts.experiment:   Epoch 1/10 - avg loss: 1.1804
+2026-10-25 15:31:24 [INFO] scripts.experiment:   Epoch 5/10 - avg loss: 0.5503
+2026-10-25 15:31:26 [INFO] scripts.experiment:   Epoch 10/10 - avg loss: 0.1183
+=== Few-Shot N=10, Seed 0 ===
+Accuracy:         57.50%
+EER:              30.30%
+Precision:        54.05%
+Recall:           100.00%
+F1:               70.18%
+
+Confusion Matrix:
+                     Pred Spoof (0)    Pred Bonafide (1)
+  True Spoof (0)                 30                  170
+  True Bonafide (1)               0                  200
+2026-10-25 15:31:30 [INFO] scripts.experiment: 
+--- Seed 1 (seed_value=1001), N=10 per class, 20 training samples ---
+2026-10-25 15:31:30 [INFO] scripts.model: Downloading SLS checkpoint: v1/epoch_2.pth
+2026-10-25 15:31:30 [INFO] scripts.model: Loading checkpoint from /home/yashgarg/.cache/huggingface/hub/models--sukhdeveyash--XLS-R-SLS-Deepfake-Detection/snapshots/045fce76cf953b2ea7f2e02b1a117838698a2b56/v1/epoch_2.pth
+2026-10-25 15:31:31 [INFO] scripts.model: Checkpoint has 440 keys total, skipped 429 backbone keys, loading 11 SLS head keys
+2026-10-25 15:31:31 [INFO] scripts.model: SLS head keys: ['first_bn.weight', 'first_bn.bias', 'first_bn.running_mean', 'first_bn.running_var', 'first_bn.num_batches_tracked', 'fc0.weight', 'fc0.bias', 'fc1.weight', 'fc1.bias', 'fc3.weight', 'fc3.bias']
+2026-10-25 15:31:31 [INFO] scripts.model: SLS head weights loaded successfully
+2026-10-25 15:31:31 [INFO] scripts.experiment:   Epoch 1/10 - avg loss: 1.2675
+2026-10-25 15:31:32 [INFO] scripts.experiment:   Epoch 5/10 - avg loss: 0.2487
+2026-10-25 15:31:34 [INFO] scripts.experiment:   Epoch 10/10 - avg loss: 0.1158
+=== Few-Shot N=10, Seed 1 ===
+Accuracy:         69.50%
+EER:              27.86%
+Precision:        62.58%
+Recall:           97.00%
+F1:               76.08%
+
+Confusion Matrix:
+                     Pred Spoof (0)    Pred Bonafide (1)
+  True Spoof (0)                 84                  116
+  True Bonafide (1)               6                  194
+2026-10-25 15:31:38 [INFO] scripts.experiment: 
+--- Seed 2 (seed_value=1002), N=10 per class, 20 training samples ---
+2026-10-25 15:31:38 [INFO] scripts.model: Downloading SLS checkpoint: v1/epoch_2.pth
+2026-10-25 15:31:38 [INFO] scripts.model: Loading checkpoint from /home/yashgarg/.cache/huggingface/hub/models--sukhdeveyash--XLS-R-SLS-Deepfake-Detection/snapshots/045fce76cf953b2ea7f2e02b1a117838698a2b56/v1/epoch_2.pth
+2026-10-25 15:31:38 [INFO] scripts.model: Checkpoint has 440 keys total, skipped 429 backbone keys, loading 11 SLS head keys
+2026-10-25 15:31:38 [INFO] scripts.model: SLS head keys: ['first_bn.weight', 'first_bn.bias', 'first_bn.running_mean', 'first_bn.running_var', 'first_bn.num_batches_tracked', 'fc0.weight', 'fc0.bias', 'fc1.weight', 'fc1.bias', 'fc3.weight', 'fc3.bias']
+2026-10-25 15:31:38 [INFO] scripts.model: SLS head weights loaded successfully
+2026-10-25 15:31:39 [INFO] scripts.experiment:   Epoch 1/10 - avg loss: 0.4277
+2026-10-25 15:31:40 [INFO] scripts.experiment:   Epoch 5/10 - avg loss: 0.1401
+2026-10-25 15:31:41 [INFO] scripts.experiment:   Epoch 10/10 - avg loss: 0.0309
+=== Few-Shot N=10, Seed 2 ===
+Accuracy:         66.00%
+EER:              24.75%
+Precision:        59.52%
+Recall:           100.00%
+F1:               74.63%
+
+Confusion Matrix:
+                     Pred Spoof (0)    Pred Bonafide (1)
+  True Spoof (0)                 64                  136
+  True Bonafide (1)               0                  200
+2026-10-25 15:31:45 [INFO] scripts.experiment: 
+--- N=10 Summary (mean +/- std across 3 seeds) ---
+2026-10-25 15:31:45 [INFO] scripts.experiment:   accuracy: 64.33 +/- 5.04%
+2026-10-25 15:31:45 [INFO] scripts.experiment:   eer: 27.64 +/- 2.27%
+2026-10-25 15:31:45 [INFO] scripts.experiment:   precision: 58.72 +/- 3.53%
+2026-10-25 15:31:45 [INFO] scripts.experiment:   recall: 99.00 +/- 1.41%
+2026-10-25 15:31:45 [INFO] scripts.experiment:   f1: 73.63 +/- 2.51%
+2026-10-25 15:31:45 [INFO] scripts.experiment: 
+=== Few-Shot Experiment N=50 (3 seeds) ===
+2026-10-25 15:31:45 [INFO] scripts.experiment: 
+--- Seed 0 (seed_value=1000), N=50 per class, 100 training samples ---
+2026-10-25 15:31:45 [INFO] scripts.model: Downloading SLS checkpoint: v1/epoch_2.pth
+2026-10-25 15:31:45 [INFO] scripts.model: Loading checkpoint from /home/yashgarg/.cache/huggingface/hub/models--sukhdeveyash--XLS-R-SLS-Deepfake-Detection/snapshots/045fce76cf953b2ea7f2e02b1a117838698a2b56/v1/epoch_2.pth
+2026-10-25 15:31:46 [INFO] scripts.model: Checkpoint has 440 keys total, skipped 429 backbone keys, loading 11 SLS head keys
+2026-10-25 15:31:46 [INFO] scripts.model: SLS head keys: ['first_bn.weight', 'first_bn.bias', 'first_bn.running_mean', 'first_bn.running_var', 'first_bn.num_batches_tracked', 'fc0.weight', 'fc0.bias', 'fc1.weight', 'fc1.bias', 'fc3.weight', 'fc3.bias']
+2026-10-25 15:31:46 [INFO] scripts.model: SLS head weights loaded successfully
+2026-10-25 15:31:48 [INFO] scripts.experiment:   Epoch 1/10 - avg loss: 0.6816
+2026-10-25 15:31:53 [INFO] scripts.experiment:   Epoch 5/10 - avg loss: 0.1220
+2026-10-25 15:32:01 [INFO] scripts.experiment:   Epoch 10/10 - avg loss: 0.1127
+=== Few-Shot N=50, Seed 0 ===
+Accuracy:         61.00%
+EER:              19.80%
+Precision:        56.18%
+Recall:           100.00%
+F1:               71.94%
+
+Confusion Matrix:
+                     Pred Spoof (0)    Pred Bonafide (1)
+  True Spoof (0)                 44                  156
+  True Bonafide (1)               0                  200
+2026-10-25 15:32:04 [INFO] scripts.experiment: 
+--- Seed 1 (seed_value=1001), N=50 per class, 100 training samples ---
+2026-10-25 15:32:05 [INFO] scripts.model: Downloading SLS checkpoint: v1/epoch_2.pth
+2026-10-25 15:32:05 [INFO] scripts.model: Loading checkpoint from /home/yashgarg/.cache/huggingface/hub/models--sukhdeveyash--XLS-R-SLS-Deepfake-Detection/snapshots/045fce76cf953b2ea7f2e02b1a117838698a2b56/v1/epoch_2.pth
+2026-10-25 15:32:05 [INFO] scripts.model: Checkpoint has 440 keys total, skipped 429 backbone keys, loading 11 SLS head keys
+2026-10-25 15:32:05 [INFO] scripts.model: SLS head keys: ['first_bn.weight', 'first_bn.bias', 'first_bn.running_mean', 'first_bn.running_var', 'first_bn.num_batches_tracked', 'fc0.weight', 'fc0.bias', 'fc1.weight', 'fc1.bias', 'fc3.weight', 'fc3.bias']
+2026-10-25 15:32:05 [INFO] scripts.model: SLS head weights loaded successfully
+2026-10-25 15:32:07 [INFO] scripts.experiment:   Epoch 1/10 - avg loss: 0.5014
+2026-10-25 15:32:13 [INFO] scripts.experiment:   Epoch 5/10 - avg loss: 0.1256
+2026-10-25 15:32:20 [INFO] scripts.experiment:   Epoch 10/10 - avg loss: 0.1521
+=== Few-Shot N=50, Seed 1 ===
+Accuracy:         83.50%
+EER:              17.00%
+Precision:        80.18%
+Recall:           89.00%
+F1:               84.36%
+
+Confusion Matrix:
+                     Pred Spoof (0)    Pred Bonafide (1)
+  True Spoof (0)                156                   44
+  True Bonafide (1)              22                  178
+2026-10-25 15:32:24 [INFO] scripts.experiment: 
+--- Seed 2 (seed_value=1002), N=50 per class, 100 training samples ---
+2026-10-25 15:32:24 [INFO] scripts.model: Downloading SLS checkpoint: v1/epoch_2.pth
+2026-10-25 15:32:24 [INFO] scripts.model: Loading checkpoint from /home/yashgarg/.cache/huggingface/hub/models--sukhdeveyash--XLS-R-SLS-Deepfake-Detection/snapshots/045fce76cf953b2ea7f2e02b1a117838698a2b56/v1/epoch_2.pth
+2026-10-25 15:32:25 [INFO] scripts.model: Checkpoint has 440 keys total, skipped 429 backbone keys, loading 11 SLS head keys
+2026-10-25 15:32:25 [INFO] scripts.model: SLS head keys: ['first_bn.weight', 'first_bn.bias', 'first_bn.running_mean', 'first_bn.running_var', 'first_bn.num_batches_tracked', 'fc0.weight', 'fc0.bias', 'fc1.weight', 'fc1.bias', 'fc3.weight', 'fc3.bias']
+2026-10-25 15:32:25 [INFO] scripts.model: SLS head weights loaded successfully
+2026-10-25 15:32:27 [INFO] scripts.experiment:   Epoch 1/10 - avg loss: 0.4122
+2026-10-25 15:32:32 [INFO] scripts.experiment:   Epoch 5/10 - avg loss: 0.0991
+2026-10-25 15:32:40 [INFO] scripts.experiment:   Epoch 10/10 - avg loss: 0.0471
+=== Few-Shot N=50, Seed 2 ===
+Accuracy:         83.00%
+EER:              17.75%
+Precision:        78.70%
+Recall:           90.50%
+F1:               84.19%
+
+Confusion Matrix:
+                     Pred Spoof (0)    Pred Bonafide (1)
+  True Spoof (0)                151                   49
+  True Bonafide (1)              19                  181
+2026-10-25 15:32:44 [INFO] scripts.experiment: 
+--- N=50 Summary (mean +/- std across 3 seeds) ---
+2026-10-25 15:32:44 [INFO] scripts.experiment:   accuracy: 75.83 +/- 10.49%
+2026-10-25 15:32:44 [INFO] scripts.experiment:   eer: 18.18 +/- 1.18%
+2026-10-25 15:32:44 [INFO] scripts.experiment:   precision: 71.69 +/- 10.98%
+2026-10-25 15:32:44 [INFO] scripts.experiment:   recall: 93.17 +/- 4.87%
+2026-10-25 15:32:44 [INFO] scripts.experiment:   f1: 80.16 +/- 5.81%
+2026-10-25 15:32:44 [INFO] scripts.experiment: 
+=== Few-Shot Experiment N=500 (3 seeds) ===
+2026-10-25 15:32:44 [INFO] scripts.experiment: 
+--- Seed 0 (seed_value=1000), N=500 per class, 1000 training samples ---
+2026-10-25 15:32:44 [INFO] scripts.model: Downloading SLS checkpoint: v1/epoch_2.pth
+2026-10-25 15:32:44 [INFO] scripts.model: Loading checkpoint from /home/yashgarg/.cache/huggingface/hub/models--sukhdeveyash--XLS-R-SLS-Deepfake-Detection/snapshots/045fce76cf953b2ea7f2e02b1a117838698a2b56/v1/epoch_2.pth
+2026-10-25 15:32:44 [INFO] scripts.model: Checkpoint has 440 keys total, skipped 429 backbone keys, loading 11 SLS head keys
+2026-10-25 15:32:44 [INFO] scripts.model: SLS head keys: ['first_bn.weight', 'first_bn.bias', 'first_bn.running_mean', 'first_bn.running_var', 'first_bn.num_batches_tracked', 'fc0.weight', 'fc0.bias', 'fc1.weight', 'fc1.bias', 'fc3.weight', 'fc3.bias']
+2026-10-25 15:32:44 [INFO] scripts.model: SLS head weights loaded successfully
+2026-10-25 15:33:05 [INFO] scripts.experiment:   Epoch 1/10 - avg loss: 0.4598
+2026-10-25 15:34:05 [INFO] scripts.experiment:   Epoch 5/10 - avg loss: 0.1277
+2026-10-25 15:35:16 [INFO] scripts.experiment:   Epoch 10/10 - avg loss: 0.0112
+=== Few-Shot N=500, Seed 0 ===
+Accuracy:         96.25%
+EER:              3.36%
+Precision:        96.02%
+Recall:           96.50%
+F1:               96.26%
+
+Confusion Matrix:
+                     Pred Spoof (0)    Pred Bonafide (1)
+  True Spoof (0)                192                    8
+  True Bonafide (1)               7                  193
+2026-10-25 15:35:20 [INFO] scripts.experiment: 
+--- Seed 1 (seed_value=1001), N=500 per class, 1000 training samples ---
+2026-10-25 15:35:20 [INFO] scripts.model: Downloading SLS checkpoint: v1/epoch_2.pth
+2026-10-25 15:35:20 [INFO] scripts.model: Loading checkpoint from /home/yashgarg/.cache/huggingface/hub/models--sukhdeveyash--XLS-R-SLS-Deepfake-Detection/snapshots/045fce76cf953b2ea7f2e02b1a117838698a2b56/v1/epoch_2.pth
+2026-10-25 15:35:21 [INFO] scripts.model: Checkpoint has 440 keys total, skipped 429 backbone keys, loading 11 SLS head keys
+2026-10-25 15:35:21 [INFO] scripts.model: SLS head keys: ['first_bn.weight', 'first_bn.bias', 'first_bn.running_mean', 'first_bn.running_var', 'first_bn.num_batches_tracked', 'fc0.weight', 'fc0.bias', 'fc1.weight', 'fc1.bias', 'fc3.weight', 'fc3.bias']
+2026-10-25 15:35:21 [INFO] scripts.model: SLS head weights loaded successfully
+2026-10-25 15:35:51 [INFO] scripts.experiment:   Epoch 1/10 - avg loss: 0.3988
+2026-10-25 15:36:53 [INFO] scripts.experiment:   Epoch 5/10 - avg loss: 0.0792
+2026-10-25 15:38:04 [INFO] scripts.experiment:   Epoch 10/10 - avg loss: 0.0137
+=== Few-Shot N=500, Seed 1 ===
+Accuracy:         96.25%
+EER:              2.50%
+Precision:        94.26%
+Recall:           98.50%
+F1:               96.33%
+
+Confusion Matrix:
+                     Pred Spoof (0)    Pred Bonafide (1)
+  True Spoof (0)                188                   12
+  True Bonafide (1)               3                  197
+2026-10-25 15:38:08 [INFO] scripts.experiment: 
+--- Seed 2 (seed_value=1002), N=500 per class, 1000 training samples ---
+2026-10-25 15:38:08 [INFO] scripts.model: Downloading SLS checkpoint: v1/epoch_2.pth
+2026-10-25 15:38:08 [INFO] scripts.model: Loading checkpoint from /home/yashgarg/.cache/huggingface/hub/models--sukhdeveyash--XLS-R-SLS-Deepfake-Detection/snapshots/045fce76cf953b2ea7f2e02b1a117838698a2b56/v1/epoch_2.pth
+2026-10-25 15:38:09 [INFO] scripts.model: Checkpoint has 440 keys total, skipped 429 backbone keys, loading 11 SLS head keys
+2026-10-25 15:38:09 [INFO] scripts.model: SLS head keys: ['first_bn.weight', 'first_bn.bias', 'first_bn.running_mean', 'first_bn.running_var', 'first_bn.num_batches_tracked', 'fc0.weight', 'fc0.bias', 'fc1.weight', 'fc1.bias', 'fc3.weight', 'fc3.bias']
+2026-10-25 15:38:09 [INFO] scripts.model: SLS head weights loaded successfully
+2026-10-25 15:38:56 [INFO] scripts.experiment:   Epoch 1/10 - avg loss: 0.3781
+2026-10-25 15:39:56 [INFO] scripts.experiment:   Epoch 5/10 - avg loss: 0.1048
+2026-10-25 15:41:07 [INFO] scripts.experiment:   Epoch 10/10 - avg loss: 0.0154
+=== Few-Shot N=500, Seed 2 ===
+Accuracy:         98.00%
+EER:              2.12%
+Precision:        97.06%
+Recall:           99.00%
+F1:               98.02%
+
+Confusion Matrix:
+                     Pred Spoof (0)    Pred Bonafide (1)
+  True Spoof (0)                194                    6
+  True Bonafide (1)               2                  198
+2026-10-25 15:41:11 [INFO] scripts.experiment: 
+--- N=500 Summary (mean +/- std across 3 seeds) ---
+2026-10-25 15:41:11 [INFO] scripts.experiment:   accuracy: 96.83 +/- 0.82%
+2026-10-25 15:41:11 [INFO] scripts.experiment:   eer: 2.66 +/- 0.52%
+2026-10-25 15:41:11 [INFO] scripts.experiment:   precision: 95.78 +/- 1.16%
+2026-10-25 15:41:11 [INFO] scripts.experiment:   recall: 98.00 +/- 1.08%
+2026-10-25 15:41:11 [INFO] scripts.experiment:   f1: 96.87 +/- 0.81%
+2026-10-25 15:41:11 [INFO] deepfake_detection: 
+======================================================================
+2026-10-25 15:41:11 [INFO] deepfake_detection: STEP 7: Final comparison table
+2026-10-25 15:41:11 [INFO] deepfake_detection: ======================================================================
+
+
+Experiment     | Accuracy         | EER             | Precision        | Recall          | F1             
+---------------+------------------+-----------------+------------------+-----------------+----------------
+Zero-shot      | 61.75%           | 32.25%          | 56.70%           | 99.50%          | 72.23%         
+Few-shot N=10  | 64.33 +/- 5.04%  | 27.64 +/- 2.27% | 58.72 +/- 3.53%  | 99.00 +/- 1.41% | 73.63 +/- 2.51%
+Few-shot N=50  | 75.83 +/- 10.49% | 18.18 +/- 1.18% | 71.69 +/- 10.98% | 93.17 +/- 4.87% | 80.16 +/- 5.81%
+Few-shot N=500 | 96.83 +/- 0.82%  | 2.66 +/- 0.52%  | 95.78 +/- 1.16%  | 98.00 +/- 1.08% | 96.87 +/- 0.81%
+2026-10-25 15:41:11 [INFO] deepfake_detection: Results saved to /home/yashgarg/B.S-Detector/outputs/results_full_10_50_500.json
+2026-10-25 15:41:11 [INFO] deepfake_detection: 
+======================================================================
+2026-10-25 15:41:11 [INFO] deepfake_detection: All experiments complete!
+2026-10-25 15:41:11 [INFO] deepfake_detection: ======================================================================

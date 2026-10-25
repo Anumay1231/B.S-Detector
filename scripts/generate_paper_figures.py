@@ -92,14 +92,16 @@ def plot_fig1_dataset_bias():
 
 def plot_fig2_adaptation_curve():
     """Fig 2: Few-Shot Adaptation Curve on Balanced Benchmark."""
-    fig, ax1 = plt.subplots(figsize=(7, 4.2))
+    fig, ax1 = plt.subplots(figsize=(7.5, 4.5))
 
-    n_samples = [0, 10, 50]
-    eer_mean = [28.90, 26.88, 19.70]
-    eer_std = [0.0, 1.83, 0.57]
+    n_samples = [0, 1, 2, 3]  # Categorical indices for clean spacing
+    labels = ["0 (Zero-Shot)", "10", "50", "500"]
 
-    acc_mean = [60.00, 65.83, 79.67]
-    acc_std = [0.0, 5.87, 0.47]
+    eer_mean = [32.25, 27.64, 18.18, 2.66]
+    eer_std = [0.0, 2.27, 1.18, 0.52]
+
+    acc_mean = [61.75, 64.33, 75.83, 96.83]
+    acc_std = [0.0, 5.04, 10.49, 0.82]
 
     color_eer = "#d35400"
     color_acc = "#27ae60"
@@ -110,11 +112,12 @@ def plot_fig2_adaptation_curve():
     ax1.set_xlabel("Number of Few-Shot Samples per Class ($N$)", fontweight="bold")
     ax1.set_ylabel("Equal Error Rate (EER %)", color=color_eer, fontweight="bold")
     ax1.tick_params(axis="y", labelcolor=color_eer)
-    ax1.set_ylim(15, 35)
+    ax1.set_ylim(0, 38)
 
     for x, y, std in zip(n_samples, eer_mean, eer_std):
-        lbl = f"{y:.1f}%" if std == 0 else f"{y:.1f}±{std:.1f}%"
-        ax1.annotate(lbl, xy=(x, y), xytext=(-5, 10), textcoords="offset points",
+        lbl = f"{y:.2f}%" if std == 0 else f"{y:.2f}±{std:.2f}%"
+        y_offset = 12 if x != 3 else 8
+        ax1.annotate(lbl, xy=(x, y), xytext=(-10, y_offset), textcoords="offset points",
                      fontsize=9.5, fontweight="bold", color=color_eer)
 
     ax2 = ax1.twinx()
@@ -123,17 +126,18 @@ def plot_fig2_adaptation_curve():
                  linewidth=2.5, markersize=8, label="Accuracy (Higher is better)")
     ax2.set_ylabel("Accuracy (%)", color=color_acc, fontweight="bold")
     ax2.tick_params(axis="y", labelcolor=color_acc)
-    ax2.set_ylim(50, 90)
+    ax2.set_ylim(50, 103)
     ax2.grid(False)
 
     for x, y, std in zip(n_samples, acc_mean, acc_std):
-        lbl = f"{y:.1f}%" if std == 0 else f"{y:.1f}±{std:.1f}%"
-        ax2.annotate(lbl, xy=(x, y), xytext=(-10, -18), textcoords="offset points",
+        lbl = f"{y:.2f}%" if std == 0 else f"{y:.2f}±{std:.2f}%"
+        y_offset = -18 if x != 3 else -20
+        ax2.annotate(lbl, xy=(x, y), xytext=(-10, y_offset), textcoords="offset points",
                      fontsize=9.5, fontweight="bold", color=color_acc)
 
-    plt.title("Few-Shot SLS Adaptation on Frozen XLS-R 300M (Hindi)", fontweight="bold", pad=12)
+    plt.title("Few-Shot SLS Scaling on Frozen XLS-R 300M (Hindi Audio)", fontweight="bold", pad=12)
     ax1.set_xticks(n_samples)
-    ax1.set_xticklabels(["0 (Zero-Shot)", "10", "50"], fontweight="bold")
+    ax1.set_xticklabels(labels, fontweight="bold")
 
     # Combined legend
     lines1, labels1 = ax1.get_legend_handles_labels()

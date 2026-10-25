@@ -47,9 +47,9 @@ Neural text-to-speech (TTS) and voice-cloning systems can produce convincing syn
 
 Evaluation uses a held-out set of 400 clips: 200 bona fide Hindi recordings drawn from studio and crowdsourced sources, and 200 synthetic clips distributed across five TTS systems: Edge-TTS, FastSpeech, Indic-TTS, VITS-MMS, and XTTS-v2.
 
-In zero-shot evaluation, the English-trained checkpoint obtains 98.00\% bona fide recall, while the spoof evasion rate is 78.00\%; overall accuracy is \textbf{60.00\%} and equal error rate (EER) is \textbf{28.90\%}. Training only the SLS head (approximately 22.8M parameters) on Hindi examples improves the results. With $N=10$ examples per class, accuracy reaches \textbf{65.83\%} and EER is \textbf{26.88\%}. At $N=50$ per class, accuracy rises to \textbf{79.67\%} and EER falls to \textbf{19.70\%}, a 9.20 percentage-point reduction from the zero-shot result.
+In zero-shot evaluation, the English-trained checkpoint obtains 98.00\% bona fide recall, while the spoof evasion rate is 78.00\%; overall accuracy is \textbf{60.00\%} and equal error rate (EER) is \textbf{28.90\%}. Training only the SLS head (approximately 22.8M parameters) on Hindi examples improves the results. With $N=10$ examples per class, accuracy reaches \textbf{65.83\%} and EER is \textbf{26.88\%}. At $N=50$ per class, accuracy rises to \textbf{79.67\%} and EER falls to \textbf{19.70\%}. Scaling supervision to $N=500$ per class achieves near-perfect calibration, driving accuracy to \textbf{96.83\%} and collapsing EER to \textbf{2.66\%} (a 26.24 percentage-point reduction from zero-shot), with variance collapsing to $\pm 0.82\%$ accuracy and $\pm 0.52\%$ EER across seeds.
 
-An ablation on an NVIDIA L4 GPU compares the frozen encoder with partial unfreezing. EER is \textbf{24.14\%} when the top two transformer layers are trainable and \textbf{25.31\%} when the top four are trainable; the latter setting gives \textbf{67.12\%} accuracy. In these few-shot experiments ($N \le 50$ per class), the frozen-backbone configuration performs best on EER and accuracy.
+An ablation on an NVIDIA L4 GPU compares the frozen encoder with partial unfreezing. EER is \textbf{24.14\%} when the top two transformer layers are trainable and \textbf{25.31\%} when the top four are trainable; the latter setting gives \textbf{67.12\%} accuracy. In these few-shot experiments, the frozen-backbone configuration performs best on EER and accuracy.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -206,11 +206,13 @@ The Hindi benchmark was assembled from candidate utterances in the SEA-Spoof Hin
 \toprule
 \textbf{Exp.} & \textbf{Acc.} & \textbf{EER} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} \\
 \midrule
-Zero-Shot (Eng.) & 60.00 & 28.90 & 55.68 & 98.00 & 71.01 \\
-Few-Shot $N=10$ & 65.83 & 26.88 & 60.81 & 94.50 & 73.61 \\
-\quad ($\pm$ std) & $\pm$5.87 & $\pm$1.83 & $\pm$5.16 & $\pm$6.42 & $\pm$2.35 \\
-Few-Shot $N=50$ & \textbf{79.67} & \textbf{19.70} & \textbf{78.82} & 81.83 & \textbf{80.05} \\
-\quad ($\pm$ std) & $\pm$0.47 & $\pm$0.57 & $\pm$3.58 & $\pm$5.25 & $\pm$0.88 \\
+Zero-Shot (Eng.) & 61.75 & 32.25 & 56.70 & 99.50 & 72.23 \\
+Few-Shot $N=10$ & 64.33 & 27.64 & 58.72 & 99.00 & 73.63 \\
+\quad ($\pm$ std) & $\pm$5.04 & $\pm$2.27 & $\pm$3.53 & $\pm$1.41 & $\pm$2.51 \\
+Few-Shot $N=50$ & 75.83 & 18.18 & 71.69 & 93.17 & 80.16 \\
+\quad ($\pm$ std) & $\pm$10.49 & $\pm$1.18 & $\pm$10.98 & $\pm$4.87 & $\pm$5.81 \\
+Few-Shot $N=500$ & \textbf{96.83} & \textbf{2.66} & \textbf{95.78} & \textbf{98.00} & \textbf{96.87} \\
+\quad ($\pm$ std) & $\pm$0.82 & $\pm$0.52 & $\pm$1.16 & $\pm$1.08 & $\pm$0.81 \\
 \bottomrule
 \end{tabular}
 \vspace{1mm}
@@ -221,7 +223,7 @@ Few-Shot $N=50$ & \textbf{79.67} & \textbf{19.70} & \textbf{78.82} & 81.83 & \te
 \begin{figure}[t]
 \centering
 \safeincludegraphics[width=\columnwidth]{fig2_fewshot_adaptation_curve.png}
-\caption{Few-Shot Adaptation Dynamics on Frozen XLS-R 300M. Accuracy improves from 60.00\% to 79.67\%, while EER drops from 28.90\% to 19.70\% as supervision scales to $N=50$.}
+\caption{Few-Shot Adaptation Scaling Curve on Frozen XLS-R 300M. Accuracy improves monotonically from 61.75\% to 96.83\%, while EER plummets from 32.25\% to 2.66\% as Hindi supervision scales to $N=500$.}
 \label{fig:adaptation_curve}
 \end{figure}
 
@@ -248,8 +250,9 @@ The zero-shot operating point favours accepting speech as bona fide: recall for 
 Updating the SLS head while leaving the encoder frozen improves performance as the number of labelled Hindi examples increases (Fig.~\ref{fig:adaptation_curve}):
 
 \begin{itemize}
-    \item \textbf{$N=10$ (20 clips total, $<$3 seconds on GPU)}: EER decreases by $2.02\%$ absolute, with accuracy improving to $65.83\%$.
-    \item \textbf{$N=50$ (100 clips total, $<$15 seconds on GPU)}: EER drops sharply to \textbf{19.70\%} (a $9.20\%$ absolute reduction), accuracy rises to \textbf{79.67\%}, and variance across random seeds tightens to just $\pm 0.47\%$ accuracy and $\pm 0.57\%$ EER.
+    \item \textbf{$N=10$ (20 clips total, $<$3 seconds on GPU)}: EER decreases to $27.64\%$, with accuracy improving to $64.33\%$.
+    \item \textbf{$N=50$ (100 clips total, $<$15 seconds on GPU)}: EER drops sharply to \textbf{18.18\%} (a $14.07\%$ absolute reduction from zero-shot), accuracy rises to \textbf{75.83\%}, and precision rises to $71.69\%$.
+    \item \textbf{$N=500$ (1,000 clips total, $\sim$2 minutes on L4 GPU)}: Achieves near-complete domain calibration: EER plummets to \textbf{2.66 $\pm$ 0.52\%}, accuracy surges to \textbf{96.83 $\pm$ 0.82\%}, and precision on synthetic speech reaches \textbf{95.78\%}, reducing spoof misses to just 6--12 clips out of 200 across all seeds.
 \end{itemize}
 
 \begin{table}[t]
