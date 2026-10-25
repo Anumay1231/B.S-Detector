@@ -181,13 +181,6 @@ def plot_fig3_unfreezing():
                     xytext=(0, 3), textcoords="offset points",
                     ha="center", va="bottom", fontsize=10, fontweight="bold", color="#1e8449")
 
-    # Add insight box
-    ax.annotate("Catastrophic Overfitting:\nUnfreezing backbone worsens EER by +5.6%",
-                xy=(2, 25.5), xytext=(1.05, 42),
-                arrowprops=dict(arrowstyle="->", color="#c0392b", lw=1.5),
-                fontsize=9.5, color="#c0392b", fontweight="bold",
-                bbox=dict(boxstyle="round,pad=0.3", fc="#fadbd8", ec="#e74c3c", lw=1))
-
     plt.tight_layout()
     out_path = OUTPUT_DIR / "fig3_backbone_unfreezing_comparison.png"
     plt.savefig(out_path)
@@ -200,7 +193,7 @@ def plot_fig4_generator_stratification():
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8.5, 4.0))
 
     # Pie 1: Class split
-    labels_class = ["Bonafide (Real)", "Spoof (Synthetic)"]
+    labels_class = ["Bona fide (Real)", "Spoof (Synthetic)"]
     sizes_class = [200, 200]
     colors_class = ["#2ecc71", "#e74c3c"]
     explode_class = (0.04, 0.04)
