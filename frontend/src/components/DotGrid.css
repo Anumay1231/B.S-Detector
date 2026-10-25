@@ -137,11 +137,3 @@
     color var(--dur-fast) var(--ease-out),
     scale var(--dur-base) var(--ease-bounce);
 }
-
-.dotgrid-field:hover .dot {
-  scale: 0.9;
-}
-
-.dotgrid-field .dot:hover {
-  scale: 1.5;
-}
