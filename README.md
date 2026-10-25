@@ -137,6 +137,7 @@ npm run build                                  # rebuild frontend/dist before co
 - The Hindi head (N=500) is not in Git because of its size (89 MB). Put `sls_head_n500_seed2_best.pth` in `models/` and the app uses it automatically; the status tag then says "Hindi head". Without it the app falls back to the English checkpoint, which passes real Hindi voices but misses most Hindi fakes.
 - Stage 1 hears 4.04 seconds at a time. Check several windows of a long clip.
 - The stage 2 threshold is an English (VoxCeleb1) baseline and has not been validated on Hindi or Hinglish speech.
+- Stage 2 needs the voice clearly above the background. The app trims silence before comparing and refuses clips whose speech sits within 6 dB of the noise: ECAPA-TDNN embeds a noise-dominated clip as the room rather than the person, and in tests on random LibriSpeech speakers buried in noise, most pairs of different people crossed the threshold.
 
 ## Credits
 

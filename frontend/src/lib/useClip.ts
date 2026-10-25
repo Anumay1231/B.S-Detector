@@ -59,7 +59,9 @@ export function useClip(onLevel: LevelSink) {
     setError(null)
     let stream: MediaStream
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } })
+      // Noise suppression keeps a TV or a noisy room from drowning the voice; without it the
+      // speaker check embeds the room and two different people can score as one.
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true } })
     } catch {
       setError('Microphone access was blocked. Allow it in your browser’s site settings, or choose a file instead.')
       return
