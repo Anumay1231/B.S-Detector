@@ -12,3 +12,7 @@ graphify-out/.graphify_python
 graphify-out/.graphify_root
 .DS_Store
 .mplconfig/
+
+# The built UI is committed so the app runs with Python alone.
+!frontend/dist/
+frontend/node_modules/

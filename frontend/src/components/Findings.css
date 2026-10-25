@@ -1,0 +1,480 @@
+.findings {
+  padding-block: var(--s-9);
+  background: var(--surface);
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.findings .page {
+  display: grid;
+  gap: var(--s-9);
+}
+
+.findings-head {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: var(--s-4) var(--s-7);
+  align-items: end;
+}
+
+.findings-head h2,
+.method-head h2 {
+  font-size: clamp(var(--t-48), 7.4vw, 112px);
+  font-weight: 800;
+  font-variation-settings: 'wdth' 76;
+  line-height: 0.88;
+}
+
+.findings-head p,
+.method-head p {
+  color: var(--ink-soft);
+  max-width: 44ch;
+}
+
+.findings h3 {
+  font-size: clamp(var(--t-24), 3vw, var(--t-36));
+  font-variation-settings: 'wdth' 88;
+  line-height: 1.05;
+}
+
+/* ------------------------------------------------------------ test set */
+
+.testset {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--s-7);
+  align-items: center;
+}
+
+.testset-grid {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 4px;
+  max-width: 420px;
+}
+
+.testset-grid span {
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.testset-legend {
+  display: grid;
+  gap: var(--s-6);
+}
+
+.testset-group {
+  font-weight: 650;
+  margin-bottom: var(--s-2);
+}
+
+.testset-legend ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.testset-legend li {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 11rem) minmax(0, 1fr) 3ch;
+  gap: var(--s-3);
+  align-items: baseline;
+  padding: var(--s-2) 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--t-16);
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  align-self: center;
+}
+
+.legend-detail {
+  color: var(--ink-soft);
+  font-size: var(--t-14);
+}
+
+.legend-count {
+  text-align: right;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------- catch chart */
+
+.finding {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--s-7);
+  align-items: start;
+}
+
+.finding-copy {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.finding-copy p,
+.ablation-copy p {
+  color: var(--ink-soft);
+  max-width: 52ch;
+}
+
+.catch {
+  display: grid;
+  gap: var(--s-4);
+  --label: 12rem;
+  --nums: 6.5rem;
+}
+
+.catch-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+  font-size: var(--t-14);
+  color: var(--ink-soft);
+}
+
+.catch-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.catch-key .mark {
+  position: static;
+  transform: none;
+}
+
+.catch-scale {
+  margin-left: auto;
+}
+
+.catch-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.catch-row {
+  display: grid;
+  grid-template-columns: var(--label) minmax(0, 1fr) var(--nums);
+  gap: var(--s-4);
+  align-items: center;
+  padding: var(--s-4) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.catch-label {
+  display: grid;
+}
+
+.catch-name {
+  font-weight: 600;
+  font-size: var(--t-16);
+}
+
+.catch-shots {
+  font-size: var(--t-14);
+  color: var(--ink-soft);
+}
+
+.catch-track {
+  position: relative;
+  height: 28px;
+  background:
+    linear-gradient(var(--rule), var(--rule)) center / 100% 1px no-repeat,
+    linear-gradient(var(--rule-strong), var(--rule-strong)) 50% 50% / 1px 12px no-repeat;
+}
+
+.catch-span {
+  position: absolute;
+  top: 50%;
+  height: 4px;
+  transform: translateY(-50%);
+  background: var(--rule-strong);
+  border-radius: 2px;
+}
+
+.mark {
+  position: absolute;
+  top: 50%;
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--surface);
+}
+
+.mark-genuine {
+  background: var(--genuine);
+}
+
+.mark-synthetic {
+  background: var(--synthetic);
+  border-radius: 3px;
+}
+
+.catch-nums {
+  display: grid;
+  font-size: var(--t-14);
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+.catch-nums strong {
+  font-size: var(--t-18);
+  font-weight: 700;
+}
+
+.num-synthetic strong {
+  color: var(--synthetic);
+}
+
+.num-genuine strong {
+  color: var(--genuine);
+}
+
+.catch-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-left: calc(var(--label) + var(--s-4));
+  margin-right: calc(var(--nums) + var(--s-4));
+  font-size: var(--t-12);
+  color: var(--ink-faint);
+}
+
+/* ------------------------------------------------------------- ablation */
+
+.ablation {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--s-7);
+  align-items: start;
+}
+
+.ablation-copy {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.ablation-data {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--s-4) var(--s-7);
+  align-items: start;
+}
+
+.eer-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-4);
+}
+
+.eer-bars li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--s-1) var(--s-3);
+}
+
+.eer-name {
+  font-weight: 600;
+  font-size: var(--t-16);
+}
+
+.eer-params {
+  font-size: var(--t-14);
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+.eer-track {
+  grid-column: 1;
+  height: 14px;
+  background: var(--paper-sunk);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.eer-fill {
+  display: block;
+  height: 100%;
+  background: var(--rule-strong);
+  border-radius: 3px;
+}
+
+.eer-bars li[data-best] .eer-fill {
+  background: var(--genuine);
+}
+
+.eer-bars li:last-child .eer-fill {
+  background: var(--synthetic);
+}
+
+.eer-val {
+  font-weight: 700;
+  font-size: var(--t-16);
+  line-height: 14px;
+}
+
+.eer-note {
+  grid-column: 1;
+  font-size: var(--t-14);
+  color: var(--ink-faint);
+}
+
+.matrix-wrap {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.matrix-title {
+  font-size: var(--t-14);
+  color: var(--ink-soft);
+  margin-bottom: var(--s-3);
+}
+
+.matrix {
+  border-collapse: separate;
+  border-spacing: 4px;
+  font-size: var(--t-14);
+}
+
+.matrix th {
+  font-weight: 500;
+  color: var(--ink-soft);
+  padding: var(--s-1) var(--s-2);
+}
+
+.matrix thead th {
+  text-align: center;
+}
+
+.matrix tbody th {
+  text-align: right;
+}
+
+.matrix thead td {
+  background: none;
+}
+
+.matrix td {
+  width: 84px;
+  height: 64px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: var(--t-24);
+  font-weight: 700;
+  border-radius: 8px;
+  background: var(--paper-sunk);
+}
+
+.matrix td.miss {
+  background: var(--synthetic);
+  color: #fff;
+}
+
+.matrix td.hit {
+  background: var(--genuine-wash);
+  color: var(--genuine);
+}
+
+.matrix td.miss-soft {
+  color: var(--ink-soft);
+}
+
+/* -------------------------------------------------------------- metrics */
+
+.metrics {
+  border-top: 1px solid var(--rule-strong);
+  padding-top: var(--s-4);
+}
+
+.metrics summary {
+  cursor: pointer;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.metrics-scroll {
+  overflow-x: auto;
+  margin-top: var(--s-4);
+}
+
+.metrics table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-16);
+  white-space: nowrap;
+}
+
+.metrics th,
+.metrics td {
+  text-align: left;
+  padding: var(--s-3) var(--s-4) var(--s-3) 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.metrics thead th {
+  font-weight: 500;
+  font-size: var(--t-14);
+  color: var(--ink-soft);
+}
+
+.metrics tbody th {
+  font-weight: 600;
+}
+
+.metrics small,
+.metrics .muted {
+  color: var(--ink-faint);
+  font-size: var(--t-14);
+}
+
+.metrics-note {
+  margin-top: var(--s-3);
+  font-size: var(--t-14);
+  color: var(--ink-soft);
+  max-width: 80ch;
+}
+
+@media (max-width: 960px) {
+  .findings-head,
+  .testset,
+  .finding,
+  .ablation {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .catch {
+    --label: 1fr;
+  }
+  .catch-row {
+    grid-template-columns: minmax(0, 1fr) var(--nums);
+  }
+  .catch-label {
+    grid-column: 1 / -1;
+  }
+  .catch-axis {
+    margin-left: 0;
+  }
+  .ablation-data {
+    grid-template-columns: 1fr;
+  }
+  .matrix-wrap {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .testset-legend li {
+    grid-template-columns: 14px minmax(0, 1fr) 3ch;
+  }
+  .legend-detail {
+    display: none;
+  }
+}

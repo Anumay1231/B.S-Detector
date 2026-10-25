@@ -1,0 +1,9 @@
+# B.S. Detector — local app (API server + model)
+fastapi>=0.110
+uvicorn>=0.29
+torch>=2.2
+transformers>=4.40
+huggingface_hub>=0.22
+soundfile>=0.12
+scipy>=1.11
+numpy>=1.26
