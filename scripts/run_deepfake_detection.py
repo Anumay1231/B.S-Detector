@@ -170,10 +170,17 @@ def main():
         help="Training epochs for few-shot fine-tuning.",
     )
     parser.add_argument(
+        "--fewshot-sizes",
+        nargs="+",
+        type=int,
+        default=[10, 50, 500],
+        help="Few-shot pool sizes per class (default: 10 50 500).",
+    )
+    parser.add_argument(
         "--test-per-class",
         type=int,
-        default=None,
-        help="Number of test samples per class (default: 50 for quick base tests, or 250).",
+        default=200,
+        help="Number of test samples per class (default: 200).",
     )
     parser.add_argument(
         "--skip-streaming",
@@ -250,7 +257,7 @@ def main():
 
     logger.info(f"Using test_per_class={test_per_class} (available bonafide: {bonafide_avail}, spoof: {spoof_avail})")
     test_ids, test_df = create_test_split(df_hindi, test_per_class=test_per_class)
-    fewshot_pools = create_fewshot_pools(df_hindi, test_ids, fewshot_sizes=[10, 50], num_seeds=3)
+    fewshot_pools = create_fewshot_pools(df_hindi, test_ids, fewshot_sizes=args.fewshot_sizes, num_seeds=3)
     all_needed_ids = get_all_needed_ids(test_ids, fewshot_pools)
     labels_dict = get_labels_for_ids(df_hindi, all_needed_ids)
 
@@ -322,25 +329,17 @@ def main():
     logger.info("STEP 6: Few-shot experiments")
     logger.info("=" * 70)
 
-    fewshot_10_metrics = run_fewshot_experiment(
-        n=10,
-        fewshot_pools=fewshot_pools,
-        test_row_ids=test_ids,
-        labels_dict=labels_dict,
-        device=args.device,
-        feature_cache_dir=feature_cache_dir,
-        epochs=args.epochs,
-    )
-
-    fewshot_50_metrics = run_fewshot_experiment(
-        n=50,
-        fewshot_pools=fewshot_pools,
-        test_row_ids=test_ids,
-        labels_dict=labels_dict,
-        device=args.device,
-        feature_cache_dir=feature_cache_dir,
-        epochs=args.epochs,
-    )
+    fewshot_results = {}
+    for n in args.fewshot_sizes:
+        fewshot_results[f"Few-shot N={n}"] = run_fewshot_experiment(
+            n=n,
+            fewshot_pools=fewshot_pools,
+            test_row_ids=test_ids,
+            labels_dict=labels_dict,
+            device=args.device,
+            feature_cache_dir=feature_cache_dir,
+            epochs=args.epochs,
+        )
 
     # ---- Step 7: Comparison table ----
     logger.info("\n" + "=" * 70)
@@ -349,8 +348,7 @@ def main():
 
     results = {
         "Zero-shot": [zeroshot_metrics],
-        "Few-shot N=10": fewshot_10_metrics,
-        "Few-shot N=50": fewshot_50_metrics,
+        **fewshot_results,
     }
     print("\n")
     print_comparison_table(results)
@@ -358,7 +356,7 @@ def main():
     # Save to outputs directory
     outputs_dir = _PROJECT_ROOT / "outputs"
     outputs_dir.mkdir(parents=True, exist_ok=True)
-    results_path = outputs_dir / "results_full_250.json"
+    results_path = outputs_dir / f"results_full_{'_'.join(map(str, args.fewshot_sizes))}.json"
 
     def _serialize(obj):
         if hasattr(obj, "tolist"):

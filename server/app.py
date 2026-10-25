@@ -44,6 +44,18 @@ logger = logging.getLogger("bsdetector.server")
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 CHECKPOINT = os.environ.get("BSD_CHECKPOINT", "v1")
 DEVICE = os.environ.get("BSD_DEVICE") or None
+# A Hindi-adapted SLS head from the team's few-shot runs (same layer layout as the
+# English checkpoint). Used automatically when present; not in Git because of its size.
+HINDI_HEAD = Path(os.environ.get("BSD_HEAD") or REPO_ROOT / "models" / "sls_head_n500_seed2_best.pth")
+
+
+def load_hindi_head(head: Any, path: Path) -> None:
+    import torch
+
+    state = torch.load(path, map_location="cpu", weights_only=True)
+    state = {k.removeprefix("module."): v for k, v in state.items() if not k.startswith("ssl_model.")}
+    head.load_state_dict(state)
+    head.eval()
 
 
 class ModelState:
@@ -59,6 +71,9 @@ class ModelState:
         self.head: Any = None
         self.loaded_at: Optional[float] = None
         self.lock = threading.Lock()
+        # "english" (the published English checkpoint) or "hindi-n500" (the team's adapted head)
+        self.head_kind = "english"
+        self.head_note: Optional[str] = None
 
     def load(self) -> None:
         if not engine.TORCH_AVAILABLE:
@@ -68,6 +83,14 @@ class ModelState:
             self.backbone, self.head, self.device = engine.load_detector_models(
                 device=DEVICE, checkpoint_version=CHECKPOINT
             )
+            if HINDI_HEAD.is_file():
+                try:
+                    load_hindi_head(self.head, HINDI_HEAD)
+                    self.head_kind = "hindi-n500"
+                    logger.info("Using the Hindi-adapted SLS head from %s", HINDI_HEAD)
+                except Exception as exc:  # keep the English head rather than failing
+                    logger.exception("Could not load %s", HINDI_HEAD)
+                    self.head_note = f"{HINDI_HEAD.name} could not be loaded ({exc}); using the English checkpoint."
             self.loaded_at = time.time()
             self.state = "ready"
             self.message = f"Ready in {time.perf_counter() - t0:.0f} s."
@@ -82,6 +105,8 @@ class ModelState:
             "message": self.message,
             "device": self.device,
             "checkpoint": CHECKPOINT,
+            "head": self.head_kind,
+            "headNote": self.head_note,
             "backbone": "facebook/wav2vec2-xls-r-300m",
             "windowSeconds": engine.INPUT_LENGTH / engine.TARGET_SR,
         }
@@ -156,6 +181,7 @@ def detection_json(result: engine.ForensicInferenceResult) -> Dict[str, Any]:
         "latencyMs": result.latency_ms,
         "durationSec": result.audio_duration_sec,
         "device": result.device_used,
+        "head": model.head_kind,
     }
 
 

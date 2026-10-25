@@ -3,10 +3,9 @@
 Generate publication-quality figures for the Audio Deepfake Detection paper.
 
 Produces:
-  1. fig1_dataset_bias_v1_vs_v2.png: The Dataset Bias Phenomenon (V1 Shortcut vs V2 Realistic Benchmark)
-  2. fig2_fewshot_adaptation_curve.png: Accuracy and EER across N in {0, 10, 50} with standard deviation
-  3. fig3_backbone_unfreezing_comparison.png: Frozen Backbone vs Unfrozen Top-2 Layers vs Top-4 Layers
-  4. fig4_generator_stratification.png: Balanced 5-Generator and Multi-Source Bonafide Dataset Architecture
+  1. fig2_fewshot_adaptation_curve.png: Accuracy and EER across N in {0, 10, 50, 500} with standard deviation
+  2. fig3_backbone_unfreezing_comparison.png: Frozen Backbone vs Unfrozen Top-2 Layers vs Top-4 Layers
+  3. fig4_generator_stratification.png: Balanced 5-Generator and Multi-Source Bonafide Dataset Architecture
 """
 
 from pathlib import Path
@@ -33,73 +32,18 @@ OUTPUT_DIR = Path("outputs/figures")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def plot_fig1_dataset_bias():
-    """Fig 1: The Dataset Bias Phenomenon (V1 Shortcut vs V2 Realistic Benchmark)."""
-    fig, ax = plt.subplots(figsize=(7, 4.2))
-
-    categories = ["Zero-Shot\n(N=0)", "Few-Shot\n(N=10)", "Few-Shot\n(N=50)"]
-    x = np.arange(len(categories))
-    width = 0.35
-
-    # EER values
-    v1_eer = [10.60, 1.97, 0.40]
-    v2_eer = [28.90, 26.88, 19.70]
-
-    rects1 = ax.bar(x - width/2, v1_eer, width, label="V1 (Biased, Single-Source)", color="#e74c3c", alpha=0.88, edgecolor="#c0392b", linewidth=1.2)
-    rects2 = ax.bar(x + width/2, v2_eer, width, label="V2 (Balanced, 5 Generators)", color="#2980b9", alpha=0.88, edgecolor="#1c5980", linewidth=1.2)
-
-    ax.set_ylabel("Equal Error Rate (EER %)", fontweight="bold")
-    ax.set_title("Cross-Lingual Deepfake Detection: The Dataset Bias Phenomenon", fontweight="bold", pad=12)
-    ax.set_xticks(x)
-    ax.set_xticklabels(categories, fontweight="bold")
-    ax.set_ylim(0, 38)
-    ax.legend(frameon=True, facecolor="white", edgecolor="#bdc3c7", loc="upper left")
-
-    # Add data labels
-    for rect in rects1:
-        h = rect.get_height()
-        ax.annotate(f"{h:.2f}%",
-                    xy=(rect.get_x() + rect.get_width() / 2, h),
-                    xytext=(0, 3), textcoords="offset points",
-                    ha="center", va="bottom", fontsize=10, fontweight="bold", color="#c0392b")
-
-    for rect in rects2:
-        h = rect.get_height()
-        ax.annotate(f"{h:.2f}%",
-                    xy=(rect.get_x() + rect.get_width() / 2, h),
-                    xytext=(0, 3), textcoords="offset points",
-                    ha="center", va="bottom", fontsize=10, fontweight="bold", color="#1c5980")
-
-    # Add explanatory annotation
-    ax.annotate("V1 exploited generator\nshortcuts (artificially low EER)",
-                xy=(1.82, 0.6), xytext=(1.05, 8.5),
-                arrowprops=dict(arrowstyle="->", color="#c0392b", lw=1.5),
-                fontsize=9.5, color="#c0392b", fontweight="bold",
-                bbox=dict(boxstyle="round,pad=0.3", fc="#fadbd8", ec="#e74c3c", lw=1))
-
-    ax.annotate("V2 tests true cross-generator\ngeneralization across 5 TTS models",
-                xy=(2.18, 20.0), xytext=(0.85, 30.5),
-                arrowprops=dict(arrowstyle="->", color="#1c5980", lw=1.5),
-                fontsize=9.5, color="#1c5980", fontweight="bold",
-                bbox=dict(boxstyle="round,pad=0.3", fc="#ebf5fb", ec="#2980b9", lw=1))
-
-    plt.tight_layout()
-    out_path = OUTPUT_DIR / "fig1_dataset_bias_v1_vs_v2.png"
-    plt.savefig(out_path)
-    plt.close()
-    print(f"Saved: {out_path}")
-
-
 def plot_fig2_adaptation_curve():
     """Fig 2: Few-Shot Adaptation Curve on Balanced Benchmark."""
-    fig, ax1 = plt.subplots(figsize=(7, 4.2))
+    fig, ax1 = plt.subplots(figsize=(7.5, 4.5))
 
-    n_samples = [0, 10, 50]
-    eer_mean = [28.90, 26.88, 19.70]
-    eer_std = [0.0, 1.83, 0.57]
+    n_samples = [0, 1, 2, 3]  # Categorical indices for clean spacing
+    labels = ["0 (Zero-Shot)", "10", "50", "500"]
 
-    acc_mean = [60.00, 65.83, 79.67]
-    acc_std = [0.0, 5.87, 0.47]
+    eer_mean = [32.25, 27.64, 18.18, 2.66]
+    eer_std = [0.0, 2.27, 1.18, 0.52]
+
+    acc_mean = [61.75, 64.33, 75.83, 96.83]
+    acc_std = [0.0, 5.04, 10.49, 0.82]
 
     color_eer = "#d35400"
     color_acc = "#27ae60"
@@ -110,11 +54,12 @@ def plot_fig2_adaptation_curve():
     ax1.set_xlabel("Number of Few-Shot Samples per Class ($N$)", fontweight="bold")
     ax1.set_ylabel("Equal Error Rate (EER %)", color=color_eer, fontweight="bold")
     ax1.tick_params(axis="y", labelcolor=color_eer)
-    ax1.set_ylim(15, 35)
+    ax1.set_ylim(0, 38)
 
     for x, y, std in zip(n_samples, eer_mean, eer_std):
-        lbl = f"{y:.1f}%" if std == 0 else f"{y:.1f}±{std:.1f}%"
-        ax1.annotate(lbl, xy=(x, y), xytext=(-5, 10), textcoords="offset points",
+        lbl = f"{y:.2f}%" if std == 0 else f"{y:.2f}±{std:.2f}%"
+        y_offset = 12 if x != 3 else 8
+        ax1.annotate(lbl, xy=(x, y), xytext=(-10, y_offset), textcoords="offset points",
                      fontsize=9.5, fontweight="bold", color=color_eer)
 
     ax2 = ax1.twinx()
@@ -123,17 +68,18 @@ def plot_fig2_adaptation_curve():
                  linewidth=2.5, markersize=8, label="Accuracy (Higher is better)")
     ax2.set_ylabel("Accuracy (%)", color=color_acc, fontweight="bold")
     ax2.tick_params(axis="y", labelcolor=color_acc)
-    ax2.set_ylim(50, 90)
+    ax2.set_ylim(50, 103)
     ax2.grid(False)
 
     for x, y, std in zip(n_samples, acc_mean, acc_std):
-        lbl = f"{y:.1f}%" if std == 0 else f"{y:.1f}±{std:.1f}%"
-        ax2.annotate(lbl, xy=(x, y), xytext=(-10, -18), textcoords="offset points",
+        lbl = f"{y:.2f}%" if std == 0 else f"{y:.2f}±{std:.2f}%"
+        y_offset = -18 if x != 3 else -20
+        ax2.annotate(lbl, xy=(x, y), xytext=(-10, y_offset), textcoords="offset points",
                      fontsize=9.5, fontweight="bold", color=color_acc)
 
-    plt.title("Few-Shot SLS Adaptation on Frozen XLS-R 300M (Hindi)", fontweight="bold", pad=12)
+    plt.title("Few-Shot SLS Scaling on Frozen XLS-R 300M (Hindi Audio)", fontweight="bold", pad=12)
     ax1.set_xticks(n_samples)
-    ax1.set_xticklabels(["0 (Zero-Shot)", "10", "50"], fontweight="bold")
+    ax1.set_xticklabels(labels, fontweight="bold")
 
     # Combined legend
     lines1, labels1 = ax1.get_legend_handles_labels()
@@ -230,12 +176,11 @@ def plot_fig4_generator_stratification():
 
 
 def main():
-    print("Generating publication figures...")
-    plot_fig1_dataset_bias()
+    print("Generating figures...")
     plot_fig2_adaptation_curve()
     plot_fig3_unfreezing()
     plot_fig4_generator_stratification()
-    print("All publication figures successfully created in outputs/figures/!")
+    print("All figures successfully created in outputs/figures/!")
 
 
 if __name__ == "__main__":

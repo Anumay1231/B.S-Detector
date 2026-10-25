@@ -1,4 +1,4 @@
-import { ablations, pct, regimes, speakerBaseline as sb, speakerProtocol as sp } from '../data/research'
+import { ablations, bestRun, pct, regimes, speakerBaseline as sb, speakerProtocol as sp } from '../data/research'
 import { REPO_URL } from './Header'
 import { DotGrid } from './DotGrid'
 import './Findings.css'
@@ -63,7 +63,7 @@ function ScoreLine() {
 }
 
 export function Findings() {
-  const [zero, n10, n50] = regimes
+  const [zero, , n50, n500] = regimes
   return (
     <>
       <section className="chapter section band-fog" id="findings" aria-labelledby="ch1-title">
@@ -71,12 +71,14 @@ export function Findings() {
           <div className="feature">
             <div className="feature-copy reveal">
               <h2 id="ch1-title">
-                Caught <em>{n50.fakesCaught} of 200</em> Hindi fakes with 50 training clips each
+                Caught <em>{n500.fakesCaught} of 200</em> Hindi fakes after 500 training clips each
               </h2>
               <p>
                 The deepfake checkpoint was trained on English. On 400 Hindi clips it had never heard, it passed {zero.genuinePassed} of 200 real
-                voices but caught only {zero.fakesCaught} of 200 fakes. Retraining just its small head on 50 Hindi clips per class caught{' '}
-                {n50.fakesCaught}, at the cost of passing {n50.genuinePassed} real voices instead of {zero.genuinePassed}.
+                voices but caught only {zero.fakesCaught} of 200 fakes. Retraining just its small head, with the backbone frozen, fixes most of
+                that: 50 Hindi clips per class caught {n50.fakesCaught}, and 500 per class caught {n500.fakesCaught} while still passing{' '}
+                {n500.genuinePassed} real voices. The best of three runs got {pct(bestRun.accuracy, 0)} right: {bestRun.fakesMissed} fakes
+                missed and {bestRun.falseAlarms} false alarms out of 400.
               </p>
               <dl className="feature-stats">
                 <div>
@@ -84,12 +86,12 @@ export function Findings() {
                   <dd className="num">{pct(zero.eer)} EER</dd>
                 </div>
                 <div>
-                  <dt>10 Hindi clips each</dt>
-                  <dd className="num">{pct(n10.eer)} EER</dd>
-                </div>
-                <div>
                   <dt>50 Hindi clips each</dt>
                   <dd className="num">{pct(n50.eer)} EER</dd>
+                </div>
+                <div>
+                  <dt>500 Hindi clips each</dt>
+                  <dd className="num">{pct(n500.eer)} EER</dd>
                 </div>
               </dl>
               <a className="text-link" href={`${DOCS}/EXPERIMENT_PROTOCOL_AND_RESULTS.md`} target="_blank" rel="noreferrer">

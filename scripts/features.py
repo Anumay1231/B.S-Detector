@@ -22,9 +22,9 @@ from .streaming import load_cached_audio
 
 logger = logging.getLogger(__name__)
 
-FEATURE_CACHE_DIR = Path(
-    "/Users/yashgarg/Documents/bsdetector/B.S-Detector/data/deepfake_cache/features"
-)
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent
+FEATURE_CACHE_DIR = _PROJECT_ROOT / "data" / "deepfake_cache" / "features"
 
 
 def extract_and_cache_features(
@@ -73,7 +73,7 @@ def extract_and_cache_features(
         backbone = load_backbone(device=device)
 
     start_time = time.time()
-    batch_size = 2
+    batch_size = 16 if "cuda" in str(device).lower() else 2
 
     for start_idx in range(0, len(needed), batch_size):
         batch_rids = needed[start_idx : start_idx + batch_size]
@@ -109,7 +109,7 @@ def extract_and_cache_features(
             torch.cuda.empty_cache()
 
         curr_count = min(start_idx + batch_size, len(needed))
-        if curr_count % 10 == 0 or curr_count == len(needed):
+        if curr_count % 50 == 0 or curr_count == len(needed):
             elapsed = time.time() - start_time
             rate = curr_count / elapsed if elapsed > 0 else 0
             eta = (len(needed) - curr_count) / rate if rate > 0 else 0

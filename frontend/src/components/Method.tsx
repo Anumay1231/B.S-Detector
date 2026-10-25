@@ -38,7 +38,7 @@ const NODES = [
   {
     stage: 1,
     title: 'Layer gate',
-    spec: 'SLS head, 22.8M trained',
+    spec: 'Sensitive Layer Selection, 23.4M trained',
     body: 'A learned gate weighs each layer, then the blend is pooled and classified.',
     glyph: <path d="M6 8h10l8 10-8 10H6M24 18h7" {...s} />,
   },
@@ -80,7 +80,7 @@ const LIMITS = [
   'Both stages were tested on clean recordings. Phone-call audio (8 kHz, compressed) has not been evaluated.',
   'Five generators made the benchmark fakes. A new one can fool it in ways these numbers do not show.',
   'The deepfake check hears 4.04 seconds at a time. Check several windows of a long clip.',
-  'This app ships the English-trained deepfake checkpoint, not the Hindi-adapted heads from the experiments.',
+  'The app uses the Hindi head trained on 500 clips per class when models/sls_head_n500_seed2_best.pth is present. Without it, it falls back to the English checkpoint, which misses most Hindi fakes.',
   'Nobody has tested the speaker cut-off on Hindi or Hinglish yet. It was calibrated on VoxCeleb1, mostly English interviews.',
   'A verdict is evidence, not proof.',
 ]

@@ -123,3 +123,12 @@ frontend/node_modules/
 
 # playwright-cli session snapshots
 .playwright-cli/
+
+# Research (base branch): local checkpoints, LaTeX build files, paper drafts
+models/*.pth
+*.aux
+*.log
+*.out
+*.toc
+missfont.log
+paper/

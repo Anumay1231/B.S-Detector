@@ -243,11 +243,11 @@ for label in ["spoof", "bonafide"]:
         pct = 100 * c / len(sub)
         print(f"    {d or '(empty)'}: {c} ({pct:.1f}%)")
 
-# Compare with old v1
+# Compare with previous subset
 old_path = "data/sea_spoof_en_hi_metadata.parquet"
 df_old = pd.read_parquet(old_path)
 overlap = set(df_old["row_id"]) & set(df_final["row_id"])
-print(f"\nOverlap with v1: {len(overlap)}/{len(df_old)} row_ids")
+print(f"\nOverlap with previous subset: {len(overlap)}/{len(df_old)} row_ids")
 
 print(f"\n{'='*60}")
 print("DONE. Next steps:")

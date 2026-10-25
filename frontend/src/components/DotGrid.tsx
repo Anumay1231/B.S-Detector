@@ -5,9 +5,9 @@ import './DotGrid.css'
 const COLS = 20
 const ROWS = 22
 // Truth colours: real voices in ink and grey, the five generators in sienna tints.
-const SLICE_COLORS = ['#17191c', '#8a8d95', '#5d2a1a', '#7d4a39', '#9e6e5e', '#b98c7c', '#d4b2a5']
+const SLICE_COLORS = ['#17191c', '#5d2a1a', '#7d4a39', '#9e6e5e', '#b98c7c', '#d4b2a5']
 
-type View = 'source' | 'zero' | 'n50'
+type View = 'source' | 'zero' | 'n50' | 'n500'
 
 interface Dot {
   real: boolean
@@ -54,7 +54,7 @@ function layout(view: View): { placed: Placed[]; piles: { label: string; count: 
       ],
     }
   }
-  const r = view === 'zero' ? regimes[0] : regimes[2]
+  const r = regimeFor(view)
   const realPassed: number[] = []
   const realFlagged: number[] = []
   const fakeCaught: number[] = []
@@ -64,7 +64,7 @@ function layout(view: View): { placed: Placed[]; piles: { label: string; count: 
     else (d.k < r.fakesCaught ? fakeCaught : fakeMissed).push(i)
   })
   const ink = SLICE_COLORS[0]
-  const sienna = SLICE_COLORS[2]
+  const sienna = SLICE_COLORS[1]
   const passed = [...realPassed.map((i) => ({ i, color: ink, ring: false })), ...fakeMissed.map((i) => ({ i, color: sienna, ring: true }))]
   const flagged = [...fakeCaught.map((i) => ({ i, color: sienna, ring: false })), ...realFlagged.map((i) => ({ i, color: ink, ring: true }))]
   const next = pile(passed, 0, placed)
@@ -79,20 +79,23 @@ function layout(view: View): { placed: Placed[]; piles: { label: string; count: 
   }
 }
 
+const regimeFor = (v: View) => regimes.find((r) => r.id === v) ?? regimes[0]
+
 const VIEWS: { id: View; label: string }[] = [
   { id: 'source', label: 'The test set' },
   { id: 'zero', label: 'English model' },
-  { id: 'n50', label: 'After 100 Hindi clips' },
+  { id: 'n50', label: '50 Hindi clips each' },
+  { id: 'n500', label: '500 Hindi clips each' },
 ]
 
 export function DotGrid() {
-  const [view, setView] = useState<View>('zero')
+  const [view, setView] = useState<View>('n500')
   const { placed, piles } = layout(view)
-  const r = view === 'zero' ? regimes[0] : regimes[2]
+  const r = regimeFor(view)
 
   const summary =
     view === 'source'
-      ? '200 real Hindi voices (studio and crowdsourced) and 200 fakes, 40 from each of five generators.'
+      ? '200 real Hindi voices, studio and crowdsourced, and 200 fakes, 40 from each of five generators.'
       : `${r.fakesCaught} of 200 fakes caught, ${200 - r.fakesCaught} slipped through as real. ${r.genuinePassed} of 200 real voices passed.`
 
   return (
@@ -139,14 +142,14 @@ export function DotGrid() {
               <span className="swatch" style={{ background: SLICE_COLORS[0] }} /> Real voice
             </li>
             <li>
-              <span className="swatch" style={{ background: SLICE_COLORS[2] }} /> Generated
+              <span className="swatch" style={{ background: SLICE_COLORS[1] }} /> Generated
             </li>
             <li>
-              <span className="swatch is-ring" style={{ color: SLICE_COLORS[2] }} /> In the wrong pile
+              <span className="swatch is-ring" style={{ color: SLICE_COLORS[1] }} /> In the wrong pile
             </li>
           </ul>
         )}
-        <p className="tag">Totals are from the benchmark. Which dot is which is illustrative.</p>
+        <p className="tag">Totals are the mean of three runs on the benchmark. Which dot is which is illustrative.</p>
       </figcaption>
     </figure>
   )

@@ -2,7 +2,7 @@
 
 A voice authentication system for Hindi and English speech that asks two questions about a recording, in order:
 
-1. **Is this voice real?** A deepfake detector, a frozen **XLS-R 300M** model with a **selective layer summarization (SLS)** head, listens for signs that the speech was generated.
+1. **Is this voice real?** A deepfake detector, a frozen **XLS-R 300M** model with a **Sensitive Layer Selection (SLS)** head, listens for signs that the speech was generated.
 2. **Is it the same person?** If the voice sounds genuine, a pretrained **ECAPA-TDNN** speaker model compares it with a known recording of the claimed speaker.
 
 The two stages are joined by an **interlock**. If stage 1 calls a voice synthetic, stage 2 never runs, because a convincing clone would otherwise pass as the real person. The repository contains the research behind both stages and a local web app that runs them on your own computer.
@@ -43,7 +43,7 @@ You need **Python 3.10 or newer**. The first run creates a `.venv`, installs PyT
                             ≥ 0.2528 → same speaker
 ```
 
-**Stage 1** turns 4.04 seconds of 16 kHz audio into the 24 hidden layers of XLS-R 300M. A learned sigmoid gate weighs each layer, the layers are blended and pooled, and two dense layers output the chance that the voice is synthetic. Only the 22.8M-parameter head is trained; the 300M backbone stays frozen.
+**Stage 1** turns 4.04 seconds of 16 kHz audio into the 24 hidden layers of XLS-R 300M. A learned sigmoid gate weighs each layer, the layers are blended and pooled, and two dense layers output the chance that the voice is synthetic. Only the 23.4M-parameter head is trained; the 315M backbone stays frozen.
 
 **Stage 2** uses `speechbrain/spkrec-ecapa-voxceleb` exactly as published. It turns each whole clip into a 192-dimensional voiceprint, and the two voiceprints are compared with cosine similarity. The cut-off, 0.252784, was calibrated on VoxCeleb1 trials rather than chosen by hand.
 
@@ -51,15 +51,16 @@ You need **Python 3.10 or newer**. The first run creates a `.venv`, installs PyT
 
 ### Stage 1: deepfake detection on Hindi
 
-Tested on a balanced set the model had never seen: 200 real voices (IndicTTS studio speech and Mozilla Common Voice) and 200 fakes, 40 from each of Edge-TTS, VITS-MMS, Indic-TTS, FastSpeech and XTTS-v2. The checkpoint was trained on English.
+Tested on a balanced set the model had never seen: 200 real voices (IndicTTS studio speech and Mozilla Common Voice) and 200 fakes, 40 from each of Edge-TTS, VITS-MMS, Indic-TTS, FastSpeech and XTTS-v2. The starting checkpoint was trained on English; the adapted rows retrain only the SLS head on Hindi clips.
 
 | Setup | Fakes caught (of 200) | Real voices passed (of 200) | Accuracy | EER |
 | :-- | --: | --: | --: | --: |
-| English-trained, no Hindi | 44 | 196 | 60.00% | 28.90% |
-| Adapted on 10 Hindi clips per class | 74 | 189 | 65.83 ± 5.87% | 26.88 ± 1.83% |
-| Adapted on 50 Hindi clips per class | 155 | 164 | 79.67 ± 0.47% | 19.70 ± 0.57% |
+| English-trained, no Hindi | 48 | 199 | 61.75% | 32.25% |
+| Adapted on 10 Hindi clips per class | 59 | 198 | 64.33 ± 5.04% | 27.64 ± 2.27% |
+| Adapted on 50 Hindi clips per class | 117 | 186 | 75.83 ± 10.49% | 18.18 ± 1.18% |
+| **Adapted on 500 Hindi clips per class** | **191** | **196** | **96.83 ± 0.82%** | **2.66 ± 0.52%** |
 
-Adapted rows are the mean of 3 seeds. Unfreezing the top of XLS-R made results worse: 24.14% EER with 2 layers unfrozen and 25.31% with 4, where one run let 162 of 189 fakes through. Keeping the backbone frozen is the better choice with this little data. Details: [`docs/EXPERIMENT_PROTOCOL_AND_RESULTS.md`](docs/EXPERIMENT_PROTOCOL_AND_RESULTS.md), [`paper/`](paper/) and the JSON in [`outputs/`](outputs/).
+Adapted rows are the mean of 3 seeds; the counts are the mean of their confusion matrices. The best N=500 run reached 98.00% accuracy and 2.12% EER, with 6 fakes missed and 2 false alarms out of 400. In earlier runs on a 439-clip split, unfreezing the top of XLS-R made things worse: 24.14% EER with 2 layers unfrozen and 25.31% with 4, where one run let 162 of 189 fakes through. Details: [`docs/deepfake-detection.md`](docs/deepfake-detection.md), the [technical dossier](docs/HINDI_DEEPFAKE_DETECTION_TECHNICAL_DOSSIER.pdf) and the JSON in [`outputs/`](outputs/).
 
 ### Stage 2: speaker verification on VoxCeleb1
 
@@ -93,9 +94,9 @@ src/speaker_verification/
                       calibration, verifier, VoxCeleb datasets
 scripts/              stage 1 benchmark pipeline and stage 2 command-line tools
 tests/                stage 2 unit tests (pytest)
-docs/                 experiment protocol, calibration, model and architecture notes
+docs/                 deepfake dossier, experiment protocol, calibration and model notes
 outputs/              stage 1 benchmark results (JSON) and figures
-paper/                paper draft and research dossier
+models/               local SLS head checkpoints (not in Git; see Limitations)
 data/                 dataset placeholders; downloaded audio is never committed
 ```
 
@@ -106,7 +107,7 @@ The research environment is separate from the app. `requirements.txt` lists both
 **Stage 1.** Stream the Hindi SEA-Spoof subset, cache XLS-R features and run the zero-shot and few-shot experiments:
 
 ```bash
-python scripts/run_deepfake_detection.py --device cuda --test-per-class 250
+python scripts/run_deepfake_detection.py --device cuda --test-per-class 200 --fewshot-sizes 10 50 500
 ```
 
 Use `--skip-streaming` and `--skip-features` to reuse caches. `scripts/generate_paper_figures.py` rebuilds the figures.
@@ -128,12 +129,12 @@ cd frontend && npm install && npm run dev      # UI on :5173, proxies /api to :8
 npm run build                                  # rebuild frontend/dist before committing
 ```
 
-`BSD_DEVICE` (`cuda`, `mps` or `cpu`) picks the device for both models. `BSD_CHECKPOINT` (`v1` or `v2`) picks the stage 1 checkpoint. `BSD_SV_THRESHOLD` overrides the stage 2 cut-off, and the app then labels it uncalibrated.
+`BSD_DEVICE` (`cuda`, `mps` or `cpu`) picks the device for both models. `BSD_CHECKPOINT` (`v1` or `v2`) picks the English stage 1 checkpoint, and `BSD_HEAD` points at a different Hindi head file. `BSD_SV_THRESHOLD` overrides the stage 2 cut-off, and the app then labels it uncalibrated.
 
 ## Limitations
 
 - Both stages were evaluated on clean recordings. Phone-call audio (8 kHz, compressed codecs) has not been tested.
-- The app ships the English-trained stage 1 checkpoint. On Hindi it passes real voices reliably but misses many fakes, so a "genuine" verdict is weaker evidence than a "synthetic" one. The Hindi-adapted heads from the experiments are not bundled.
+- The Hindi head (N=500) is not in Git because of its size (89 MB). Put `sls_head_n500_seed2_best.pth` in `models/` and the app uses it automatically; the status tag then says "Hindi head". Without it the app falls back to the English checkpoint, which passes real Hindi voices but misses most Hindi fakes.
 - Stage 1 hears 4.04 seconds at a time. Check several windows of a long clip.
 - The stage 2 threshold is an English (VoxCeleb1) baseline and has not been validated on Hindi or Hinglish speech.
 

@@ -1,13 +1,16 @@
-// Results from outputs/results_balanced_200.json and the unfreezing ablations
-// (outputs/results_unfreeze_2layers_balanced.json, outputs/results_unfreeze_l4.json).
-// Balanced V2 test set: 200 genuine + 200 synthetic Hindi clips. Few-shot rows are
-// the mean of 3 seeds. "Caught" counts are derived from accuracy and genuine-class
-// recall: genuine passed = recall × 200, fakes caught = accuracy × 400 − genuine passed.
+// Stage 1 results from outputs/results_full_10_50_500.json (the current benchmark):
+// a held-out, balanced test set of 200 real and 200 generated Hindi clips. Few-shot rows
+// are the mean of 3 seeds, ± one (population) standard deviation as in the team's README.
+// Fakes caught and real voices passed are the mean of the per-seed confusion matrices.
+// The unfreezing ablation below comes from earlier runs on a 439-clip split
+// (outputs/results_unfreeze_*.json), matching the team's figure 3.
 
 export interface Regime {
   id: string
   label: string
   shots: string
+  /** clips per class used to adapt the head */
+  perClass: number
   accuracy: number
   accuracyStd?: number
   eer: number
@@ -19,40 +22,15 @@ export interface Regime {
   fakesCaught: number
 }
 
-const derive = (accuracy: number, recall: number) => {
-  const genuinePassed = Math.round(recall * 200)
-  return { genuinePassed, fakesCaught: Math.round(accuracy * 400) - genuinePassed }
-}
-
 export const regimes: Regime[] = [
-  { id: 'zero', label: 'English-trained, no Hindi', shots: '0 Hindi clips', accuracy: 0.6, eer: 0.289, precision: 0.5568, recall: 0.98, f1: 0.7101, ...derive(0.6, 0.98) },
-  {
-    id: 'n10',
-    label: 'Adapted on 10 per class',
-    shots: '20 Hindi clips',
-    accuracy: 0.6583,
-    accuracyStd: 0.0587,
-    eer: 0.2688,
-    eerStd: 0.0183,
-    precision: 0.6081,
-    recall: 0.945,
-    f1: 0.7361,
-    ...derive(0.6583, 0.945),
-  },
-  {
-    id: 'n50',
-    label: 'Adapted on 50 per class',
-    shots: '100 Hindi clips',
-    accuracy: 0.7967,
-    accuracyStd: 0.0047,
-    eer: 0.197,
-    eerStd: 0.0057,
-    precision: 0.7882,
-    recall: 0.8183,
-    f1: 0.8005,
-    ...derive(0.7967, 0.8183),
-  },
+  { id: 'zero', label: 'English-trained, no Hindi', shots: '0 Hindi clips', perClass: 0, accuracy: 0.6175, eer: 0.3225, precision: 0.567, recall: 0.995, f1: 0.7223, genuinePassed: 199, fakesCaught: 48 },
+  { id: 'n10', label: 'Adapted on 10 per class', shots: '20 Hindi clips', perClass: 10, accuracy: 0.6433, accuracyStd: 0.0504, eer: 0.2764, eerStd: 0.0227, precision: 0.5872, recall: 0.99, f1: 0.7363, genuinePassed: 198, fakesCaught: 59 },
+  { id: 'n50', label: 'Adapted on 50 per class', shots: '100 Hindi clips', perClass: 50, accuracy: 0.7583, accuracyStd: 0.1049, eer: 0.1818, eerStd: 0.0118, precision: 0.7169, recall: 0.9317, f1: 0.8016, genuinePassed: 186, fakesCaught: 117 },
+  { id: 'n500', label: 'Adapted on 500 per class', shots: '1,000 Hindi clips', perClass: 500, accuracy: 0.9683, accuracyStd: 0.0082, eer: 0.0266, eerStd: 0.0052, precision: 0.9578, recall: 0.98, f1: 0.9687, genuinePassed: 196, fakesCaught: 191 },
 ]
+
+/** The best single N=500 run (seed 2), as quoted by the team. */
+export const bestRun = { accuracy: 0.98, eer: 0.0212, fakesMissed: 6, falseAlarms: 2 }
 
 export interface Ablation {
   id: string
@@ -68,7 +46,7 @@ export interface Ablation {
 }
 
 export const ablations: Ablation[] = [
-  { id: 'frozen', label: 'Backbone frozen', trainable: '22.8M', layers: 0, accuracy: 0.7967, accuracyStd: 0.0047, eer: 0.197, eerStd: 0.0057 },
+  { id: 'frozen', label: 'Backbone frozen', trainable: '23.4M', layers: 0, accuracy: 0.7967, accuracyStd: 0.0047, eer: 0.197, eerStd: 0.0057 },
   { id: 'top2', label: 'Top 2 layers unfrozen', trainable: '50.8M', layers: 2, accuracy: 0.7646, accuracyStd: 0.0047, eer: 0.2414, eerStd: 0.0158, matrix: [[90, 99], [2, 248]] },
   { id: 'top4', label: 'Top 4 layers unfrozen', trainable: '78.8M', layers: 4, accuracy: 0.6712, accuracyStd: 0.0583, eer: 0.2531, eerStd: 0.0191, matrix: [[27, 162], [0, 250]] },
 ]
@@ -81,8 +59,7 @@ export interface Slice {
 }
 
 export const benchmark: Slice[] = [
-  { label: 'IndicTTS recordings', detail: 'Studio speech', count: 120, kind: 'genuine' },
-  { label: 'Mozilla Common Voice', detail: 'Crowdsourced, real-world mics', count: 80, kind: 'genuine' },
+  { label: 'Real Hindi voices', detail: 'Studio (IndicTTS) and crowdsourced (Common Voice)', count: 200, kind: 'genuine' },
   { label: 'Edge-TTS', detail: 'Microsoft neural cloud voice', count: 40, kind: 'synthetic' },
   { label: 'VITS-MMS', detail: 'Meta end-to-end VITS', count: 40, kind: 'synthetic' },
   { label: 'Indic-TTS', detail: 'IIT Madras synthesis', count: 40, kind: 'synthetic' },

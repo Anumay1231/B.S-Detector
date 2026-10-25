@@ -15,6 +15,9 @@ export interface Status {
   device: string | null
   checkpoint: string
   windowSeconds: number
+  /** which SLS head is loaded: the English checkpoint or the team's Hindi-adapted one */
+  head?: 'english' | 'hindi-n500'
+  headNote?: string | null
   verifier?: VerifierStatus
 }
 
@@ -26,6 +29,7 @@ export interface Analysis {
   latencyMs: number
   durationSec: number
   device: string
+  head?: 'english' | 'hindi-n500'
 }
 
 export interface Verification {
