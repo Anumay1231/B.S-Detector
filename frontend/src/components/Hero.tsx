@@ -3,11 +3,6 @@ import type { Showcase } from '../lib/useShowcase'
 import { topLayers } from '../lib/layers'
 import './Hero.css'
 
-interface Props {
-  show: Showcase
-  onTrySample: () => void
-}
-
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`
 
 function SourceTag({ show }: { show: Showcase }) {
@@ -120,16 +115,16 @@ function Stage2Artifact({ show }: { show: Showcase }) {
   )
 }
 
-export function Hero({ show, onTrySample }: Props) {
-  const wrap = useRef<HTMLDivElement>(null)
-
-  // artifacts drift a few pixels as the page scrolls
+/** The hero copy is static HTML in index.html; React only fills in the floating cards. */
+export function HeroArtifacts({ show }: { show: Showcase }) {
+  // the cards drift a few pixels as the page scrolls
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const stage = document.querySelector<HTMLElement>('.hero-stage')
     let raf = 0
     const onScroll = () => {
       cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => wrap.current?.style.setProperty('--drift', String(Math.min(1, window.scrollY / 600))))
+      raf = requestAnimationFrame(() => stage?.style.setProperty('--drift', String(Math.min(1, window.scrollY / 600))))
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => {
@@ -139,36 +134,11 @@ export function Hero({ show, onTrySample }: Props) {
   }, [])
 
   return (
-    <section className="hero" id="top" aria-labelledby="hero-title">
-      <div className="hero-stage page" ref={wrap}>
-        <div className="hero-copy">
-          <h1 id="hero-title" className="hero-title">
-            Is this voice <em>real</em>?
-          </h1>
-          <p className="hero-hindi" lang="hi">
-            क्या यह आवाज़ असली है?
-          </p>
-          <p className="hero-sub">
-            B.S. Detector checks a recording in two stages: whether the voice was generated, and whether it belongs to the person it claims
-            to be. It runs on your own computer.
-          </p>
-          <div className="hero-actions">
-            <a className="pill pill-filled" href="#analyze">
-              Check a clip
-            </a>
-            <button type="button" className="pill pill-ghost" onClick={onTrySample}>
-              Try a sample
-            </button>
-          </div>
-        </div>
-
-        <div className="hero-artifacts">
-          <SpectrogramArtifact show={show} />
-          <Stage1Artifact show={show} />
-          <LayersArtifact show={show} />
-          <Stage2Artifact show={show} />
-        </div>
-      </div>
-    </section>
+    <>
+      <SpectrogramArtifact show={show} />
+      <Stage1Artifact show={show} />
+      <LayersArtifact show={show} />
+      <Stage2Artifact show={show} />
+    </>
   )
 }

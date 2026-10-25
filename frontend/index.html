@@ -10,7 +10,46 @@
     <link rel="preload" as="font" type="font/woff2" crossorigin href="./node_modules/@fontsource-variable/source-serif-4/files/source-serif-4-latin-wght-normal.woff2" />
   </head>
   <body>
-    <div id="root"></div>
+    <!-- The nav and hero are static HTML so the headline paints before any JavaScript runs.
+         React renders into the mount points inside them (#nav-status, #hero-artifacts) and
+         into #root and #site-footer below. -->
+    <a class="skip-link" href="#analyze">Skip to the analyzer</a>
+    <header class="nav">
+      <div class="nav-inner page">
+        <div class="nav-left">
+          <a class="logo" href="#top" aria-label="B.S. Detector, back to top">
+            <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect width="32" height="32" rx="9" fill="currentColor" /><g fill="#fbe1d1"><rect x="6" y="13" width="2.6" height="6" rx="1.3" /><rect x="10.6" y="9" width="2.6" height="14" rx="1.3" /><rect x="15.2" y="5.5" width="2.6" height="21" rx="1.3" /><rect x="19.8" y="10.5" width="2.6" height="11" rx="1.3" /><rect x="24.4" y="14" width="2.6" height="4" rx="1.3" /></g></svg>
+            <span>B.S. Detector</span>
+          </a>
+          <span class="tag nav-status" id="nav-status" role="status">Loading models</span>
+        </div>
+        <nav class="nav-links" aria-label="Sections">
+          <a href="#analyze">Analyze</a><a href="#findings">Findings</a><a href="#method">Method</a><a href="https://github.com/Anumay1231/B.S-Detector" target="_blank" rel="noreferrer">Source</a>
+        </nav>
+        <div class="nav-right">
+          <a class="text-link nav-run" href="#run">Run it yourself <span aria-hidden="true">→</span></a>
+          <a class="pill pill-filled pill-sm" href="#analyze">Check a clip</a>
+        </div>
+      </div>
+    </header>
+    <main>
+      <section class="hero" id="top" aria-labelledby="hero-title">
+        <div class="hero-stage page">
+          <div class="hero-copy">
+            <h1 class="hero-title" id="hero-title">Is this voice <em>real</em>?</h1>
+            <p class="hero-hindi" lang="hi">क्या यह आवाज़ असली है?</p>
+            <p class="hero-sub">B.S. Detector checks a recording in two stages: whether the voice was generated, and whether it belongs to the person it claims to be. It runs on your own computer.</p>
+            <div class="hero-actions">
+              <a class="pill pill-filled" href="#analyze">Check a clip</a>
+              <button type="button" class="pill pill-ghost" id="try-sample">Try a sample</button>
+            </div>
+          </div>
+          <div class="hero-artifacts" id="hero-artifacts"></div>
+        </div>
+      </section>
+      <div id="root"></div>
+    </main>
+    <div id="site-footer"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

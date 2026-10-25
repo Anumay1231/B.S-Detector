@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { fetchStatus, type Status } from './lib/api'
 import { loadManifest, type Manifest } from './lib/samples'
 import { useShowcase } from './lib/useShowcase'
-import { Header } from './components/Header'
-import { Hero } from './components/Hero'
+import { statusText } from './components/Header'
+import { HeroArtifacts } from './components/Hero'
 import { Analyzer, type SampleRequest } from './components/Analyzer'
 import { Findings } from './components/Findings'
 import { Method } from './components/Method'
@@ -67,25 +68,41 @@ export default function App() {
     void loadManifest().then(setManifest)
   }, [])
 
-  const trySample = () => {
-    const real = manifest?.samples.find((s) => s.kind === 'real' && s.language.toLowerCase().startsWith('hi')) ?? manifest?.samples[0]
-    document.getElementById('analyze')?.scrollIntoView({ behavior: 'smooth' })
-    if (real) setRequest({ id: real.id, nonce: Date.now() })
-  }
+  // live status text on the static nav tag
+  useEffect(() => {
+    const el = document.getElementById('nav-status')
+    if (!el) return
+    el.textContent = statusText(status)
+    el.title = [status.message, status.verifier?.message].filter(Boolean).join(' ')
+  }, [status])
+
+  // the static "Try a sample" button loads the real Hindi clip into the analyzer and runs it
+  const manifestRef = useRef<Manifest | null>(null)
+  useEffect(() => {
+    manifestRef.current = manifest
+  }, [manifest])
+  useEffect(() => {
+    const btn = document.getElementById('try-sample')
+    const onClick = () => {
+      const m = manifestRef.current
+      const real = m?.samples.find((s) => s.kind === 'real' && s.language.toLowerCase().startsWith('hi')) ?? m?.samples[0]
+      document.getElementById('analyze')?.scrollIntoView({ behavior: 'smooth' })
+      if (real) setRequest({ id: real.id, nonce: Date.now() })
+    }
+    btn?.addEventListener('click', onClick)
+    return () => btn?.removeEventListener('click', onClick)
+  }, [])
+
+  const artifacts = document.getElementById('hero-artifacts')
+  const footer = document.getElementById('site-footer')
 
   return (
     <>
-      <a className="skip-link" href="#analyze">
-        Skip to the analyzer
-      </a>
-      <Header status={status} />
-      <main>
-        <Hero show={show} onTrySample={trySample} />
-        <Analyzer status={status} manifest={manifest} request={request} />
-        <Findings />
-        <Method />
-      </main>
-      <Footer />
+      {artifacts && createPortal(<HeroArtifacts show={show} />, artifacts)}
+      <Analyzer status={status} manifest={manifest} request={request} />
+      <Findings />
+      <Method />
+      {footer && createPortal(<Footer />, footer)}
     </>
   )
 }
