@@ -1,0 +1,119 @@
+/* B.S. Detector — design tokens.
+   Paper and ink carry the interface; the magma ramp is reserved for audio data. */
+
+:root {
+  color-scheme: light;
+
+  --paper: #eef0f3;
+  --paper-sunk: #e3e7ec;
+  --surface: #f8f9fb;
+  --ink: #161a2b;
+  --ink-soft: #5a6072;
+  --ink-faint: #6b7182;
+  --rule: #cdd2db;
+  --rule-strong: #a9b0bd;
+
+  /* The instrument window stays dark in both themes, like a scope screen. */
+  --scope: #12162a;
+  --scope-raised: #1b2038;
+  --scope-ink: #dde1ec;
+  --scope-soft: #8d94ab;
+  --scope-rule: #2b3150;
+
+  --synthetic: #c42e5b;
+  --synthetic-wash: #f6dfe6;
+  --genuine: #1e7f6c;
+  --genuine-wash: #d9eee8;
+
+  /* magma ramp, low to high energy */
+  --m0: #000004;
+  --m1: #3b0f70;
+  --m2: #8c2981;
+  --m3: #de4968;
+  --m4: #fe9f6d;
+  --m5: #fcfdbf;
+
+  --font-display: 'Anybody Variable', 'Arial Narrow', sans-serif;
+  --font-text: 'Instrument Sans Variable', system-ui, sans-serif;
+  --font-hindi: 'Tiro Devanagari Hindi', 'Nirmala UI', serif;
+
+  /* Classic typographic scale (Bringhurst): 12 14 16 18 21 24 36 48 60 72 */
+  --t-12: 0.75rem;
+  --t-14: 0.875rem;
+  --t-16: 1rem;
+  --t-18: 1.125rem;
+  --t-21: 1.3125rem;
+  --t-24: 1.5rem;
+  --t-36: 2.25rem;
+  --t-48: 3rem;
+  --t-60: 3.75rem;
+  --t-72: 4.5rem;
+
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 144px;
+
+  --gutter: clamp(16px, 4vw, 56px);
+  --measure: 64ch;
+  --page: 1320px;
+
+  /* Radii step with hierarchy: the instrument is the largest object. */
+  --r-chip: 999px;
+  --r-control: 10px;
+  --r-card: 14px;
+  --r-scope: 22px;
+
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
+  --dur-4: 560ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --paper: #10131f;
+    --paper-sunk: #0b0e18;
+    --surface: #181c2b;
+    --ink: #e8eaf0;
+    --ink-soft: #a0a7b9;
+    --ink-faint: #868da0;
+    --rule: #2a3043;
+    --rule-strong: #3d455c;
+    --scope: #080a14;
+    --scope-raised: #121628;
+    --scope-rule: #22284a;
+    --synthetic: #f0628a;
+    --synthetic-wash: #3a1826;
+    --genuine: #4cc2a6;
+    --genuine-wash: #12302a;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #10131f;
+  --paper-sunk: #0b0e18;
+  --surface: #181c2b;
+  --ink: #e8eaf0;
+  --ink-soft: #a0a7b9;
+  --ink-faint: #868da0;
+  --rule: #2a3043;
+  --rule-strong: #3d455c;
+  --scope: #080a14;
+  --scope-raised: #121628;
+  --scope-rule: #22284a;
+  --synthetic: #f0628a;
+  --synthetic-wash: #3a1826;
+  --genuine: #4cc2a6;
+  --genuine-wash: #12302a;
+}

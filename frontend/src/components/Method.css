@@ -1,0 +1,127 @@
+.method {
+  display: grid;
+  gap: var(--s-8);
+  padding-block: var(--s-9);
+}
+
+.method-head {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: var(--s-4) var(--s-7);
+  align-items: end;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 2px solid var(--ink);
+}
+
+.step {
+  display: grid;
+  grid-template-rows: auto auto auto 1fr;
+  gap: var(--s-2);
+  padding: var(--s-5) var(--s-5) var(--s-5) 0;
+}
+
+.step + .step {
+  padding-left: var(--s-5);
+  border-left: 1px solid var(--rule);
+}
+
+.step-n {
+  font-family: var(--font-display);
+  font-size: var(--t-60);
+  font-weight: 300;
+  font-variation-settings: 'wdth' 60;
+  line-height: 1;
+  color: var(--ink-faint);
+}
+
+.step h3 {
+  font-size: var(--t-24);
+  font-variation-settings: 'wdth' 88;
+  line-height: 1.1;
+}
+
+.step-spec {
+  font-size: var(--t-14);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.step-body {
+  font-size: var(--t-16);
+  color: var(--ink-soft);
+}
+
+.limits {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--s-4) var(--s-7);
+}
+
+.limits h3 {
+  font-size: clamp(var(--t-24), 3vw, var(--t-36));
+  font-variation-settings: 'wdth' 88;
+}
+
+.limits ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.limits li {
+  position: relative;
+  padding: var(--s-3) 0 var(--s-3) var(--s-5);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--t-16);
+}
+
+.limits li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: calc(var(--s-3) + 0.62em);
+  width: 10px;
+  height: 2px;
+  background: var(--synthetic);
+}
+
+@media (max-width: 1000px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .step:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .step:nth-child(n + 3) {
+    border-top: 1px solid var(--rule);
+  }
+}
+
+@media (max-width: 860px) {
+  .method-head,
+  .limits {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .steps {
+    grid-template-columns: 1fr;
+  }
+  .step,
+  .step + .step {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .step + .step {
+    border-top: 1px solid var(--rule);
+  }
+}

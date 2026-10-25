@@ -21,3 +21,12 @@ scipy==1.15.3
 scikit-learn==1.7.2
 matplotlib==3.10.9
 soundfile==0.14.0
+
+# Deepfake-detection research (scripts/run_deepfake_detection.py and the
+# SEA-Spoof benchmark). Unpinned, as in the original research environment.
+# The web app has its own list in server/requirements.txt.
+transformers
+datasets
+huggingface_hub
+pandas
+pyarrow

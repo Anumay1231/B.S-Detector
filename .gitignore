@@ -105,3 +105,18 @@ model_cache/
 
 # Local audio test files
 tests/recording test/
+
+# Deepfake-detection research (merged from the base branch). The SEA-Spoof
+# metadata parquets and the cached waveform/feature tensors are large and
+# reproducible from scripts/, so they stay out of Git.
+data/*.parquet
+data/deepfake_cache/
+.eggs/
+graphify-out/cache/
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+.mplconfig/
+
+# Web app: the built UI is committed so the app runs with Python alone.
+!frontend/dist/
+frontend/node_modules/

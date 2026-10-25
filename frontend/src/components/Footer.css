@@ -1,0 +1,86 @@
+.footer {
+  background: var(--ink);
+  color: var(--paper);
+  padding-block: var(--s-8) var(--s-7);
+}
+
+.footer-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+  gap: var(--s-7);
+}
+
+.footer-run {
+  min-width: 0;
+  display: grid;
+  gap: var(--s-4);
+  align-content: start;
+}
+
+.footer-run h2 {
+  font-size: clamp(var(--t-36), 4.4vw, var(--t-60));
+  font-weight: 800;
+  font-variation-settings: 'wdth' 76;
+}
+
+.footer-run p {
+  color: color-mix(in srgb, var(--paper) 72%, var(--ink));
+  max-width: 56ch;
+  font-size: var(--t-16);
+}
+
+.cmd {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-2) var(--s-2) var(--s-4);
+  border-radius: var(--r-control);
+  background: color-mix(in srgb, var(--paper) 9%, var(--ink));
+  max-width: 100%;
+}
+
+.cmd code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: var(--t-14);
+  padding-block: var(--s-2);
+}
+
+.footer .btn-ghost {
+  color: var(--paper);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--paper) 30%, var(--ink));
+}
+
+.footer .btn-ghost:hover {
+  background: color-mix(in srgb, var(--paper) 14%, var(--ink));
+}
+
+.footer :focus-visible {
+  outline-color: var(--paper);
+}
+
+.footer-links ul {
+  list-style: none;
+  margin: 0 0 var(--s-5);
+  padding: 0;
+  display: grid;
+  gap: var(--s-2);
+}
+
+.footer-links a {
+  font-size: var(--t-16);
+}
+
+.footer-note {
+  font-size: var(--t-14);
+  color: color-mix(in srgb, var(--paper) 60%, var(--ink));
+}
+
+@media (max-width: 860px) {
+  .footer-inner {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,4 +1,82 @@
-# Speaker Verification
+# B.S. Detector
+
+Check whether a voice clip is real or synthetic. Drop in a recording and a frozen **XLS-R 300M** speech model with a **selective layer summarization (SLS)** head gives a verdict. It also shows the 4-second window it heard and which of its 24 layers it relied on. Everything runs on your own computer.
+
+### [▶ Download and run B.S. Detector](https://github.com/Anumay1231/B.S-Detector/archive/refs/heads/main.zip)
+
+1. Unzip the download.
+2. Double-click **`start.bat`** (Windows) or **`start.command`** (macOS). On Linux, run `./start.command`.
+3. Your browser opens at `http://127.0.0.1:8000` when the app is ready.
+
+Or from a terminal:
+
+```bash
+git clone https://github.com/Anumay1231/B.S-Detector && cd B.S-Detector && python run.py
+```
+
+You need **Python 3.9 or newer**. The first run creates a `.venv`, installs PyTorch and the other dependencies, and downloads about 1.3 GB of model weights from Hugging Face. Later starts take a few seconds. Node.js isn't needed: the built interface ships in `frontend/dist`.
+
+## What the app does
+
+- **Analyze:** upload a file (WAV, MP3, FLAC, OGG, M4A) or record from your microphone. The browser converts the audio to 16 kHz mono and draws its spectrogram. You can drag the 4.04-second analysis window to any part of the clip.
+- **Verdict:** the chance that the window is synthetic, plus the learned gate weight for each of XLS-R's 24 layers.
+- **Findings:** the Hindi benchmark results behind the model, including where it fails.
+- **Session log:** every check you run, exportable as JSON.
+
+## How well it works
+
+We tested on a balanced Hindi set of 200 real voices (IndicTTS, Mozilla Common Voice) and 200 fakes, with 40 from each of five generators: Edge-TTS, VITS-MMS, Indic-TTS, FastSpeech and XTTS-v2.
+
+| Setup | Fakes caught (of 200) | Real voices passed (of 200) | Accuracy | EER |
+| :-- | --: | --: | --: | --: |
+| English-trained, no Hindi | 44 | 196 | 60.00% | 28.90% |
+| Adapted on 10 Hindi clips per class | 74 | 189 | 65.83 ± 5.87% | 26.88 ± 1.83% |
+| Adapted on 50 Hindi clips per class | 155 | 164 | 79.67 ± 0.47% | 19.70 ± 0.57% |
+
+Unfreezing the top layers of XLS-R made things worse: 24.14% EER with 2 layers unfrozen and 25.31% with 4. The app runs the English-trained checkpoint, so on Hindi speech a "genuine" verdict is weak evidence. Full numbers are in [`outputs/`](outputs/) and [`paper/`](paper/).
+
+## Project layout
+
+This repository holds the two stages of B.S. Detector:
+
+- **Deepfake detection** (stage 1): the web app, plus the XLS-R + SLS research pipeline.
+- **Speaker verification** (stage 2): the ECAPA-TDNN module, documented [below](#speaker-verification).
+
+```
+run.py              one-command launcher (venv, dependencies, server, browser)
+start.bat           double-click launcher for Windows
+start.command       double-click launcher for macOS / Linux
+server/
+  app.py            FastAPI: /api/status, /api/analyze, serves the frontend
+  inference.py      XLS-R 300M + SLS head inference
+frontend/           React + TypeScript (Vite); dist/ is the built app
+scripts/            deepfake benchmark pipeline and speaker-verification CLIs
+src/                speaker_verification package (ECAPA-TDNN, calibration)
+tests/              speaker-verification unit tests
+outputs/            benchmark results (JSON) and figures
+paper/              deepfake-detection paper draft and research dossier
+docs/               design notes for both stages
+```
+
+## Developing the interface
+
+```bash
+python run.py --no-browser        # API on :8000
+cd frontend && npm install && npm run dev   # UI on :5173, proxies /api to :8000
+npm run build                     # rebuild frontend/dist before committing
+```
+
+`BSD_DEVICE` (`cuda`, `mps` or `cpu`) and `BSD_CHECKPOINT` (`v1` or `v2`) override the defaults.
+
+## Credits
+
+SLS checkpoint: [sukhdeveyash/XLS-R-SLS-Deepfake-Detection](https://huggingface.co/sukhdeveyash/XLS-R-SLS-Deepfake-Detection). Backbone: [facebook/wav2vec2-xls-r-300m](https://huggingface.co/facebook/wav2vec2-xls-r-300m). Data: [SEA-Spoof](https://huggingface.co/datasets/Jack-ppkdczgx/SEA-Spoof).
+
+This is a research tool. Its verdicts are evidence, not proof.
+
+---
+
+## Speaker Verification
 
 Speaker verification module for the B.S. Detector project. Given a test
 audio sample and a reference audio sample, it decides whether the same
@@ -13,7 +91,7 @@ VoxCeleb1 data (Phases 8B and 8C)**, which produced the calibrated
 threshold this project uses. See [Status / Roadmap](#status--roadmap) and
 [docs/calibration.md](docs/calibration.md) for details.
 
-## Architecture
+### Architecture
 
 ```
 Reference Audio                          Test Audio
@@ -57,7 +135,7 @@ and data requirements.
 Fuzzy logic and ML-based classification are not part of the baseline and
 are not implemented here (see [Status / Roadmap](#status--roadmap)).
 
-## Relationship to the B.S. Detector pipeline
+### Relationship to the B.S. Detector pipeline
 
 This module is one part of the larger B.S. Detector project. The main
 pipeline calls it **conditionally, after the deepfake detection stage**.
@@ -65,7 +143,7 @@ In other words, speaker verification only runs on audio that has already
 been screened for deepfake or synthetic manipulation, as an extra
 identity check.
 
-## Project layout
+### Project layout
 
 ```
 speaker-verification/
@@ -162,7 +240,7 @@ speaker-verification/
 - `docs/`: design and architecture notes (`architecture.md`, `model.md`,
   `calibration.md`).
 
-## Status / Roadmap
+### Status / Roadmap
 
 - Phase 1, project foundation: **COMPLETE**
 - Phase 2, environment setup: **COMPLETE**
@@ -216,7 +294,7 @@ to be considered only once the ECAPA-TDNN baseline is fully evaluated:
 
 - Fuzzy logic decision boundaries
 
-## Hardware / device support
+### Hardware / device support
 
 The project runs on **CPU by default** and **uses an NVIDIA GPU through
 CUDA automatically** when one is available (`torch.cuda.is_available()`).
@@ -235,9 +313,9 @@ Two environments matter here, and they behave differently:
   `torch.cuda.is_available()` should report `True` once PyTorch is
   installed, but confirm this locally (see below).
 
-## Setup
+### Setup
 
-### Requirements
+#### Requirements
 
 - Python 3.10+
 - About 2 GB of free disk space for dependencies. The standard PyTorch
@@ -245,7 +323,7 @@ Two environments matter here, and they behave differently:
   automatically when a compatible GPU and driver are present and ignored
   on CPU-only machines.
 
-### Create and activate a virtual environment
+#### Create and activate a virtual environment
 
 **Linux / macOS:**
 
@@ -263,7 +341,7 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 ```
 
-### Install dependencies
+#### Install dependencies
 
 ```bash
 pip install --upgrade pip
@@ -278,7 +356,7 @@ pip pulls in the CUDA runtime libraries torch needs
 (`nvidia-cublas-cu12`, `nvidia-cudnn-cu12` and so on) as dependencies.
 There is no separate GPU install step or extra flag.
 
-### Verify the environment
+#### Verify the environment
 
 ```bash
 python scripts/check_environment.py
@@ -295,7 +373,7 @@ reports `CUDA available: False`, which is expected because that container
 has no GPU. That result says nothing about whether your RTX 3060 will be
 detected.
 
-## Audio preprocessing
+### Audio preprocessing
 
 `src/speaker_verification/audio.py` is the input pipeline that the
 ECAPA-TDNN encoder (Phase 4) builds on:
@@ -333,7 +411,7 @@ conversion), `preprocess_audio(path)` (the full pipeline above) and
 `get_audio_info(path)` (metadata only: sample rate, channels, frame
 count and duration, without necessarily decoding the whole waveform).
 
-### Running the audio preprocessing tests
+#### Running the audio preprocessing tests
 
 You need `pytest`, which isn't in `requirements.txt` because that file
 only lists runtime dependencies:
@@ -347,7 +425,7 @@ The tests generate their own temporary WAV/FLAC fixtures (mono, stereo,
 multi-channel, different sample rates, corrupt, empty, very short), so no
 external dataset is needed.
 
-### Manually inspecting a single file
+#### Manually inspecting a single file
 
 ```bash
 python scripts/test_audio_pipeline.py path/to/audio.wav
@@ -358,7 +436,7 @@ then the processed (16 kHz, mono) sample rate, channel count, duration
 and waveform shape. It says so explicitly when a stereo or multi-channel
 input was converted to mono.
 
-## ECAPA-TDNN speaker encoder
+### ECAPA-TDNN speaker encoder
 
 `src/speaker_verification/encoder.py` wraps a pretrained ECAPA-TDNN
 speaker-embedding model:
@@ -394,7 +472,7 @@ in the project. You can ask for a device with
 `SpeakerEncoder(device="cuda")`. If CUDA isn't available, that raises a
 clear error instead of quietly falling back to CPU.
 
-### Running the encoder tests
+#### Running the encoder tests
 
 ```bash
 pip install pytest
@@ -405,7 +483,7 @@ Device-selection tests always run. Tests that need the real pretrained
 model are skipped with a clear reason, not failed, if the model can't be
 downloaded (see [Encoder limitations](#encoder-limitations)).
 
-### Manually inspecting a file (or a pair of files)
+#### Manually inspecting a file (or a pair of files)
 
 ```bash
 python scripts/test_encoder.py path/to/audio.wav
@@ -418,7 +496,7 @@ inference time. Two-file mode extracts an embedding for each file and
 shows their shapes and statistics side by side. It does **not** compute
 similarity or a MATCH/NON_MATCH decision; that belongs to a later phase.
 
-### Encoder limitations
+#### Encoder limitations
 
 The pretrained model is downloaded from the Hugging Face Hub the first
 time it is used and then cached locally (see `docs/model.md`), so network
@@ -431,7 +509,7 @@ bug in `encoder.py`. Run `pytest tests/test_encoder.py -v` and
 access to get real results. (This has since been done; see
 [Status / Roadmap](#status--roadmap).)
 
-## Cosine similarity
+### Cosine similarity
 
 `src/speaker_verification/similarity.py` answers one question only: how
 similar are these two speaker embeddings?
@@ -470,7 +548,7 @@ recordings come from the same speaker until it is compared against a
 threshold calibrated on representative genuine/impostor trial data
 (Phase 6).**
 
-### Running the similarity tests
+#### Running the similarity tests
 
 ```bash
 pip install pytest
@@ -482,7 +560,7 @@ orthogonal, opposite, mismatched, NaN/Inf, zero-vector, batched) with
 known expected scores. They don't need the pretrained model and run
 anywhere, on CPU or CUDA.
 
-### Real ECAPA integration test (two audio files)
+#### Real ECAPA integration test (two audio files)
 
 ```bash
 python scripts/test_similarity.py reference.wav test.wav
@@ -502,7 +580,7 @@ pipeline. A same-speaker score is not an accuracy result, and a single
 score shouldn't be called "good" or "bad". Judging that needs the
 threshold calibration from Phase 6.
 
-### Similarity limitations
+#### Similarity limitations
 
 Like the encoder test, `scripts/test_similarity.py` downloads the
 pretrained model the first time it runs, which the dev container's network policy blocks (see
@@ -513,7 +591,7 @@ embedding-based score could be produced there. The logic in
 internet access, such as the one Phase 4 was checked on, to get a real
 score.
 
-## Calibration & verification decision
+### Calibration & verification decision
 
 The full methodology is in [docs/calibration.md](docs/calibration.md):
 FAR/FRR/EER definitions, how the EER point is chosen, threshold
@@ -541,7 +619,7 @@ was never used as a threshold anywhere in the code. The real calibrated
 value turned out to be much lower, which is exactly why guessing would
 have been a mistake.
 
-### Running the calibration tests
+#### Running the calibration tests
 
 ```bash
 pip install pytest
@@ -555,7 +633,7 @@ out-of-range scores, exact threshold equality and so on. Both test files
 say in their module docstrings that the data is synthetic and is not
 real speaker-verification evidence.
 
-### Calibrating against real trial data
+#### Calibrating against real trial data
 
 ```bash
 python scripts/calibrate.py --trials data/trials.csv
@@ -566,7 +644,7 @@ The script expects a CSV with columns `reference,test,label`, where
 (it doesn't in this repository), the script explains the format it needs
 and exits cleanly with code 0. It doesn't error out or invent a result.
 
-### Running a verification decision
+#### Running a verification decision
 
 ```bash
 python scripts/verify.py reference.wav test.wav --threshold 0.6123 --calibrated
@@ -576,7 +654,7 @@ python scripts/verify.py reference.wav test.wav --threshold 0.6123 --calibrated
 for an ad-hoc or example threshold, and the output is marked
 `UNCALIBRATED`.
 
-## Large-scale VoxCeleb calibration (Phase 7)
+### Large-scale VoxCeleb calibration (Phase 7)
 
 The Phase 6 calibration engine works and is tested, but this project
 only had one genuine trial and no impostor trials of its own, far too few
@@ -608,7 +686,7 @@ still can't reach VoxCeleb or download the pretrained model (see
 [Encoder limitations](#encoder-limitations)), so these results were
 produced on the RTX 3060 machine.
 
-### Running the Phase 7 tests
+#### Running the Phase 7 tests
 
 ```bash
 pip install pytest
@@ -622,7 +700,7 @@ Everything here is synthetic (generated trial-list text, tiny WAV
 fixtures, stub encoders), so no real VoxCeleb data or pretrained model is
 needed.
 
-### Running the pipeline on real data
+#### Running the pipeline on real data
 
 Once you have VoxCeleb audio and an official trial-list file (see
 docs/calibration.md for exactly what to download and where to put it):
@@ -667,7 +745,7 @@ What each script does:
   reports the FAR and FRR of that threshold on the held-out evaluation
   split, and runs a speaker-leakage check.
 
-### Personal recordings stay separate
+#### Personal recordings stay separate
 
 ```bash
 python scripts/score_personal_recording.py

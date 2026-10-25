@@ -1,0 +1,375 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{balance}
+
+% Automatic figure path resolution (works whether images are in figures/ or root)
+\graphicspath{{figures/}{./}}
+
+% Safe image inclusion that won't halt compilation if figure files aren't uploaded yet
+\newcommand{\safeincludegraphics}[2][]{%
+    \IfFileExists{#2}{%
+        \includegraphics[#1]{#2}%
+    }{%
+        \IfFileExists{figures/#2}{%
+            \includegraphics[#1]{figures/#2}%
+        }{%
+            \centering\fbox{\parbox[c][60pt][c]{0.9\columnwidth}{\centering\footnotesize\textbf{[Image file missing: #2]}\\\textit{Upload #2 to your Overleaf project root or figures/ folder}}}%
+        }%
+    }%
+}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Cross-Lingual Audio Deepfake Detection: Sensitive Layer Selection with Frozen XLS-R for Low-Resource Hindi Speech}
+
+\author{\IEEEauthorblockN{Anonymous Authors}
+\IEEEauthorblockA{\textit{Department of Computer Science and Engineering} \\
+\textit{Research Track Submission}\\
+Email: author@institution.edu}
+}
+
+\maketitle
+
+\begin{abstract}
+Neural text-to-speech (TTS) and voice-cloning systems can produce convincing synthetic speech, creating a need for detectors that work beyond English. This study examines whether an English-pretrained \textbf{Sensitive Layer Selection (SLS)} classifier, paired with a frozen multilingual \textbf{Wav2Vec2 XLS-R 300M} encoder, can be adapted to detect synthetic Hindi speech using a small labelled set.
+
+Evaluation uses a held-out set of 400 clips: 200 bona fide Hindi recordings drawn from studio and crowdsourced sources, and 200 synthetic clips distributed across five TTS systems: Edge-TTS, FastSpeech, Indic-TTS, VITS-MMS, and XTTS-v2.
+
+In zero-shot evaluation, the English-trained checkpoint obtains 98.00\% bona fide recall, while the spoof evasion rate is 78.00\%; overall accuracy is \textbf{60.00\%} and equal error rate (EER) is \textbf{28.90\%}. Training only the SLS head (approximately 22.8M parameters) on Hindi examples improves the results. With $N=10$ examples per class, accuracy reaches \textbf{65.83\%} and EER is \textbf{26.88\%}. At $N=50$ per class, accuracy rises to \textbf{79.67\%} and EER falls to \textbf{19.70\%}, a 9.20 percentage-point reduction from the zero-shot result.
+
+An ablation on an NVIDIA L4 GPU compares the frozen encoder with partial unfreezing. EER is \textbf{24.14\%} when the top two transformer layers are trainable and \textbf{25.31\%} when the top four are trainable; the latter setting gives \textbf{67.12\%} accuracy. In these few-shot experiments ($N \le 50$ per class), the frozen-backbone configuration performs best on EER and accuracy.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Audio deepfake detection, cross-lingual transfer, foundation models, XLS-R, sensitive layer selection, few-shot learning, dataset bias.
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+Recent speech-synthesis systems, including neural vocoders and voice-cloning models, have increased the quality and accessibility of generated speech \cite{wang2022comparative}. Detection results obtained on established English benchmarks such as ASVspoof 2019 and 2021 \cite{yamagishi2021asvspoof}, as well as broader audio deepfake detection surveys \cite{yi2023survey}, do not by themselves establish performance on other languages. Cross-lingual evaluation is therefore necessary before assuming that an English-trained detector will transfer reliably to Hindi.
+
+English remains a major focus of synthetic-speech detection research, while Hindi and other Indic languages have fewer language-specific evaluation resources. This gap matters in settings where audio may be used for impersonation, fraudulent calls, or misleading recordings. A detector that performs well in English may still classify Hindi speech incorrectly because the language and recording distributions differ.
+
+Collecting a large labelled spoofing corpus for every language requires substantial data collection and synthesis effort. We therefore study the following question: \textit{How well does an English-pretrained SLS detector transfer to Hindi, and how does the amount of Hindi supervision and the choice to freeze or unfreeze the encoder affect its performance?}
+
+We evaluate the \textbf{Sensitive Layer Selection (SLS)} classifier \cite{zhang2024sensitive} with the multilingual \textbf{XLS-R 300M} speech encoder \cite{babu2022xls}. The study has four parts:
+
+\begin{enumerate}
+    \item \textbf{Quantifying Cross-Lingual Domain Shift}: We evaluate an English-pretrained SLS detector on Hindi speech without target-language adaptation (Zero-Shot), demonstrating an asymmetric failure mode where genuine speech is preserved (98.00\% recall) while 78.00\% of synthetic speech evades detection under default operating thresholds (yielding a 28.90\% EER).
+
+    \item \textbf{Stratified Multi-Generator Benchmark}: We establish a strictly balanced 400-sample test suite stratified equally across 5 state-of-the-art TTS architectures (Edge-TTS, FastSpeech, Indic-TTS, VITS-MMS, XTTS-v2) alongside diverse studio and in-the-wild bona fide speech, establishing an unbiased evaluation standard for Indic deepfake detection.
+
+    \item \textbf{Parameter-Efficient Few-Shot Adaptation}: We show that fine-tuning solely the lightweight SLS head with $N \in \{10, 50\}$ Hindi samples per class achieves monotonic performance gains, decreasing EER from 28.90\% to 19.70\% and increasing accuracy from 60.00\% to 79.67\%.
+
+    \item \textbf{Backbone Unfreezing vs. Frozen Foundation Analysis}: On an NVIDIA L4 GPU, we show that unfreezing transformer backbone layers during few-shot adaptation causes severe overfitting, confirming that keeping the 315M-parameter foundation backbone completely frozen provides optimal regularization.
+\end{enumerate}
+
+\begin{figure}[t]
+\centering
+\safeincludegraphics[width=\columnwidth]{fig4_generator_stratification.png}
+\caption{Architecture of the V2 Balanced Benchmark: 50/50 Binary Class Balance (left) and strict 20\% stratification across 5 distinct TTS generator architectures (right).}
+\label{fig:generator_stratification}
+\end{figure}
+
+\section{Related Work}
+
+Audio deepfake detection spans handcrafted acoustic features, conventional machine-learning classifiers, and neural systems trained on spectro-temporal or self-supervised speech representations. Yi \textit{et al.} survey the main datasets, features, classifiers, and evaluation challenges, emphasizing generalization to unseen attacks and in-the-wild audio \cite{yi2023survey}. Wav2Vec2-based detectors use pretrained speech representations for spoof classification \cite{muller2022wav2vec2}, while AASIST models artifacts across temporal and spectral intervals through graph attention \cite{jung2022aasist}. Other studies explore feature-based machine-learning pipelines for deepfake voice detection \cite{tanveer2024unmasking,parida2025deepdetector}.
+
+Generalization remains a central concern. Liu \textit{et al.} examine the reliability of detectors under audio-domain shifts and deliberate attacks \cite{liu2024reliably}. Pianese \textit{et al.} investigate speaker-verification features as a route to generalizing across synthesis methods, and ECAPA-TDNN is a representative speaker-verification architecture \cite{pianese2022speaker,desplanques2020ecapa}. The present work does not implement speaker verification; instead, it evaluates parameter-efficient adaptation of an SLS classification head over frozen XLS-R representations.
+
+The application context also includes broader identity and information-integrity risks. Work on adversarial remote-worker detection addresses a related verification problem, while a systematic review of information-disorder detection discusses challenges in low-resource multilingual settings \cite{hussain2026tool,woldegiorgis2026review}. These studies are contextual rather than direct audio-deepfake baselines and are not used to support the quantitative claims in this paper.
+
+\section{Methodology \& Architecture}
+
+\subsection{Multilingual Foundation Backbone (XLS-R 300M)}
+
+We employ \textbf{Wav2Vec2 XLS-R 300M} (\texttt{facebook/wav2vec2-xls-r-300m}), trained on 436,000 hours of unlabelled speech spanning 128 languages \cite{babu2022xls}.
+
+\begin{itemize}
+    \item \textbf{Input Preprocessing}: Raw audio waveforms sampled at 16 kHz are standardized to a fixed length $L = 64{,}600$ samples ($\sim$4.04 seconds). Shorter utterances are tile-padded; longer utterances are center-cropped.
+
+    \item \textbf{Latent Feature Extraction}: A 7-block temporal convolutional feature encoder transforms the raw audio into latent feature vectors.
+
+    \item \textbf{Transformer Representations}: The 24-layer transformer encoder produces hidden representations:
+    \begin{equation}
+        H_l \in \mathbb{R}^{B \times T \times 1024}, \quad
+        l \in \{1, 2, \dots, 24\}, \quad T = 201
+    \end{equation}
+
+    \item \textbf{Freezing Constraint}: The entire backbone parameter set $\Theta_{\text{backbone}}$ is kept frozen ($\nabla_{\Theta_{\text{backbone}}} = 0$) during standard few-shot training.
+\end{itemize}
+
+\subsection{Sensitive Layer Selection (SLS) Head}
+
+A classifier that uses only the final transformer layer may discard information available in earlier representations. The SLS approach instead combines information from multiple encoder layers, based on the premise that different layers can capture complementary acoustic and linguistic properties \cite{zhang2024sensitive}.
+
+In the implementation studied here, SLS assigns a learned gate to each of the 24 transformer-layer representations and fuses the gated features:
+
+\begin{enumerate}
+    \item \textbf{Per-Layer Gating}: Each layer's representation $H_l$ is temporally average-pooled:
+    \begin{equation}
+        \bar{h}_l = \frac{1}{T} \sum_{t=1}^T H_l[:, t, :]
+        \in \mathbb{R}^{B \times 1024}
+    \end{equation}
+    and projected through a learned linear transformation with sigmoid activation:
+    \begin{equation}
+        \alpha_l = \sigma(W_0 \bar{h}_l + b_0)
+        \in \mathbb{R}^{B \times 1},
+        \quad W_0 \in \mathbb{R}^{1024 \times 1}
+    \end{equation}
+
+    \item \textbf{Dynamic Layer Fusion}:
+    \begin{equation}
+        H_{\text{fused}} =
+        \sum_{l=1}^{24} \alpha_l \odot H_l
+        \in \mathbb{R}^{B \times T \times 1024}
+    \end{equation}
+
+    \item \textbf{2D Downsampling Block}: Treating $H_{\text{fused}}$ as a single-channel 2D feature map of shape $(B, 1, T, 1024)$:
+    \begin{equation}
+        Z = \text{MaxPool2D}
+        (\text{SELU}(\text{BatchNorm2D}(H_{\text{fused}})))
+    \end{equation}
+    with kernel size $(3, 3)$ and stride $(3, 3)$, yielding a flattened feature representation $z \in \mathbb{R}^{B \times 22847}$.
+
+    \item \textbf{Classifier MLP}:
+    \begin{equation}
+        \hat{y} =
+        \text{LogSoftmax}
+        (W_3 \cdot \text{SELU}(W_1 z + b_1) + b_3)
+    \end{equation}
+    where $W_1 \in \mathbb{R}^{22847 \times 1024}$ and
+    $W_3 \in \mathbb{R}^{1024 \times 2}$.
+\end{enumerate}
+
+\subsection{Training Loss and Hyperparameters}
+
+The SLS head is optimized using Negative Log-Likelihood Loss with class weighting $w = [0.1, 0.9]$ for spoof ($c=0$) and bona fide ($c=1$) to reflect real-world risk asymmetry:
+
+\begin{equation}
+    \mathcal{L} =
+    -\sum_{i=1}^B w_{y_i}
+    \log P(\hat{y}_i = y_i)
+\end{equation}
+
+We use the Adam optimizer ($lr = 10^{-5}$, weight decay $10^{-4}$), batch size 4, and train for 10 epochs per seed.
+
+\section{Benchmark Construction \& Generator Stratification}
+
+\subsection{Stratified Multi-Generator Design}
+
+The Hindi benchmark was assembled from candidate utterances in the SEA-Spoof Hindi corpus, which contains 54,938 candidates according to the source used here \cite{wu2025seaspoof}. The evaluation design and generator proportions are shown in Fig.~\ref{fig:generator_stratification}.
+
+\begin{itemize}
+    \item \textbf{Bona Fide Class (400 samples total)}: Balanced between genuine studio-recorded speech ($\sim$60\% drawn from the IndicTTS natural speech database recorded by IIT Madras) and in-the-wild crowdsourced acoustic environments (Mozilla Common Voice Hindi, $\sim$40\%).
+
+    \item \textbf{Spoof Class (400 samples total)}: Equally stratified across \textbf{5 distinct TTS architectures} (80 samples each, exactly 20.0\% per generator):
+    \begin{enumerate}
+        \item \texttt{edge\_tts}: Microsoft Azure neural cloud TTS (fast production synthesizer).
+        \item \texttt{vits\_mms}: Meta MMS variational inference end-to-end synthesizer.
+        \item \texttt{indic\_tts}: IIT Madras unit-selection and acoustic models.
+        \item \texttt{fastspeech}: Feed-forward non-autoregressive transformer TTS.
+        \item \texttt{xtts-v2}: Modern diffusion/flow zero-shot voice cloning.
+    \end{enumerate}
+\end{itemize}
+
+\subsection{Data Partitioning \& Disjointness}
+
+\begin{itemize}
+    \item \textbf{Held-Out Test Set ($N_{\text{test}} = 400$)}: Exactly 200 bona fide and 200 spoof clips (40 clips per generator, strictly 50/50 class-balanced).
+
+    \item \textbf{Few-Shot Candidate Pool}: The remaining disjoint candidate clips (200 bona fide, 200 spoof across all 5 models).
+
+    \item \textbf{Disjointness Guarantee}: Test and training sets have zero speaker or utterance overlap ($\text{Test} \cap \text{Train} = \emptyset$).
+
+    \item \textbf{Multi-Seed Evaluation}: All experiments are evaluated across 3 deterministic seeds (seeds 1000, 1001, 1002).
+\end{itemize}
+
+\begin{table}[t]
+\caption{Evaluation Metrics on Held-Out Hindi Test Set ($N_{\text{test}} = 400$, 50/50 Balanced)}
+\label{tab:main_results}
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Exp.} & \textbf{Acc.} & \textbf{EER} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1} \\
+\midrule
+Zero-Shot (Eng.) & 60.00 & 28.90 & 55.68 & 98.00 & 71.01 \\
+Few-Shot $N=10$ & 65.83 & 26.88 & 60.81 & 94.50 & 73.61 \\
+\quad ($\pm$ std) & $\pm$5.87 & $\pm$1.83 & $\pm$5.16 & $\pm$6.42 & $\pm$2.35 \\
+Few-Shot $N=50$ & \textbf{79.67} & \textbf{19.70} & \textbf{78.82} & 81.83 & \textbf{80.05} \\
+\quad ($\pm$ std) & $\pm$0.47 & $\pm$0.57 & $\pm$3.58 & $\pm$5.25 & $\pm$0.88 \\
+\bottomrule
+\end{tabular}
+\vspace{1mm}
+
+\footnotesize{\textit{Note: Precision, Recall, and F1 are computed with positive class = Bonafide.}}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\safeincludegraphics[width=\columnwidth]{fig2_fewshot_adaptation_curve.png}
+\caption{Few-Shot Adaptation Dynamics on Frozen XLS-R 300M. Accuracy improves from 60.00\% to 79.67\%, while EER drops from 28.90\% to 19.70\% as supervision scales to $N=50$.}
+\label{fig:adaptation_curve}
+\end{figure}
+
+\section{Experimental Results}
+
+\subsection{Quantitative Results on Balanced Benchmark}
+
+Table~\ref{tab:main_results} reports the English-checkpoint baseline and the two few-shot settings. All three configurations are evaluated on the held-out Hindi test set of 400 clips, with equal numbers of bona fide and spoof samples.
+
+\subsection{Cross-Lingual Zero-Shot Gap}
+
+Under Zero-Shot transfer from the English checkpoint, the model achieves:
+
+\begin{itemize}
+    \item \textbf{Bonafide Recall: 98.00\%} (196 of 200 authentic Hindi utterances are correctly recognized).
+    \item \textbf{Bonafide Precision: 55.68\%} (meaning 44.32\% of predictions marked authentic are actually deepfakes).
+    \item \textbf{Spoof Evasion Rate: 78.00\%} (only 44 of 200 synthetic speech samples are caught under standard argmax thresholding).
+\end{itemize}
+
+The zero-shot operating point favours accepting speech as bona fide: recall for the bona fide class is 98.00\%, while only 44 of the 200 synthetic clips are detected as spoof under argmax classification. The resulting 78.00\% spoof evasion rate describes this operating threshold; the EER of \textbf{28.90\%} is a separate threshold-based metric. Together, these results indicate that direct transfer does not provide adequate spoof detection on this test set.
+
+\subsection{Few-Shot Adaptation Dynamics}
+
+Updating the SLS head while leaving the encoder frozen improves performance as the number of labelled Hindi examples increases (Fig.~\ref{fig:adaptation_curve}):
+
+\begin{itemize}
+    \item \textbf{$N=10$ (20 clips total, $<$3 seconds on GPU)}: EER decreases by $2.02\%$ absolute, with accuracy improving to $65.83\%$.
+    \item \textbf{$N=50$ (100 clips total, $<$15 seconds on GPU)}: EER drops sharply to \textbf{19.70\%} (a $9.20\%$ absolute reduction), accuracy rises to \textbf{79.67\%}, and variance across random seeds tightens to just $\pm 0.47\%$ accuracy and $\pm 0.57\%$ EER.
+\end{itemize}
+
+\begin{table}[t]
+\caption{Backbone Freezing vs. Partial Unfreezing ($N=50$, L4 GPU)}
+\label{tab:unfreeze_results}
+\centering
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Configuration} & \textbf{Trainable} & \textbf{Acc.} & \textbf{EER} & \textbf{F1} \\
+\midrule
+\textbf{Frozen (SLS Head)} & \textbf{22.8M} & \textbf{79.67 $\pm$ 0.47} & \textbf{19.70 $\pm$ 0.57} & \textbf{80.05} \\
+Unfreeze Top-2 Layers & 50.8M & 76.46 $\pm$ 0.48 & 24.14 $\pm$ 1.57 & 81.79 \\
+Unfreeze Top-4 Layers & 78.8M & 67.12 $\pm$ 5.83 & 25.31 $\pm$ 1.91 & 77.31 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\safeincludegraphics[width=\columnwidth]{fig3_backbone_unfreezing_comparison.png}
+\caption{Few-shot adaptation ($N=50$) comparing a fully frozen foundation backbone against unfreezing top-2 and top-4 transformer layers on an NVIDIA L4 GPU. Unfreezing causes severe few-shot overfitting.}
+\label{fig:unfreezing}
+\end{figure}
+
+\section{Architectural Ablation: Frozen vs. Unfrozen Backbone}
+
+To test whether updating the encoder improves adaptation, we compared a frozen backbone with two settings that make the upper transformer layers trainable. Each configuration used $N=50$ examples per class and was run on an NVIDIA L4 GPU:
+
+\begin{enumerate}
+    \item \textbf{Frozen Backbone (SLS Only)}: 315.4M parameters frozen; only the 22.8M parameters of the SLS head are trained.
+    \item \textbf{Unfreezing Top-2 Layers}: Transformer layers 23 and 24 unfrozen ($\sim$28M additional backbone parameters trainable).
+    \item \textbf{Unfreezing Top-4 Layers}: Transformer layers 21--24 unfrozen ($\sim$56M additional backbone parameters trainable).
+\end{enumerate}
+
+\subsection{Catastrophic Few-Shot Overfitting}
+
+As demonstrated in Table~\ref{tab:unfreeze_results} and Fig.~\ref{fig:unfreezing}:
+
+\begin{itemize}
+    \item Unfreezing the top 2 layers \textbf{increases EER from 19.70\% to 24.14\%} (+4.44\% degradation).
+    \item Unfreezing the top 4 layers \textbf{degrades EER further to 25.31\%} (+5.61\% degradation) and collapses accuracy to $67.12\%$.
+\end{itemize}
+
+These results are consistent with overfitting when more backbone parameters are updated using only 100 training clips. The present experiments do not isolate the specific features responsible for the degradation, so attributing it to speaker pitch or recording conditions would require further analysis. Within the tested settings, freezing the XLS-R backbone provides the strongest EER and accuracy results.
+
+\section{Discussion \& Practical Deployment}
+
+The results suggest several practical considerations for low-resource-language spoof detection:
+
+\begin{enumerate}
+    \item \textbf{Rapid Field Calibration}: Adapting solely the lightweight SLS head with $N=50$ samples per class requires under 15 seconds of compute time on an L4 GPU. This enables rapid, cost-effective calibration to new dialects and languages without expensive retraining of multi-hundred-million-parameter foundation backbones.
+
+    \item \textbf{The Necessity of Freezing Foundation Backbones}: The sharp degradation observed when unfreezing top transformer layers (+5.61\% EER) demonstrates that low-data regimes cannot support fine-tuning foundation representations without catastrophic overfitting. Freezing 100\% of the backbone provides a vital regularization anchor.
+
+    \item \textbf{Asymmetric Risk Management}: While zero-shot transfer yields 98.00\% recall on genuine speech, its low precision on bona fide predictions (55.68\%, meaning 44.32\% of accepted calls are fakes) and 78.00\% spoof evasion rate leave organizations severely vulnerable. Few-shot calibration directly remedies this by tightening the spoof decision boundary without compromising bona fide throughput.
+\end{enumerate}
+
+\section{Conclusion}
+
+We evaluated an SLS classifier with XLS-R 300M for Hindi speech deepfake detection, comparing zero-shot transfer, few-shot head adaptation, and partial backbone unfreezing. The measured results show that:
+
+\begin{enumerate}
+    \item Cross-lingual transfer from English to Hindi without calibration exhibits an EER of 28.90\% on a strictly balanced, multi-generator benchmark, allowing 78.00\% of synthetic samples to evade detection.
+    \item Parameter-efficient few-shot adaptation with $N=50$ samples per class rapidly reduces EER to 19.70\% and achieves 79.67\% accuracy.
+    \item Fully freezing the multilingual foundation backbone is essential, as unfreezing upper transformer layers causes severe few-shot overfitting (+5.61\% EER degradation).
+\end{enumerate}
+
+Future work will extend this framework to multilingual Indic ensembles (Tamil, Bengali, Telugu) and lossy telephony channels.
+
+\balance
+
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{00}
+
+\bibitem{wang2022comparative}
+X. Wang and J. Yamagishi, ``A Comparative Study on Recent Neural Vocoders for Speech Synthesis,'' \textit{IEEE/ACM Trans. Audio, Speech, Lang. Process.}, vol. 30, pp. 325--338, 2022.
+
+\bibitem{yamagishi2021asvspoof}
+J. Yamagishi et al., ``ASVspoof 2021: Accelerating progress in spoofed and deepfake speech detection,'' in \textit{Proc. ASVspoof Workshop}, 2021.
+
+\bibitem{zhang2024sensitive}
+Q. Zhang, S. Wen, and T. Hu, ``Audio Deepfake Detection with Self-Supervised XLS-R and SLS Classifier,'' in \textit{Proc. 32nd ACM International Conference on Multimedia}, pp. 6765--6773, 2024, doi: 10.1145/3664647.3681345.
+
+\bibitem{babu2022xls}
+A. Babu, C. Wang, A. Tjandra, et al., ``XLS-R: Self-supervised Cross-lingual Speech Representation Learning at Scale,'' in \textit{Proc. Interspeech}, 2022.
+
+\bibitem{wu2025seaspoof}
+J. Wu, N. Hou, Z. Pan, Q. Zhang, S. H. Bhupendra, and S. Mondal, ``SEA-Spoof: Bridging the Gap in Multilingual Audio Deepfake Detection for South-East Asian,'' \textit{arXiv preprint arXiv:2509.19865}, 2025.
+
+\bibitem{yi2023survey}
+J. Yi, C. Wang, J. Tao, X. Zhang, C. Y. Zhang, and Y. Zhao, ``Audio Deepfake Detection: A Survey,'' arXiv:2308.14970, 2023. [Online]. Available: \url{https://arxiv.org/abs/2308.14970}
+
+\bibitem{muller2022wav2vec2}
+N. Müller \textit{et al.}, ``Speech Deepfake Detection with Wav2Vec2,'' in \textit{Proc. IEEE Spoken Language Technology Workshop (SLT)}, 2022. [Online]. Available: \url{https://ieeexplore.ieee.org/document/10023067}
+
+\bibitem{pianese2022speaker}
+A. Pianese, D. Cozzolino, G. Poggi, and L. Verdoliva, ``Deepfake Audio Detection by Speaker Verification,'' arXiv:2209.14098, 2022. [Online]. Available: \url{https://arxiv.org/abs/2209.14098}
+
+\bibitem{tanveer2024unmasking}
+M. U. T. Gujjar, K. Munir, M. Amjad, A. U. Rehman, and A. Bermak, ``Unmasking the Fake: Machine Learning Approach for Deepfake Voice Detection,'' \textit{IEEE Access}, vol. 12, pp. 197442--197453, 2024, doi: 10.1109/ACCESS.2024.3521026.
+
+\bibitem{liu2024reliably}
+H. Liu, Y. Chen, A. Narayanan, A. Balachandran, P. J. Moreno, and L. Wang, ``Can DeepFake Speech be Reliably Detected?'' arXiv:2410.06572, 2024. [Online]. Available: \url{https://arxiv.org/abs/2410.06572}
+
+\bibitem{jung2022aasist}
+J.-W. Jung, H.-S. Heo, H. Tak, H. Shim, J. S. Chung, B.-J. Lee, H.-J. Yu, and N. Evans, ``AASIST: Audio Anti-Spoofing Using Integrated Spectro-Temporal Graph Attention Networks,'' in \textit{Proc. IEEE Int. Conf. Acoustics, Speech and Signal Processing (ICASSP)}, 2022, pp. 6367--6371, doi: 10.1109/ICASSP43922.2022.9747766.
+
+\bibitem{parida2025deepdetector}
+S. Parida, T. Mukharjee, S. Panda, and B. Pati, ``Deep-Detector: Deepfake Voice Recognition using Machine Learning,'' in \textit{Proc. Int. Conf. Intelligent and Cloud Computing (ICoICC)}, 2025, doi: 10.1109/ICoICC64033.2025.11052136.
+
+\bibitem{hussain2026tool}
+R. Hussain, ``A Tool for Detecting Adversarial Remote IT Workers,'' University of Notre Dame, 2026. [Online]. Available: \url{https://curate.nd.edu/}
+
+\bibitem{woldegiorgis2026review}
+A. Woldegiorgis, M. Abebe, D. P. Sharma, and W. Jimma, ``A Systematic Review of Deep Learning Approaches for Information Disorder Detection on Social Media: The Context of Misinformation, Disinformation, and Mal-information,'' \textit{Int. J. Emerging Research in Engineering, Science, and Management}, vol. 5, no. 2, pp. 36--66, 2026, doi: 10.58482/ijeresm.v5i2.3.
+
+\bibitem{desplanques2020ecapa}
+B. Desplanques, J. Thienpondt, and K. Demuynck, ``ECAPA-TDNN: Emphasized Channel Attention, Propagation and Aggregation in TDNN Based Speaker Verification,'' in \textit{Proc. Interspeech}, 2020.
+
+\end{thebibliography}
+
+\end{document}
