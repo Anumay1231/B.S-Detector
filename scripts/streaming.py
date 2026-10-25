@@ -26,9 +26,8 @@ def stream_and_cache_audio(
 ) -> dict:
     """Stream HF dataset and cache audio for target row_ids.
 
-    Performs a single pass over the streaming dataset, checking each
-    example's row_id against the target set. When matched, saves the
-    raw waveform to disk as a .pt file.
+    First attempts fast targeted shard extraction using fsspec and pyarrow.
+    Falls back to sequential streaming if needed.
 
     Args:
         target_ids: Set of row_id strings to capture.
@@ -38,7 +37,12 @@ def stream_and_cache_audio(
     Returns:
         Dict mapping row_id -> Path to cached .pt file for all found IDs.
     """
-    from datasets import load_dataset
+    import io
+    from collections import defaultdict
+    import fsspec
+    import pyarrow.parquet as pq
+    import soundfile as sf
+    from tqdm import tqdm
 
     cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -59,146 +63,118 @@ def stream_and_cache_audio(
         return already_cached
 
     logger.info(
-        f"Need to stream {len(still_needed)} clips "
+        f"Need to fetch {len(still_needed)} clips "
         f"({len(already_cached)} already cached)"
     )
 
-    logger.info(f"Loading streaming dataset: {DATASET_NAME}")
-    try:
-        import datasets
-        ds = load_dataset(DATASET_NAME, split="train", streaming=True)
-        ds = ds.cast_column("audio", datasets.Audio(decode=False))
-    except Exception as e:
-        logger.error(
-            f"Failed to load streaming dataset. "
-            f"Ensure you have access (huggingface-cli login) and the dataset "
-            f"'{DATASET_NAME}' is accessible. Error: {e}"
-        )
-        raise
-
     found = dict(already_cached)
-    streamed_count = 0
-    matched_count = len(already_cached)
-    start_time = time.time()
-    last_log_time = start_time
 
-    # Determine the ID column name from the first example
-    id_column = None
+    # Attempt fast targeted shard extraction
+    # SEA-Spoof row_id pattern: sea_bench_clean_v2_train_0000XXXXX
+    # 15,000 rows per shard, 75 row groups of 200 rows per shard
+    shard_rg_map = defaultdict(lambda: defaultdict(set))
+    unmatched_pattern = set()
 
-    for example in ds:
-        streamed_count += 1
+    for rid in still_needed:
+        if rid.startswith("sea_bench_clean_v2_train_"):
+            try:
+                row_idx = int(rid.split("_")[-1])
+                shard_idx = row_idx // 15000
+                rg_idx = (row_idx % 15000) // 200
+                shard_rg_map[shard_idx][rg_idx].add(rid)
+            except ValueError:
+                unmatched_pattern.add(rid)
+        else:
+            unmatched_pattern.add(rid)
 
-        # On first example, determine which column matches our IDs
-        if id_column is None:
-            if "row_id" in example and example["row_id"] in target_ids:
-                id_column = "row_id"
-            elif "utterance_id" in example and example["utterance_id"] in target_ids:
-                id_column = "utterance_id"
-            else:
-                # Check both columns
+    if shard_rg_map:
+        total_shards = len(shard_rg_map)
+        total_rgs = sum(len(rgs) for rgs in shard_rg_map.values())
+        logger.info(
+            f"Targeted shard extraction: {len(still_needed) - len(unmatched_pattern)} clips "
+            f"span {total_shards} shards and {total_rgs} row groups."
+        )
+
+        try:
+            fs = fsspec.filesystem("hf")
+            for shard_idx, rgs_dict in sorted(shard_rg_map.items()):
+                shard_path = f"datasets/{DATASET_NAME}/data/train/train-{shard_idx:05d}.parquet"
+                needed_rgs = sorted(rgs_dict.keys())
+                target_in_shard = set().union(*rgs_dict.values())
+                logger.info(
+                    f"  Opening shard {shard_idx:05d} ({len(needed_rgs)} row groups, "
+                    f"{len(target_in_shard)} target clips)..."
+                )
+
+                with fs.open(shard_path, "rb") as f:
+                    pf = pq.ParquetFile(f)
+                    
+                    # Batch row group reads (5 at a time for optimal I/O)
+                    chunk_size = 5
+                    for i in range(0, len(needed_rgs), chunk_size):
+                        chunk = needed_rgs[i : i + chunk_size]
+                        tbl = pf.read_row_groups(chunk, columns=["row_id", "audio"])
+                        df_chunk = tbl.to_pandas()
+                        for _, row in df_chunk.iterrows():
+                            rid = row["row_id"]
+                            if rid in still_needed:
+                                audio_dict = row["audio"]
+                                if isinstance(audio_dict, dict) and audio_dict.get("bytes"):
+                                    wf, sr = sf.read(io.BytesIO(audio_dict["bytes"]))
+                                    wf_tensor = torch.tensor(wf, dtype=torch.float32)
+                                    cache_path = cache_dir / f"{rid}.pt"
+                                    torch.save({"waveform": wf_tensor, "sampling_rate": sr}, cache_path)
+                                    found[rid] = cache_path
+                                    still_needed.discard(rid)
+
+                logger.info(
+                    f"  Shard {shard_idx:05d} complete. Progress: "
+                    f"{len(found)}/{len(target_ids)} cached."
+                )
+
+        except Exception as e:
+            logger.warning(f"Targeted shard extraction encountered error: {e}. Falling back to sequential stream.")
+
+    # Fallback to streaming dataset if any IDs remain
+    if still_needed:
+        from datasets import load_dataset
+        import datasets
+
+        logger.info(f"Fallback streaming for remaining {len(still_needed)} clips from {DATASET_NAME}...")
+        try:
+            ds = load_dataset(DATASET_NAME, split="train", streaming=True)
+            ds = ds.cast_column("audio", datasets.Audio(decode=False))
+        except Exception as e:
+            logger.error(f"Failed to load streaming dataset: {e}")
+            raise
+
+        streamed_count = 0
+        id_column = None
+        for example in ds:
+            streamed_count += 1
+            if id_column is None:
                 if "row_id" in example:
                     id_column = "row_id"
                 elif "utterance_id" in example:
                     id_column = "utterance_id"
                 else:
-                    logger.error(
-                        f"Dataset has neither 'row_id' nor 'utterance_id'. "
-                        f"Available columns: {list(example.keys())}"
-                    )
-                    raise KeyError("No matching ID column found")
-            logger.info(f"Using ID column: '{id_column}'")
+                    id_column = "row_id"
 
-        # Verify first N examples
-        if streamed_count <= verify_first_n:
-            example_id = example.get(id_column, "N/A")
-            logger.info(
-                f"  Stream example #{streamed_count}: "
-                f"{id_column}='{example_id}', "
-                f"in_target={example_id in target_ids}"
-            )
+            example_id = example.get(id_column)
+            if example_id in still_needed:
+                audio_data = example.get("audio", {})
+                if isinstance(audio_data, dict) and audio_data.get("bytes"):
+                    wf, sr = sf.read(io.BytesIO(audio_data["bytes"]))
+                    wf_tensor = torch.tensor(wf, dtype=torch.float32)
+                    cache_path = cache_dir / f"{example_id}.pt"
+                    torch.save({"waveform": wf_tensor, "sampling_rate": sr}, cache_path)
+                    found[example_id] = cache_path
+                    still_needed.discard(example_id)
 
-        # Check if this example's ID is in our target set
-        example_id = example.get(id_column)
-        if example_id is None:
-            continue
+            if not still_needed:
+                break
 
-        if example_id in still_needed:
-            # Extract and save audio
-            audio_data = example.get("audio", {})
-            if isinstance(audio_data, dict):
-                if "array" in audio_data and audio_data["array"] is not None:
-                    waveform = audio_data["array"]
-                    sr = audio_data.get("sampling_rate", 16000)
-                elif "bytes" in audio_data and audio_data["bytes"] is not None:
-                    import io
-                    import soundfile as sf
-                    waveform, sr = sf.read(io.BytesIO(audio_data["bytes"]))
-                else:
-                    logger.warning(f"No array or bytes in audio dict for {example_id}")
-                    continue
-            else:
-                logger.warning(
-                    f"Unexpected audio format for {example_id}: {type(audio_data)}"
-                )
-                continue
-
-            if waveform is None:
-                logger.warning(f"No audio array for {example_id}, skipping")
-                continue
-
-            # Convert to tensor
-            if not isinstance(waveform, torch.Tensor):
-                waveform = torch.tensor(waveform, dtype=torch.float32)
-            else:
-                waveform = waveform.float()
-
-            # Resample if not 16kHz (SEA-Spoof should already be 16kHz)
-            if sr != 16000:
-                logger.warning(
-                    f"Audio {example_id} has sr={sr}, expected 16000. "
-                    f"Consider resampling."
-                )
-
-            # Save to cache
-            cache_path = cache_dir / f"{example_id}.pt"
-            torch.save({"waveform": waveform, "sampling_rate": sr}, cache_path)
-            found[example_id] = cache_path
-            still_needed.discard(example_id)
-            matched_count += 1
-
-        # Progress logging every 30 seconds
-        now = time.time()
-        if now - last_log_time >= 30:
-            elapsed = now - start_time
-            rate = streamed_count / elapsed if elapsed > 0 else 0
-            logger.info(
-                f"  Streamed {streamed_count:,} examples "
-                f"({rate:.0f}/sec), "
-                f"matched {matched_count}/{len(target_ids)}, "
-                f"remaining {len(still_needed)}"
-            )
-            last_log_time = now
-
-        # Early exit if all needed IDs found
-        if not still_needed:
-            logger.info(
-                f"All {len(target_ids)} target IDs found after "
-                f"streaming {streamed_count:,} examples"
-            )
-            break
-
-    elapsed = time.time() - start_time
-    logger.info(
-        f"Streaming complete: {streamed_count:,} examples in {elapsed:.0f}s, "
-        f"matched {matched_count}/{len(target_ids)}"
-    )
-
-    if still_needed:
-        logger.warning(
-            f"{len(still_needed)} target IDs NOT found in stream: "
-            f"{list(still_needed)[:10]}..."
-        )
-
+    logger.info(f"Audio caching complete: {len(found)}/{len(target_ids)} clips ready.")
     return found
 
 
