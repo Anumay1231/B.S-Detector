@@ -1,18 +1,9 @@
 import { WINDOW_SECONDS, formatSeconds } from '../lib/audio'
-import type { Analysis } from '../lib/api'
+import type { DetectRun } from '../lib/runs'
 import { regimes } from '../data/research'
 import { topLayers } from '../lib/layers'
 import { LayerChart } from './LayerChart'
 import './Verdict.css'
-
-export interface Run {
-  id: number
-  clipName: string
-  clipDuration: number
-  windowStart: number
-  analysis: Analysis
-  at: Date
-}
 
 const bandOf = (layer: number) => (layer <= 8 ? 'acoustic detail' : layer <= 16 ? 'speech sounds' : 'words and language')
 
@@ -20,7 +11,7 @@ function listLayers(ls: number[]) {
   return ls.length > 1 ? `${ls.slice(0, -1).join(', ')} and ${ls[ls.length - 1]}` : String(ls[0])
 }
 
-export function Verdict({ run }: { run: Run }) {
+export function Verdict({ run }: { run: DetectRun }) {
   const { analysis: a } = run
   const synthetic = a.verdict === 'SPOOF'
   const tone = synthetic ? 'synthetic' : 'genuine'

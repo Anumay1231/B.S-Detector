@@ -1,4 +1,4 @@
-import { ablations, benchmark, pct, regimes } from '../data/research'
+import { ablations, benchmark, pct, regimes, speakerBaseline as sb, speakerProtocol as sp } from '../data/research'
 import './Findings.css'
 
 const SLICE_COLORS = ['var(--genuine)', 'color-mix(in srgb, var(--genuine) 45%, var(--paper))', '#3b0f70', '#8c2981', '#c33b74', '#ee6a5c', '#f9a46c']
@@ -161,6 +161,75 @@ function Ablation() {
   )
 }
 
+function SpeakerFindings() {
+  const mark = (x: number) => `${x * 100}%`
+  return (
+    <div className="speaker" id="findings-speaker">
+      <div className="finding">
+        <div className="finding-copy">
+          <h3>On {sb.trials.toLocaleString('en-US')} VoxCeleb1 trials, it confused two speakers {pct(sb.eer, 2)} of the time.</h3>
+          <p>
+            The speaker check compares voiceprints from a pretrained ECAPA-TDNN model. The team chose the cut-off on half of the speakers, then
+            tested it on {sb.speakers / 2} speakers it had never seen: it let {pct(sb.heldOutFar, 2)} of impostors through and turned away{' '}
+            {pct(sb.heldOutFrr, 2)} of real matches.
+          </p>
+          <p>
+            VoxCeleb1 is mostly English interviews. These numbers are an English baseline. The speaker check has not been validated on Hindi or
+            Hinglish speech yet.
+          </p>
+        </div>
+
+        <figure className="scoreline">
+          <figcaption className="scoreline-title">Average voiceprint similarity on held-out speakers</figcaption>
+          <div className="scoreline-track" aria-hidden="true">
+            <span className="scoreline-zone" style={{ left: mark(sb.threshold) }} />
+            <span className="scoreline-mark is-impostor" style={{ left: mark(sb.impostorMean) }} />
+            <span className="scoreline-cut" style={{ left: mark(sb.threshold) }} />
+            <span className="scoreline-mark is-genuine" style={{ left: mark(sb.genuineMean) }} />
+          </div>
+          <div className="scoreline-labels" aria-hidden="true">
+            <span style={{ left: mark(sb.impostorMean) }}>
+              <strong>{sb.impostorMean.toFixed(3)}</strong>
+              Different people
+            </span>
+            <span style={{ left: mark(sb.threshold) }}>
+              <strong>{sb.threshold.toFixed(3)}</strong>
+              Cut-off
+            </span>
+            <span style={{ left: mark(sb.genuineMean) }}>
+              <strong>{sb.genuineMean.toFixed(3)}</strong>
+              Same person
+            </span>
+          </div>
+          <p className="visually-hidden">
+            Different people average {sb.impostorMean.toFixed(3)}, the same person averages {sb.genuineMean.toFixed(3)}, and the cut-off is{' '}
+            {sb.threshold.toFixed(3)}.
+          </p>
+
+          <dl className="speaker-stats">
+            <div>
+              <dt>Impostors let through</dt>
+              <dd>{pct(sb.heldOutFar, 2)}</dd>
+            </div>
+            <div>
+              <dt>Real matches turned away</dt>
+              <dd>{pct(sb.heldOutFrr, 2)}</dd>
+            </div>
+            <div>
+              <dt>Full official list, {sp.trials.toLocaleString('en-US')} trials</dt>
+              <dd>{pct(sp.eer, 2)} EER</dd>
+            </div>
+          </dl>
+          <p className="eer-note">
+            On the full official trial list the equal error rate is {pct(sp.eer, 2)}, against about {pct(sp.publishedEer, 1)} published for the same
+            model on the cleaned list. Details in docs/calibration.md.
+          </p>
+        </figure>
+      </div>
+    </div>
+  )
+}
+
 export function Findings() {
   const [zero, , n50] = regimes
   return (
@@ -169,10 +238,14 @@ export function Findings() {
         <header className="findings-head">
           <h2 id="findings-title">How far to trust it</h2>
           <p>
-            The detector was trained on English. We tested it on 400 Hindi clips it had never heard, then taught it with a handful of Hindi
-            examples and tested again.
+            Each stage was tested on its own. The deepfake check was trained on English and tested on 400 Hindi clips it had never heard. The
+            speaker check was calibrated and tested on VoxCeleb1.
           </p>
         </header>
+
+        <h3 className="stage-heading">
+          <span>Stage 1</span> Telling a real voice from a generated one
+        </h3>
 
         <TestSetGrid />
 
@@ -247,6 +320,12 @@ export function Findings() {
             deviation. The unfreezing runs used a 439-clip split.
           </p>
         </details>
+
+        <h3 className="stage-heading">
+          <span>Stage 2</span> Telling one speaker from another
+        </h3>
+
+        <SpeakerFindings />
       </div>
     </section>
   )

@@ -1,11 +1,21 @@
 export type ModelState = 'connecting' | 'loading' | 'ready' | 'error' | 'unavailable' | 'offline'
 
+export interface VerifierStatus {
+  state: ModelState
+  message: string
+  device: string | null
+  model: string
+  threshold: number
+  isCalibrated: boolean
+}
+
 export interface Status {
   state: ModelState
   message: string
   device: string | null
   checkpoint: string
   windowSeconds: number
+  verifier?: VerifierStatus
 }
 
 export interface Analysis {
@@ -16,6 +26,24 @@ export interface Analysis {
   latencyMs: number
   durationSec: number
   device: string
+}
+
+export interface Verification {
+  outcome: 'MATCH' | 'NON_MATCH'
+  /** cosine similarity of the two ECAPA-TDNN embeddings, about -1..1 */
+  score: number
+  threshold: number
+  isCalibrated: boolean
+  latencyMs: number
+  referenceSeconds: number
+  testSeconds: number
+}
+
+export interface TwoStageResult {
+  detection: Analysis
+  /** true when stage 1 called the voice synthetic, so stage 2 never ran */
+  interlocked: boolean
+  verification: Verification | null
 }
 
 export async function fetchStatus(): Promise<Status> {
@@ -34,10 +62,10 @@ export async function fetchStatus(): Promise<Status> {
   }
 }
 
-export async function analyze(wav: Blob): Promise<Analysis> {
+async function post<T>(url: string, init: RequestInit): Promise<T> {
   let res: Response
   try {
-    res = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wav })
+    res = await fetch(url, { method: 'POST', ...init })
   } catch {
     throw new Error("Couldn't reach the local server. Check that `python run.py` is still running.")
   }
@@ -50,5 +78,15 @@ export async function analyze(wav: Blob): Promise<Analysis> {
     }
     throw new Error(detail)
   }
-  return (await res.json()) as Analysis
+  return (await res.json()) as T
+}
+
+export const analyze = (wav: Blob) => post<Analysis>('/api/analyze', { headers: { 'Content-Type': 'audio/wav' }, body: wav })
+
+export function verifySpeaker(reference: Blob, test: Blob, windowStart: number) {
+  const form = new FormData()
+  form.append('reference', reference, 'reference.wav')
+  form.append('test', test, 'test.wav')
+  form.append('windowStart', String(windowStart))
+  return post<TwoStageResult>('/api/verify', { body: form })
 }

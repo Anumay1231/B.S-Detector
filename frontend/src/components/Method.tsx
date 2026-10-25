@@ -1,6 +1,6 @@
 import './Method.css'
 
-const steps = [
+const stage1 = [
   {
     title: 'Prepare the audio',
     spec: '16 kHz mono, 64,600 samples',
@@ -23,12 +23,48 @@ const steps = [
   },
 ]
 
-const limits = [
-  'It was tested on clean 16 kHz recordings. Phone-call audio (8 kHz, compressed) has not been evaluated.',
-  'The Hindi results come from five speech generators. A new generator can fool it in ways this benchmark does not show.',
-  'It only hears 4.04 seconds at a time. Check several windows of a long clip before drawing a conclusion.',
-  'The app runs the English-trained checkpoint. The Hindi-adapted heads from the experiments are not bundled.',
+const stage2 = [
+  {
+    title: 'Make a voiceprint',
+    spec: 'ECAPA-TDNN, 192 numbers',
+    body: 'A pretrained speaker model from SpeechBrain turns each whole clip, the known voice and the voice to check, into a 192-number voiceprint. It is used exactly as published.',
+  },
+  {
+    title: 'Compare them',
+    spec: 'Cosine similarity',
+    body: 'The two voiceprints are compared with cosine similarity. Recordings of the same person land near 0.6 on average; different people land near zero.',
+  },
+  {
+    title: 'Apply the cut-off',
+    spec: 'Same speaker if ≥ 0.253',
+    body: 'The cut-off was calibrated on VoxCeleb1 trials, not guessed. Scores at or above it count as the same speaker, and the raw score is always shown.',
+  },
 ]
+
+const limits = [
+  'Both stages were tested on clean recordings. Phone-call audio (8 kHz, compressed) has not been evaluated.',
+  'The deepfake results come from five speech generators. A new generator can fool it in ways this benchmark does not show.',
+  'The deepfake check only hears 4.04 seconds at a time. Check several windows of a long clip before drawing a conclusion.',
+  'The app runs the English-trained deepfake checkpoint. The Hindi-adapted heads from the experiments are not bundled.',
+  'The speaker cut-off was calibrated on VoxCeleb1, mostly English interviews. It has not been validated on Hindi or Hinglish speech.',
+]
+
+function Steps({ steps, start }: { steps: typeof stage1; start: number }) {
+  return (
+    <ol className="steps" start={start} style={{ '--cols': steps.length } as React.CSSProperties}>
+      {steps.map((s, i) => (
+        <li key={s.title} className="step">
+          <span className="step-n" aria-hidden="true">
+            {start + i}
+          </span>
+          <h4>{s.title}</h4>
+          <p className="step-spec">{s.spec}</p>
+          <p className="step-body">{s.body}</p>
+        </li>
+      ))}
+    </ol>
+  )
+}
 
 export function Method() {
   return (
@@ -38,18 +74,30 @@ export function Method() {
         <p>Everything runs on your machine. The audio goes from this page to the Python server on localhost and nowhere else.</p>
       </header>
 
-      <ol className="steps">
-        {steps.map((s, i) => (
-          <li key={s.title} className="step">
-            <span className="step-n" aria-hidden="true">
-              {i + 1}
-            </span>
-            <h3>{s.title}</h3>
-            <p className="step-spec">{s.spec}</p>
-            <p className="step-body">{s.body}</p>
-          </li>
-        ))}
-      </ol>
+      <div className="method-stage">
+        <h3 className="method-stage-title">
+          <span>Stage 1</span> Is the voice real?
+        </h3>
+        <Steps steps={stage1} start={1} />
+      </div>
+
+      <div className="interlock">
+        <svg viewBox="0 0 40 40" width="36" height="36" aria-hidden="true">
+          <rect x="10" y="18" width="20" height="15" rx="3" fill="currentColor" />
+          <path d="M14 18v-4a6 6 0 0 1 12 0v4" fill="none" stroke="currentColor" strokeWidth="3" />
+        </svg>
+        <p>
+          <strong>The interlock.</strong> If stage 1 calls the voice synthetic, stage 2 does not run. The app never confirms who is speaking in a
+          voice that may be generated, because a convincing clone would otherwise pass as the real person.
+        </p>
+      </div>
+
+      <div className="method-stage">
+        <h3 className="method-stage-title">
+          <span>Stage 2</span> Is it the same person?
+        </h3>
+        <Steps steps={stage2} start={5} />
+      </div>
 
       <div className="limits">
         <h3>Before you rely on it</h3>

@@ -21,7 +21,7 @@ export function Footer() {
       <div className="page footer-inner">
         <div className="footer-run">
           <h2>Run it yourself</h2>
-          <p>Needs Python 3.9 or newer. The first run installs PyTorch and downloads about 1.3 GB of model weights.</p>
+          <p>Needs Python 3.10 or newer. The first run installs PyTorch and SpeechBrain and downloads about 1.4 GB of model weights.</p>
           <div className="cmd">
             <code>{COMMAND}</code>
             <button type="button" className="btn btn-ghost" onClick={copy}>
@@ -48,8 +48,18 @@ export function Footer() {
               </a>
             </li>
             <li>
+              <a href="https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb" target="_blank" rel="noreferrer">
+                ECAPA-TDNN speaker model
+              </a>
+            </li>
+            <li>
               <a href="https://huggingface.co/datasets/Jack-ppkdczgx/SEA-Spoof" target="_blank" rel="noreferrer">
                 SEA-Spoof dataset
+              </a>
+            </li>
+            <li>
+              <a href="https://www.robots.ox.ac.uk/~vgg/data/voxceleb/" target="_blank" rel="noreferrer">
+                VoxCeleb1
               </a>
             </li>
           </ul>

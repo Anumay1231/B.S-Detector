@@ -13,11 +13,13 @@ interface Props {
   /** live input while recording */
   live: AnalyserNode | null
   busy: boolean
+  /** false = the whole clip is used, so no window bracket and no dragging */
+  windowed?: boolean
 }
 
 const LIVE_COLUMNS = 400
 
-export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, playing, live, busy }: Props) {
+export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, playing, live, busy, windowed = true }: Props) {
   const specRef = useRef<HTMLCanvasElement>(null)
   const waveRef = useRef<HTMLCanvasElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -56,6 +58,16 @@ export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, p
     ctx.drawImage(image, 0, 0, w, h)
 
     const pxPerSec = w / clip.duration
+    const ph = playheadRef.current
+    const drawPlayhead = () => {
+      if (ph == null) return
+      ctx.fillStyle = '#fcfdbf'
+      ctx.fillRect(ph * pxPerSec - dpr, 0, 2 * dpr, h)
+    }
+    if (!windowed) {
+      drawPlayhead()
+      return
+    }
     const x0 = windowStart * pxPerSec
     const x1 = (windowStart + windowLen) * pxPerSec
 
@@ -77,14 +89,8 @@ export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, p
       ctx.lineTo(x + dir * tick, h - ctx.lineWidth / 2)
     }
     ctx.stroke()
-
-    const ph = playheadRef.current
-    if (ph != null) {
-      const x = ph * pxPerSec
-      ctx.fillStyle = '#fcfdbf'
-      ctx.fillRect(x - dpr, 0, 2 * dpr, h)
-    }
-  }, [clip, image, windowStart, windowLen, playheadRef, live])
+    drawPlayhead()
+  }, [clip, image, windowStart, windowLen, playheadRef, live, windowed])
 
   const drawWave = useCallback(() => {
     const c = waveRef.current
@@ -103,13 +109,13 @@ export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, p
     const x1 = ((windowStart + windowLen) / clip.duration) * w
     for (let b = 0; b < buckets; b++) {
       const x = (b / buckets) * w
-      const inside = x >= x0 && x <= x1
+      const inside = !windowed || (x >= x0 && x <= x1)
       ctx.fillStyle = inside ? '#fe9f6d' : 'rgba(141, 148, 171, 0.45)'
       const lo = (pk[b * 2] / norm) * mid * 0.92
       const hi = (pk[b * 2 + 1] / norm) * mid * 0.92
       ctx.fillRect(x, mid - hi, Math.max(1, (w / buckets) * 0.6), Math.max(1, hi - lo))
     }
-  }, [clip, windowStart, windowLen])
+  }, [clip, windowStart, windowLen, windowed])
 
   useEffect(() => {
     draw()
@@ -193,7 +199,7 @@ export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, p
   const clamp = (s: number) => Math.min(maxStart, Math.max(0, s))
 
   const onPointerDown = (e: React.PointerEvent) => {
-    if (!clip || maxStart === 0 || busy) return
+    if (!clip || !windowed || maxStart === 0 || busy) return
     const t = timeAt(e.clientX)
     const inside = t >= windowStart && t <= windowStart + windowLen
     const offset = inside ? t - windowStart : windowLen / 2
@@ -210,7 +216,7 @@ export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, p
   }
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (!clip || maxStart === 0) return
+    if (!clip || !windowed || maxStart === 0) return
     const step = e.shiftKey ? 1 : 0.25
     const next: Record<string, number> = {
       ArrowLeft: windowStart - step,
@@ -227,7 +233,8 @@ export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, p
   }
 
   const ticks = clip ? axisTicks(clip.duration) : []
-  const movable = !!clip && maxStart > 0
+  const movable = !!clip && windowed && maxStart > 0
+  const slider = !!clip && windowed
 
   return (
     <div className="scope-display" ref={wrapRef}>
@@ -235,14 +242,14 @@ export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, p
         <canvas
           ref={specRef}
           className={`scope-spec${movable ? ' is-movable' : ''}`}
-          role={clip ? 'slider' : undefined}
-          tabIndex={clip ? 0 : -1}
-          aria-label={clip ? 'Analysis window position' : undefined}
-          aria-hidden={clip ? undefined : true}
-          aria-valuemin={clip ? 0 : undefined}
-          aria-valuemax={clip ? Number(maxStart.toFixed(2)) : undefined}
-          aria-valuenow={clip ? Number(windowStart.toFixed(2)) : undefined}
-          aria-valuetext={clip ? `${formatSeconds(windowStart)} to ${formatSeconds(windowStart + windowLen)} of ${formatSeconds(clip.duration)}` : undefined}
+          role={slider ? 'slider' : undefined}
+          tabIndex={slider ? 0 : -1}
+          aria-label={slider ? 'Analysis window position' : undefined}
+          aria-hidden={slider ? undefined : true}
+          aria-valuemin={slider ? 0 : undefined}
+          aria-valuemax={slider ? Number(maxStart.toFixed(2)) : undefined}
+          aria-valuenow={slider ? Number(windowStart.toFixed(2)) : undefined}
+          aria-valuetext={slider ? `${formatSeconds(windowStart)} to ${formatSeconds(windowStart + windowLen)} of ${formatSeconds(clip!.duration)}` : undefined}
           aria-disabled={!movable || undefined}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

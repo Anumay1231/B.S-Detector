@@ -90,8 +90,8 @@ def main() -> None:
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
 
-    if sys.version_info < (3, 9):
-        sys.exit("B.S. Detector needs Python 3.9 or newer.")
+    if sys.version_info < (3, 10):
+        sys.exit("B.S. Detector needs Python 3.10 or newer.")
 
     print("\nB.S. Detector\n")
     py = ensure_environment()

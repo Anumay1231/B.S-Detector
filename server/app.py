@@ -1,14 +1,19 @@
 """
 B.S. Detector — local API server.
 
-Serves the built frontend (frontend/dist) and a small JSON API around the
-XLS-R 300M + SLS detector in inference.py:
+Serves the built frontend (frontend/dist) and a small JSON API around both
+stages of the project:
 
-  GET  /api/status   model loading state, device, checkpoint
-  POST /api/analyze  body = WAV bytes (the browser sends 16 kHz mono) -> verdict
+  Stage 1  XLS-R 300M + SLS deepfake detector (inference.py)
+  Stage 2  ECAPA-TDNN speaker verification (speaker.py -> src/speaker_verification)
 
-The model loads in a background thread so the page is usable (and can show
-progress) while the ~1.3 GB of weights download on first run.
+  GET  /api/status   loading state of both models
+  POST /api/analyze  body = WAV bytes (the browser sends 16 kHz mono) -> stage 1 verdict
+  POST /api/verify   form: reference, test (WAV), windowStart (s) -> stage 1 on the
+                     test clip, then stage 2 only if it sounds genuine (the interlock)
+
+The models load in a background thread so the page is usable (and can show
+progress) while the weights download on first run.
 """
 
 import os
@@ -20,7 +25,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -32,6 +37,7 @@ DIST_DIR = REPO_ROOT / "frontend" / "dist"
 sys.path.insert(0, str(SERVER_DIR))
 
 import inference as engine  # noqa: E402
+import speaker  # noqa: E402
 
 logger = logging.getLogger("bsdetector.server")
 
@@ -82,11 +88,17 @@ class ModelState:
 
 
 model = ModelState()
+voices = speaker.VerifierState()
+
+
+def load_all() -> None:
+    model.load()
+    voices.load()
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    threading.Thread(target=model.load, name="model-loader", daemon=True).start()
+    threading.Thread(target=load_all, name="model-loader", daemon=True).start()
     yield
 
 
@@ -108,7 +120,7 @@ class HashedAssets(StaticFiles):
 
 @app.get("/api/status")
 def status() -> Dict[str, Any]:
-    return model.as_json()
+    return {**model.as_json(), "verifier": voices.as_json()}
 
 
 @app.post("/api/analyze")
@@ -122,27 +134,73 @@ async def analyze(request: Request) -> JSONResponse:
     if len(body) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="Clips must be under 25 MB.")
 
-    def run() -> engine.ForensicInferenceResult:
-        with model.lock:
-            return engine.run_forensic_detection(body, model.backbone, model.head, model.device)
-
     try:
-        result = await run_in_threadpool(run)
+        result = await run_in_threadpool(detect, body)
     except Exception as exc:
         logger.exception("Analysis failed")
         raise HTTPException(status_code=422, detail=f"Couldn't read that audio: {exc}")
+    return JSONResponse(detection_json(result))
 
-    return JSONResponse(
-        {
-            "verdict": result.verdict,
-            "probSpoof": result.prob_spoof,
-            "probBonafide": result.prob_bonafide,
-            "layerWeights": result.layer_weights,
-            "latencyMs": result.latency_ms,
-            "durationSec": result.audio_duration_sec,
-            "device": result.device_used,
+
+def detect(wav: bytes) -> engine.ForensicInferenceResult:
+    with model.lock:
+        return engine.run_forensic_detection(wav, model.backbone, model.head, model.device)
+
+
+def detection_json(result: engine.ForensicInferenceResult) -> Dict[str, Any]:
+    return {
+        "verdict": result.verdict,
+        "probSpoof": result.prob_spoof,
+        "probBonafide": result.prob_bonafide,
+        "layerWeights": result.layer_weights,
+        "latencyMs": result.latency_ms,
+        "durationSec": result.audio_duration_sec,
+        "device": result.device_used,
+    }
+
+
+@app.post("/api/verify")
+async def verify(
+    reference: UploadFile = File(...),
+    test: UploadFile = File(...),
+    windowStart: float = Form(0.0),
+) -> JSONResponse:
+    if model.state != "ready":
+        raise HTTPException(status_code=503, detail=model.message)
+    if voices.state != "ready":
+        raise HTTPException(status_code=503, detail=voices.message)
+
+    ref_bytes = await reference.read()
+    test_bytes = await test.read()
+    if not ref_bytes or not test_bytes:
+        raise HTTPException(status_code=400, detail="Both clips are needed: a known voice and a voice to check.")
+    if len(ref_bytes) > MAX_UPLOAD_BYTES or len(test_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Clips must be under 25 MB.")
+
+    def run() -> Dict[str, Any]:
+        ref = speaker.read_wav(ref_bytes)
+        tst = speaker.read_wav(test_bytes)
+        # Stage 1 hears the same 4.04 s window the person chose on the test clip.
+        start = max(0, int(windowStart * speaker.SAMPLE_RATE))
+        window = tst[start : start + engine.INPUT_LENGTH]
+        detection = detect(speaker.wav_bytes(window if len(window) else tst))
+        # The interlock: never vouch for the identity of a voice that sounds synthetic.
+        if detection.verdict == "SPOOF":
+            return {"detection": detection_json(detection), "interlocked": True, "verification": None}
+        return {
+            "detection": detection_json(detection),
+            "interlocked": False,
+            "verification": speaker.verify(voices, ref, tst),
         }
-    )
+
+    try:
+        payload = await run_in_threadpool(run)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Verification failed")
+        raise HTTPException(status_code=422, detail=f"Couldn't process that audio: {exc}")
+    return JSONResponse(payload)
 
 
 if DIST_DIR.exists():

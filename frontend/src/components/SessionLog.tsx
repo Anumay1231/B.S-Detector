@@ -1,16 +1,50 @@
-import { WINDOW_SECONDS, formatSeconds } from '../lib/audio'
-import type { Run } from './Verdict'
+import { WINDOW_SECONDS } from '../lib/audio'
+import type { Run } from '../lib/runs'
 import './SessionLog.css'
+
+function describe(r: Run): { check: string; result: string; tone: 'synthetic' | 'genuine' | 'blocked'; score: string } {
+  const synth = r.analysis.verdict === 'SPOOF'
+  if (r.mode === 'detect') {
+    return {
+      check: 'Deepfake check',
+      result: synth ? 'Synthetic' : 'Genuine',
+      tone: synth ? 'synthetic' : 'genuine',
+      score: `${(r.analysis.probSpoof * 100).toFixed(1)}% synthetic`,
+    }
+  }
+  if (r.interlocked || !r.verification) {
+    return { check: `Against ${r.referenceName}`, result: 'Blocked, sounds synthetic', tone: 'blocked', score: `${(r.analysis.probSpoof * 100).toFixed(1)}% synthetic` }
+  }
+  const match = r.verification.outcome === 'MATCH'
+  return {
+    check: `Against ${r.referenceName}`,
+    result: match ? 'Same speaker' : 'Different speaker',
+    tone: match ? 'genuine' : 'synthetic',
+    score: `${r.verification.score.toFixed(3)} similarity`,
+  }
+}
 
 export function SessionLog({ runs, onClear }: { runs: Run[]; onClear: () => void }) {
   const exportJson = () => {
     const data = runs.map((r) => ({
+      check: r.mode === 'detect' ? 'deepfake' : 'deepfake+speaker',
       clip: r.clipName,
       window: [r.windowStart, Math.min(r.clipDuration, r.windowStart + WINDOW_SECONDS)],
       verdict: r.analysis.verdict,
       probSynthetic: r.analysis.probSpoof,
       layerWeights: r.analysis.layerWeights,
-      latencyMs: r.analysis.latencyMs,
+      ...(r.mode === 'verify'
+        ? {
+            reference: r.referenceName,
+            interlocked: r.interlocked,
+            speaker: r.verification && {
+              outcome: r.verification.outcome,
+              similarity: r.verification.score,
+              threshold: r.verification.threshold,
+              calibrated: r.verification.isCalibrated,
+            },
+          }
+        : {}),
       device: r.analysis.device,
       checkedAt: r.at.toISOString(),
     }))
@@ -41,10 +75,10 @@ export function SessionLog({ runs, onClear }: { runs: Run[]; onClear: () => void
           <thead>
             <tr>
               <th scope="col">Clip</th>
-              <th scope="col">Window</th>
-              <th scope="col">Verdict</th>
+              <th scope="col">Check</th>
+              <th scope="col">Result</th>
               <th scope="col" className="num">
-                Chance synthetic
+                Score
               </th>
               <th scope="col" className="num">
                 Checked
@@ -53,19 +87,17 @@ export function SessionLog({ runs, onClear }: { runs: Run[]; onClear: () => void
           </thead>
           <tbody>
             {runs.map((r) => {
-              const synth = r.analysis.verdict === 'SPOOF'
+              const d = describe(r)
               return (
                 <tr key={r.id}>
                   <td className="log-clip">{r.clipName}</td>
+                  <td className="log-clip">{d.check}</td>
                   <td>
-                    {formatSeconds(r.windowStart)} to {formatSeconds(Math.min(r.clipDuration, r.windowStart + WINDOW_SECONDS))}
-                  </td>
-                  <td>
-                    <span className="log-verdict" data-tone={synth ? 'synthetic' : 'genuine'}>
-                      {synth ? 'Synthetic' : 'Genuine'}
+                    <span className="log-verdict" data-tone={d.tone}>
+                      {d.result}
                     </span>
                   </td>
-                  <td className="num">{(r.analysis.probSpoof * 100).toFixed(1)}%</td>
+                  <td className="num">{d.score}</td>
                   <td className="num">{r.at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
                 </tr>
               )

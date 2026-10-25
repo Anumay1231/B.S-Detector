@@ -5,12 +5,15 @@ import './Header.css'
 export const REPO_URL = 'https://github.com/Anumay1231/B.S-Detector'
 
 function statusText(s: Status) {
+  const v = s.verifier?.state
   switch (s.state) {
     case 'ready':
-      return `Model ready on ${s.device?.toUpperCase() ?? 'CPU'}`
+      if (v === 'ready') return `Both models ready on ${s.device?.toUpperCase() ?? 'CPU'}`
+      if (v === 'loading' || v === undefined) return 'Loading speaker model'
+      return 'Speaker model unavailable'
     case 'loading':
     case 'connecting':
-      return 'Loading model'
+      return 'Loading models'
     case 'offline':
       return 'Server not running'
     case 'unavailable':
@@ -18,6 +21,14 @@ function statusText(s: Status) {
     default:
       return 'Model failed to load'
   }
+}
+
+/** Ready only when both stages are; any failure wins over loading. */
+function overallState(s: Status) {
+  const v = s.verifier?.state
+  if (s.state !== 'ready') return s.state
+  if (v === 'ready') return 'ready'
+  return v === 'loading' || v === undefined ? 'loading' : 'error'
 }
 
 type Theme = 'light' | 'dark'
@@ -76,7 +87,7 @@ export function Header({ status }: { status: Status }) {
         </nav>
 
         <div className="topbar-right">
-          <span className="status" data-state={status.state} title={status.message} role="status">
+          <span className="status" data-state={overallState(status)} title={[status.message, status.verifier?.message].filter(Boolean).join(' ')} role="status">
             <span className="status-dot" aria-hidden="true" />
             {statusText(status)}
           </span>

@@ -478,3 +478,138 @@
     display: none;
   }
 }
+
+/* -------------------------------------------------------- stage headings */
+
+.findings .stage-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-2) var(--s-4);
+  padding-top: var(--s-5);
+  border-top: 2px solid var(--ink);
+  font-size: clamp(var(--t-24), 2.6vw, var(--t-36));
+  font-variation-settings: 'wdth' 84;
+}
+
+.stage-heading span {
+  font-family: var(--font-text);
+  font-size: var(--t-16);
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+
+.findings .page > .stage-heading + * {
+  margin-top: calc(var(--s-6) - var(--s-9));
+}
+
+/* ------------------------------------------------------------- speakers */
+
+.finding-copy p + p {
+  margin-top: 0;
+}
+
+.scoreline {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.scoreline-title {
+  font-size: var(--t-14);
+  color: var(--ink-soft);
+}
+
+.scoreline-track {
+  position: relative;
+  height: 32px;
+  margin-top: var(--s-2);
+  background: linear-gradient(var(--rule-strong), var(--rule-strong)) center / 100% 2px no-repeat;
+}
+
+.scoreline-zone {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  height: 10px;
+  transform: translateY(-50%);
+  background: var(--genuine-wash);
+  border-radius: 2px;
+}
+
+.scoreline-cut {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ink);
+}
+
+.scoreline-mark {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+}
+
+.scoreline-mark.is-genuine {
+  background: var(--genuine);
+}
+
+.scoreline-mark.is-impostor {
+  background: var(--synthetic);
+  border-radius: 3px;
+}
+
+.scoreline-labels {
+  position: relative;
+  height: 44px;
+  font-size: var(--t-14);
+  color: var(--ink-soft);
+}
+
+.scoreline-labels span {
+  position: absolute;
+  top: 0;
+  display: grid;
+  transform: translateX(-50%);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.scoreline-labels span:first-child {
+  transform: translateX(-12px);
+  text-align: left;
+}
+
+.scoreline-labels strong {
+  color: var(--ink);
+  font-size: var(--t-16);
+}
+
+.speaker-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--rule);
+}
+
+.speaker-stats dt {
+  font-size: var(--t-14);
+  color: var(--ink-soft);
+}
+
+.speaker-stats dd {
+  font-family: var(--font-display);
+  font-size: var(--t-24);
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .speaker-stats {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,9 +1,14 @@
 # B.S. Detector — local app (API server + model)
 fastapi>=0.110
 uvicorn>=0.29
-torch>=2.2
+torch>=2.2,<2.12
 transformers>=4.40
 huggingface_hub>=0.22
 soundfile>=0.12
 scipy>=1.11
 numpy>=1.26
+python-multipart>=0.0.9
+# Stage 2 speaker verification (src/speaker_verification). torchaudio stops
+# at 2.11, so torch is held to the matching release.
+torchaudio>=2.2,<2.12
+speechbrain>=1.1,<1.2

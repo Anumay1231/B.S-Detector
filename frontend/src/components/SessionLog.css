@@ -84,3 +84,7 @@
 .log-verdict[data-tone='synthetic'] {
   color: var(--synthetic);
 }
+
+.log-verdict[data-tone='blocked'] {
+  color: var(--ink-soft);
+}
