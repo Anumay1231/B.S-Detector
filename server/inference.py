@@ -157,18 +157,33 @@ def load_and_preprocess_audio(audio_bytes_or_file, target_sr: int = TARGET_SR) -
     """
     Reads audio from bytes or file-like object, converts to mono, resamples to 16kHz,
     and returns (padded_tensor, original_duration_sec, raw_audio_data).
+
+    Preprocessing is intentionally kept consistent with the benchmark feature-extraction
+    pipeline in scripts/streaming.py + scripts/features.py:
+      - soundfile.read() returns float32 in [-1, 1] natively for float-format files and
+        integer PCM files are NOT rescaled further (matches the sf.read() + torch.tensor()
+        path used when building the cached features).
+      - No peak-amplitude normalization is applied after reading, because the cached
+        XLS-R features were extracted from un-normalised waveforms.  Applying peak-norm
+        here would shift the input distribution and corrupt the BatchNorm running stats.
+      - Integer PCM dtypes (e.g. int16 WAV) ARE divided by their max value so they land
+        in [-1, 1], which is what soundfile does automatically for float-format files.
+      - Resampling uses scipy.signal.resample (frequency-domain) as a fallback when the
+        file is not already at 16 kHz; the benchmark corpus was natively 16 kHz so this
+        branch was never exercised during training.
     """
     raw_audio = None
     orig_sr = target_sr
 
-    # Attempt to read via soundfile
+    # Primary: soundfile (handles float32/float64/PCM files natively, returns float64)
     try:
         import soundfile as sf
         if isinstance(audio_bytes_or_file, bytes):
             bio = io.BytesIO(audio_bytes_or_file)
         else:
             bio = audio_bytes_or_file
-        data, orig_sr = sf.read(bio)
+        # always_2d=False returns 1-D for mono, 2-D for multi-channel
+        data, orig_sr = sf.read(bio, dtype="float32", always_2d=False)
         raw_audio = data
     except Exception as sf_err:
         logger.debug(f"soundfile read failed: {sf_err}, trying scipy.io.wavfile")
@@ -179,18 +194,18 @@ def load_and_preprocess_audio(audio_bytes_or_file, target_sr: int = TARGET_SR) -
             bio = audio_bytes_or_file
         orig_sr, data = wavfile.read(bio)
         raw_audio = data
+        # scipy returns raw integer PCM — normalise to [-1, 1] to match soundfile behaviour
+        if np.issubdtype(raw_audio.dtype, np.integer):
+            max_val = float(np.iinfo(raw_audio.dtype).max)
+            raw_audio = raw_audio.astype(np.float32) / max_val
+        else:
+            raw_audio = raw_audio.astype(np.float32)
 
     # Convert to mono if multi-channel
     if raw_audio.ndim > 1:
         raw_audio = raw_audio.mean(axis=1)
-    
-    # Cast to float32 between -1.0 and 1.0
-    if np.issubdtype(raw_audio.dtype, np.integer):
-        max_val = float(np.iinfo(raw_audio.dtype).max)
-        raw_audio = raw_audio.astype(np.float32) / max_val
-    else:
-        raw_audio = raw_audio.astype(np.float32)
 
+    raw_audio = raw_audio.astype(np.float32)
     duration_sec = float(len(raw_audio)) / float(orig_sr)
 
     # Resample to 16,000 Hz if needed
@@ -200,17 +215,24 @@ def load_and_preprocess_audio(audio_bytes_or_file, target_sr: int = TARGET_SR) -
             from scipy.signal import resample
             resampled = resample(raw_audio, num_target_samples)
         except Exception:
-            # Simple linear interpolation fallback
+            # Linear interpolation fallback
             indices = np.linspace(0, len(raw_audio) - 1, num_target_samples)
             resampled = np.interp(indices, np.arange(len(raw_audio)), raw_audio)
         raw_audio = resampled.astype(np.float32)
+        logger.debug(
+            f"Resampled audio from {orig_sr} Hz -> {target_sr} Hz "
+            f"({num_target_samples} samples). Note: benchmark features were extracted "
+            f"from native 16 kHz audio; resampled inputs may show slight distribution shift."
+        )
+
+    # NOTE: Peak-amplitude normalisation has been intentionally removed.
+    # The cached XLS-R features used for fine-tuning were extracted from waveforms
+    # loaded with soundfile (which scales to [-1, 1] but does NOT peak-normalise).
+    # Applying an additional per-clip peak-norm here rescales each clip to a fixed
+    # max of 1.0, which can distort quiet/soft speech and shifts the input distribution
+    # away from what the model's BatchNorm running statistics expect.
 
     tensor_wave = torch.from_numpy(raw_audio)
-    # Peak amplitude normalization
-    peak = torch.max(torch.abs(tensor_wave))
-    if peak > 1e-7:
-        tensor_wave = tensor_wave / peak
-    
     padded_wave = pad_or_truncate_audio(tensor_wave, target_length=INPUT_LENGTH)
     return padded_wave, duration_sec, raw_audio
 

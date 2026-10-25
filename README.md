@@ -1,5 +1,9 @@
 # B.S. Detector
 
+### [▶ Download and run B.S. Detector](https://github.com/Anumay1231/B.S-Detector/archive/refs/heads/main.zip)
+
+Unzip it, then double-click `start.bat` (Windows) or `start.command` (macOS). Full steps are [below](#run-it).
+
 A voice authentication system for Hindi and English speech that asks two questions about a recording, in order:
 
 1. **Is this voice real?** A deepfake detector, a frozen **XLS-R 300M** model with a **Sensitive Layer Selection (SLS)** head, listens for signs that the speech was generated.
@@ -7,7 +11,7 @@ A voice authentication system for Hindi and English speech that asks two questio
 
 The two stages are joined by an **interlock**. If stage 1 calls a voice synthetic, stage 2 never runs, because a convincing clone would otherwise pass as the real person. The repository contains the research behind both stages and a local web app that runs them on your own computer.
 
-### [▶ Download and run B.S. Detector](https://github.com/Anumay1231/B.S-Detector/archive/refs/heads/main.zip)
+### Run it
 
 1. Unzip the download.
 2. Double-click **`start.bat`** (Windows) or **`start.command`** (macOS). On Linux, run `./start.command`.
@@ -19,7 +23,7 @@ Or from a terminal:
 git clone https://github.com/Anumay1231/B.S-Detector && cd B.S-Detector && python run.py
 ```
 
-You need **Python 3.10 or newer**. The first run creates a `.venv`, installs PyTorch, SpeechBrain and the other dependencies, and downloads the model weights from Hugging Face: about 1.3 GB for XLS-R and 80 MB for ECAPA-TDNN. It also fetches the Hindi detector head (89 MB) from the [`hindi-head-n500` release](https://github.com/Anumay1231/B.S-Detector/releases/tag/hindi-head-n500) into `models/`. Later starts take a few seconds. Node.js isn't needed, because the built interface ships in `frontend/dist`.
+You need **Python 3.10 or newer**. The first run creates a `.venv`, installs PyTorch, SpeechBrain and the other dependencies, and downloads the model weights from Hugging Face: about 1.3 GB for XLS-R and 80 MB for ECAPA-TDNN. Later starts take a few seconds. Node.js isn't needed, because the built interface ships in `frontend/dist`.
 
 ## How it works
 
@@ -134,7 +138,7 @@ npm run build                                  # rebuild frontend/dist before co
 ## Limitations
 
 - Both stages were evaluated on clean recordings. Phone-call audio (8 kHz, compressed codecs) has not been tested.
-- The Hindi head (N=500) is too big for Git (89 MB), so `run.py` downloads it from the `hindi-head-n500` release on first run. If that fails, or you start the server another way, put `sls_head_n500_seed2_best.pth` in `models/` by hand; the status tag then says "Hindi head". Without it the app falls back to the English checkpoint, which passes real Hindi voices but misses most Hindi fakes.
+- The app uses the Hindi head trained on 500 clips per class (`models/sls_head_n500_seed2_best.pth`, 89 MB, in the repo); the status tag says "Hindi head". If the file is missing, `run.py` tries the `hindi-head-n500` release, and otherwise the app falls back to the English checkpoint, which misses most Hindi fakes.
 - Stage 1 hears 4.04 seconds at a time. Check several windows of a long clip.
 - The stage 2 threshold is an English (VoxCeleb1) baseline and has not been validated on Hindi or Hinglish speech.
 - Stage 2 needs the voice clearly above the background. The app trims silence before comparing and refuses clips whose speech sits within 6 dB of the noise: ECAPA-TDNN embeds a noise-dominated clip as the room rather than the person, and in tests on random LibriSpeech speakers buried in noise, most pairs of different people crossed the threshold.
