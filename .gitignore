@@ -13,6 +13,7 @@ graphify-out/.graphify_root
 .DS_Store
 .mplconfig/
 models/*.pth
+!models/sls_head_n500_seed2_best.pth
 *.aux
 *.log
 *.out
