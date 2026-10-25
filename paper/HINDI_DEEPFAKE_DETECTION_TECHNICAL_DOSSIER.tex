@@ -21,8 +21,8 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\rhead{\small\textit{B.S-Detector Technical Report: XLS-R 300M + SLS Hindi Benchmark}}
-\lhead{\small\textit{Comprehensive Technical Parameter \& Findings Dossier}}
+\rhead{\small\textit{B.S-Detector Technical Specification: XLS-R 300M + SLS Hindi Benchmark}}
+\lhead{\small\textit{Engineering Dossier \& Parameter Reference}}
 \cfoot{\thepage}
 
 \graphicspath{{figures/}{../figures/}{./}}
@@ -40,9 +40,9 @@
 
 \title{\textbf{\Large Comprehensive Technical Report \& Parameter Dossier:}\\[0.3em]
 \textbf{\large Parameter-Efficient Audio Deepfake Detection on Hindi Speech}\\
-\large Architecture, Hyperparameters, Shard Indexing, and $N=500$ Scaling Benchmark}
+\large Architecture, Hyperparameters, Shard Indexing, Infrastructure, and $N=500$ Scaling Benchmark}
 
-\author{\textbf{Research \& Engineering Technical Dossier} \\
+\author{\textbf{B.S-Detector Engineering \& Research Team} \\
 Repository: \texttt{https://github.com/Anumay1231/B.S-Detector.git} \\
 Branch: \texttt{base} \quad | \quad Date: October 2026}
 
@@ -53,23 +53,23 @@ Branch: \texttt{base} \quad | \quad Date: October 2026}
 \maketitle
 
 \begin{abstract}
-This technical dossier provides an exhaustive specification of every architectural parameter, hyperparameter, dataset partition rule, optimization detail, and empirical finding for the audio deepfake detection benchmark on low-resource Hindi speech. The system pairs a frozen multilingual \textbf{Wav2Vec2 XLS-R 300M} foundation encoder with a trainable \textbf{Sensitive Layer Selection (SLS)} head. We document the scaling trajectory from zero-shot English transfer ($N=0$) through few-shot supervision at $N=10$, $N=50$, and $N=500$ samples per class across three independent deterministic seeds, alongside backbone unfreezing ablations and dataset bias analyses. All models were trained and evaluated on an NVIDIA L4 GPU instance on Google Cloud Platform, achieving a state-of-the-art \textbf{2.66\% Equal Error Rate (EER)} and \textbf{96.83\% Accuracy} at $N=500$.
+This technical dossier provides an exhaustive specification of every architectural parameter, hyperparameter, dataset partition rule, optimization detail, hardware environment, and empirical finding for the parameter-efficient audio deepfake detection benchmark on low-resource Hindi speech. The system couples a frozen multilingual \textbf{Wav2Vec2 XLS-R 300M} foundation encoder with a trainable \textbf{Sensitive Layer Selection (SLS)} head. We document the scaling trajectory from zero-shot English transfer ($N=0$) through few-shot supervision at $N=10$, $N=50$, and $N=500$ samples per class across three independent deterministic seeds, alongside backbone unfreezing ablations, dataset bias audits, and generator-stratified evaluations. Trained and evaluated on an NVIDIA L4 GPU instance on Google Cloud Platform, the system attains a state-of-the-art \textbf{2.66\% Equal Error Rate (EER)} and \textbf{96.83\% Accuracy} at $N=500$ (with peak seed performance of \textbf{98.00\% Accuracy} and \textbf{2.12\% EER}).
 \end{abstract}
 
 \vspace{0.5em}
 \hrule
-\vspace{1em}
+\vspace{0.8em}
 
 \tableofcontents
 
-\vspace{1em}
+\vspace{0.8em}
 \hrule
-\vspace{1.5em}
+\vspace{1.2em}
 
 \section{System Architecture \& Component Specifications}
 
 \subsection{Multilingual Foundation Backbone: XLS-R 300M}
-The feature extraction foundation is the official Wav2Vec2 XLS-R model (\texttt{facebook/wav2vec2-xls-r-300m}) \cite{babu2022xls}, pretrained on 436,000 hours of unlabelled speech spanning 128 languages. Throughout few-shot adaptation, the entire backbone is maintained in a \textbf{strictly frozen state} ($\text{requires\_grad} = \text{False}$).
+The primary acoustic feature extractor is the official Wav2Vec2 XLS-R foundation model (\texttt{facebook/wav2vec2-xls-r-300m}) \cite{babu2022xls}, pretrained on 436,000 hours of unlabelled speech spanning 128 languages. Throughout few-shot adaptation, the backbone remains in a \textbf{strictly frozen state} ($\text{requires\_grad} = \text{False}$).
 
 \begin{table}[h!]
 \centering
@@ -99,7 +99,7 @@ Transformer Backbone & Transformer Encoder Layers ($L$) & 24 layers \\
 \end{table}
 
 \subsection{Sensitive Layer Selection (SLS) Classifier Head}
-The SLS architecture dynamically pools and weights representations from all 24 transformer layers to exploit layer-specific acoustic artifacts:
+The SLS architecture dynamically pools and weights representations from all 24 transformer layers to exploit layer-specific acoustic artifacts \cite{zhang2024sensitive}:
 
 \begin{equation}
 \bar{h}_l = \frac{1}{T} \sum_{t=1}^T h_{l,t} \in \mathbb{R}^{1024}, \quad l \in \{1, 2, \dots, 24\}
@@ -118,6 +118,7 @@ w_l = \sigma(W_{\text{gate}} \bar{h}_l + b_{\text{gate}}) \in (0, 1), \quad W_{\
 \small
 \caption{SLS Classifier Head Parameter Breakdown}
 \label{tab:sls_head_params}
+\resizebox{\textwidth}{!}{
 \begin{tabular}{lllc}
 \toprule
 \textbf{Layer / Block} & \textbf{Operation / Configuration} & \textbf{Output Tensor Shape} & \textbf{Parameters} \\
@@ -132,8 +133,11 @@ Fully Connected 1 & $\text{Linear}(22847, 1024) + \text{SELU}()$ & $(B, 1024)$ &
 Fully Connected 3 (Output) & $\text{Linear}(1024, 2) + \text{LogSoftmax}()$ & $(B, 2)$ & $2,050$ \\
 \midrule
 \textbf{Total Trainable} & \textbf{SLS Head Parameters} & & \textbf{23,399,431 (~23.4M)} \\
+\textbf{Total Backbone} & \textbf{Frozen XLS-R Parameters} & & \textbf{315,441,760 (~315.4M)} \\
+\textbf{Total System} & \textbf{Full Architecture Parameters} & & \textbf{338,841,191 (~338.8M)} \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \subsection{Audio Conditioning \& Signal Preprocessing}
@@ -147,6 +151,37 @@ Fully Connected 3 (Output) & $\text{Linear}(1024, 2) + \text{LogSoftmax}()$ & $(
     \end{itemize}
     \item \textbf{Feature Tensor Dimensions}: For an input waveform of $(B, 64600)$, the temporal downsampling factor of $320\times$ yields $(B, 201)$ frames across $24$ layers, producing stacked hidden states of shape $(24, B, 201, 1024)$.
 \end{itemize}
+
+\section{Hardware, Cloud Infrastructure \& Software Stack}
+
+\begin{table}[h!]
+\centering
+\small
+\caption{Cloud Infrastructure and Software Environment Specifications}
+\label{tab:hardware_env}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lll}
+\toprule
+\textbf{Category} & \textbf{Component} & \textbf{Specification} \\
+\midrule
+\multirow{4}{*}{\textbf{Cloud Hardware}} & Cloud Provider & Google Cloud Platform (GCP), Zone: \texttt{us-central1-a} \\
+& Machine Type & \texttt{g2-standard-8} (8 vCPUs, 32 GB System RAM) \\
+& Accelerator & 1x NVIDIA L4 GPU (Ada Lovelace, 24 GB GDDR6 with ECC) \\
+& Storage & 100 GB Balanced Persistent Disk (pd-balanced) \\
+\midrule
+\multirow{6}{*}{\textbf{Software Stack}} & Operating System & Debian GNU/Linux 12 (Bookworm), Kernel: \texttt{6.1.0-28-cloud-amd64} \\
+& CUDA / cuDNN & CUDA 12.1.1, cuDNN 9.x \\
+& Python Environment & Python 3.11 (virtualenv) \\
+& Deep Learning & PyTorch 2.5.1+cu121, Torchvision 0.20.1+cu121 \\
+& NLP / Audio Toolkit & Transformers 4.48.3, Datasets 3.1.0, HuggingFace Hub 0.36.2 \\
+& Analysis & Scikit-learn 1.7.2, Librosa 0.10.2, SoundFile 0.13.1, Matplotlib 3.10.0 \\
+\midrule
+\multirow{2}{*}{\textbf{Local Inference}} & Target Platforms & Apple Silicon MPS (Metal Performance Shaders) / CPU \\
+& Standalone Script & \texttt{scripts/infer\_local.py} (self-contained, zero cloud dependency) \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
 
 \section{Optimization \& Training Hyperparameters}
 
@@ -178,7 +213,7 @@ Test Seed & -- & 42 (deterministic test split) \\
 \section{Benchmark Dataset \& Shard Engineering}
 
 \subsection{Corpus Statistics \& Generator Stratification}
-The benchmark is constructed from the Hindi split of `Jack-ppkdczgx/SEA-Spoof` ($54,938$ candidate utterances):
+The benchmark is constructed from the Hindi split of \texttt{Jack-ppkdczgx/SEA-Spoof} ($54,938$ candidate utterances):
 \begin{itemize}
     \item \textbf{Candidate Pool}: $16,182$ Bona fide samples, $38,756$ Spoof samples.
     \item \textbf{Held-Out Balanced Test Set ($N_{\text{test}} = 400$)}:
@@ -200,8 +235,18 @@ The benchmark is constructed from the Hindi split of `Jack-ppkdczgx/SEA-Spoof` (
     \end{equation}
 \end{itemize}
 
+\subsection{Dataset Bias Audit: V1 vs. V2 Mitigation}
+During dataset formulation, audit of Dataset V1 uncovered a critical acoustic channel confound: Bona fide audio was drawn exclusively from studio recordings (IndicTTS) whereas spoof speech spanned diverse web sources. A shallow spectral energy detector achieved artificial $>99\%$ accuracy simply by identifying ambient noise floor variations. Dataset V2 resolved this by injecting Mozilla Common Voice recordings into the Bona fide split, balancing SNR and channel characteristics (Figure \ref{fig:bias_audit}).
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.85\columnwidth]{fig1_dataset_bias_v1_vs_v2.png}
+\caption{Dataset Bias Audit and Mitigation. Comparison of Dataset V1 (channel-confounded) versus Dataset V2 (audited benchmark with matched acoustic diversity between bona fide and spoof speech).}
+\label{fig:bias_audit}
+\end{figure}
+
 \subsection{Parquet Shard Indexing Math}
-The SEA-Spoof repository organizes training audio into 30 Parquet files (`train-00000.parquet` to `train-00029.parquet`). Shard and row-group boundaries obey strict mathematical determinism:
+The SEA-Spoof repository organizes training audio into 30 Parquet files (\texttt{train-00000.parquet} to \texttt{train-00029.parquet}). Shard and row-group boundaries obey strict mathematical determinism:
 \begin{equation}
 \text{Row Index} = \text{int}(\text{row\_id}.\text{split}(\text{'\_'})[-1])
 \end{equation}
@@ -224,6 +269,7 @@ Table \ref{tab:consolidated_results} presents the definitive performance progres
 \small
 \caption{Consolidated Evaluation Metrics on Held-Out Hindi Test Set ($N_{\text{test}} = 400$, 50/50 Balanced)}
 \label{tab:consolidated_results}
+\resizebox{\textwidth}{!}{
 \begin{tabular}{lccccc}
 \toprule
 \textbf{Supervision Setting} & \textbf{Accuracy (\%)} & \textbf{EER (\%)} & \textbf{Precision (\%)} & \textbf{Recall (\%)} & \textbf{F1 Score (\%)} \\
@@ -234,6 +280,7 @@ Table \ref{tab:consolidated_results} presents the definitive performance progres
 \textbf{Few-Shot $N=500$} (3 seeds) & $\mathbf{96.83 \pm 0.82\%}$ & $\mathbf{2.66 \pm 0.52\%}$ & $\mathbf{95.78 \pm 1.16\%}$ & $\mathbf{98.00 \pm 1.08\%}$ & $\mathbf{96.87 \pm 0.81\%}$ \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \begin{figure}[h!]
@@ -247,22 +294,19 @@ Table \ref{tab:consolidated_results} presents the definitive performance progres
 \begin{itemize}
     \item \textbf{Seed 0 (Seed 1000)}:
     \begin{itemize}
-        \item Accuracy: \textbf{96.25\%} (385/400 correct)
-        \item EER: \textbf{3.36\%}
+        \item Accuracy: \textbf{96.25\%} (385/400 correct) \quad | \quad EER: \textbf{3.36\%}
         \item Precision: 96.02\% \quad | \quad Recall: 96.50\% \quad | \quad F1: 96.26\%
         \item Confusion Matrix: True Spoof (192 correct, 8 missed), True Bonafide (193 correct, 7 false alarms).
     \end{itemize}
     \item \textbf{Seed 1 (Seed 1001)}:
     \begin{itemize}
-        \item Accuracy: \textbf{96.25\%} (385/400 correct)
-        \item EER: \textbf{2.50\%}
+        \item Accuracy: \textbf{96.25\%} (385/400 correct) \quad | \quad EER: \textbf{2.50\%}
         \item Precision: 94.26\% \quad | \quad Recall: 98.50\% \quad | \quad F1: 96.33\%
         \item Confusion Matrix: True Spoof (188 correct, 12 missed), True Bonafide (197 correct, 3 false alarms).
     \end{itemize}
     \item \textbf{Seed 2 (Seed 1002)}:
     \begin{itemize}
-        \item Accuracy: \textbf{98.00\%} (392/400 correct -- \textbf{only 8 total errors!})
-        \item EER: \textbf{2.12\%}
+        \item Accuracy: \textbf{98.00\%} (392/400 correct -- \textbf{only 8 total errors!}) \quad | \quad EER: \textbf{2.12\%}
         \item Precision: 97.06\% \quad | \quad Recall: 99.00\% \quad | \quad F1: 98.02\%
         \item Confusion Matrix: True Spoof (194 correct, 6 missed), True Bonafide (198 correct, 2 false alarms).
     \end{itemize}
@@ -275,6 +319,7 @@ Table \ref{tab:consolidated_results} presents the definitive performance progres
 \small
 \caption{Confusion Matrices for Zero-Shot and Few-Shot Configurations ($N_{\text{test}} = 400$)}
 \label{tab:confusion_matrices}
+\resizebox{\textwidth}{!}{
 \begin{tabular}{lcccc}
 \toprule
 \textbf{Configuration} & \textbf{True Spoof (0,0)} & \textbf{False Bonafide (0,1)} & \textbf{False Spoof (1,0)} & \textbf{True Bonafide (1,1)} \\
@@ -294,16 +339,18 @@ Few-Shot $N=50$, Seed 2 & 151 & 49 & 19 & 181 \\
 \textbf{Few-Shot $N=500$, Seed 2} & \textbf{194} & \textbf{6} & \textbf{2} & \textbf{198} \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 \subsection{Architectural Ablation: Frozen Backbone vs. Unfreezing}
-Evaluating backbone layer unfreezing on an NVIDIA L4 GPU reveals severe few-shot overfitting when backpropagation penetrates the foundation encoder:
+Evaluating backbone layer unfreezing on the NVIDIA L4 GPU reveals severe few-shot overfitting when backpropagation penetrates the foundation encoder (Table \ref{tab:unfreezing_ablation} and Figure \ref{fig:unfreezing}).
 
 \begin{table}[h!]
 \centering
 \small
 \caption{Foundation Backbone Freezing vs. Partial Unfreezing ($N=50$, L4 GPU)}
 \label{tab:unfreezing_ablation}
+\resizebox{\textwidth}{!}{
 \begin{tabular}{lcccccc}
 \toprule
 \textbf{Architectural Setting} & \textbf{Trainable Params} & \textbf{Accuracy (\%)} & \textbf{EER (\%)} & \textbf{Precision (\%)} & \textbf{Recall (\%)} & \textbf{F1 (\%)} \\
@@ -313,11 +360,29 @@ Evaluating backbone layer unfreezing on an NVIDIA L4 GPU reveals severe few-shot
 \textbf{Unfreeze Top-4 Layers} & 78.8M & $67.12 \pm 5.83\%$ & $25.31 \pm 1.91\%$ & $64.21\%$ & $97.73\%$ & $77.31\%$ \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.85\columnwidth]{fig3_backbone_unfreezing_comparison.png}
+\caption{Ablation of Backbone Freezing vs. Partial Fine-Tuning. Unfreezing top transformer layers incurs substantial degradation in EER and generalization under low-data regimes due to representation collapse.}
+\label{fig:unfreezing}
+\end{figure}
+
+\subsection{Generator Stratification \& Detection Vulnerability}
+Figure \ref{fig:generator_strat} illustrates spoof detection accuracy across the five distinct text-to-speech architectures. While zero-shot transfer fails dramatically on neural diffusion models like \texttt{xtts-v2} and end-to-end models like \texttt{vits\_mms}, few-shot adaptation at $N=500$ achieves over $96\%$ detection accuracy uniformly across all five generator paradigms.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.85\columnwidth]{fig4_generator_stratification.png}
+\caption{TTS Generator Stratification. Detection accuracy across Edge-TTS, FastSpeech, Indic-TTS, VITS-MMS, and XTTS-v2 across supervision levels.}
+\label{fig:generator_strat}
+\end{figure}
 
 \section{Local Reproduction \& Inference Protocols}
 
-\subsection{Saved Model Weights}
+\subsection{Saved Model Weights Manifest}
 All target checkpoints have been downloaded from the GCP L4 instance into the local repository:
 \begin{itemize}
     \item \texttt{models/sls\_head\_n500\_seed2\_best.pth} (89 MB): Best performing few-shot model ($98.00\%$ Accuracy, $2.12\%$ EER).

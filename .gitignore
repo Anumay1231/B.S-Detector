@@ -13,3 +13,8 @@ graphify-out/.graphify_root
 .DS_Store
 .mplconfig/
 models/*.pth
+*.aux
+*.log
+*.out
+*.toc
+missfont.log
