@@ -103,6 +103,15 @@ export function useClip(onLevel: LevelSink) {
 
   const stopRecording = () => recorder.current?.stop()
 
+  const clear = () => {
+    stopPlayback()
+    setClip(null)
+    setImage(null)
+    setError(null)
+    setWindowStart(0)
+    setPhase('idle')
+  }
+
   /** Play the 4.04 s window (or the whole clip when `whole` is set). */
   const togglePlay = async (whole = false) => {
     if (!clip) return
@@ -170,6 +179,8 @@ export function useClip(onLevel: LevelSink) {
     recordSeconds,
     playheadRef,
     loadFiles,
+    loadBlob: load,
+    clear,
     startRecording,
     stopRecording,
     togglePlay,

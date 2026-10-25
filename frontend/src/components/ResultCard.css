@@ -1,0 +1,128 @@
+/* Accent Peach Card: the one warm surface on the page. Sienna ink only. */
+.result {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-32) var(--spacing-64);
+  padding: var(--spacing-40);
+  background: var(--surface-accent-blush);
+  color: var(--color-sienna-brown);
+  border-radius: var(--radius-cards);
+  animation: result-in var(--dur-slow) var(--ease-out) both;
+}
+
+.rc-stage {
+  display: grid;
+  align-content: start;
+  gap: var(--spacing-12);
+}
+
+.rc-stage + .rc-stage {
+  padding-left: var(--spacing-64);
+  margin-left: calc(-1 * var(--spacing-32));
+  box-shadow: inset 1px 0 0 rgba(93, 42, 26, 0.18);
+}
+
+.rc-word {
+  font-family: var(--font-signifier);
+  font-weight: 400;
+  font-size: clamp(34px, 4vw, var(--text-heading));
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+}
+
+.rc-line {
+  font-size: var(--text-body);
+  line-height: 1.45;
+  max-width: 40ch;
+}
+
+.rc-line strong {
+  font-weight: var(--font-weight-medium);
+}
+
+.rc-caveat {
+  font-size: 15px;
+  line-height: 1.45;
+  max-width: 46ch;
+  opacity: 0.86;
+}
+
+.rc-stroke {
+  width: 100%;
+  max-width: 420px;
+  height: 24px;
+  overflow: visible;
+}
+
+.rc-stroke path {
+  fill: none;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.rc-stroke-track {
+  stroke: rgba(93, 42, 26, 0.16);
+  stroke-width: 3;
+}
+
+.rc-stroke-value {
+  stroke: var(--color-sienna-brown);
+  stroke-width: 3;
+  stroke-dasharray: 300;
+  animation: stroke-in var(--dur-slow) var(--ease-out) both;
+  animation-delay: 160ms;
+}
+
+.rc-stroke-tick {
+  stroke: var(--color-sienna-brown);
+  stroke-width: 1.5;
+}
+
+.rc-facts {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--spacing-16) var(--spacing-32);
+  padding-top: var(--spacing-20);
+  box-shadow: inset 0 1px 0 rgba(93, 42, 26, 0.18);
+}
+
+.rc-facts dt {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.rc-facts dd {
+  font-size: 15px;
+  font-weight: var(--font-weight-w450);
+  overflow-wrap: anywhere;
+}
+
+@keyframes result-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes stroke-in {
+  from {
+    stroke-dashoffset: 300;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (max-width: 860px) {
+  .result {
+    grid-template-columns: 1fr;
+    padding: var(--spacing-28) var(--spacing-24);
+  }
+  .rc-stage + .rc-stage {
+    padding-left: 0;
+    margin-left: 0;
+    padding-top: var(--spacing-28);
+    box-shadow: inset 0 1px 0 rgba(93, 42, 26, 0.18);
+  }
+}

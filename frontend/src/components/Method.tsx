@@ -1,111 +1,138 @@
 import './Method.css'
 
-const stage1 = [
-  {
-    title: 'Prepare the audio',
-    spec: '16 kHz mono, 64,600 samples',
-    body: 'Your browser converts the clip to 16 kHz mono and cuts the 4.04-second window you chose. The server scales it to full volume and loops it if it is shorter.',
-  },
-  {
-    title: 'Listen with XLS-R',
-    spec: 'wav2vec2-xls-r-300m, frozen',
-    body: 'A speech model pretrained on 128 languages turns the window into 24 layers of features, each 201 frames by 1,024 numbers. None of its 300M weights change.',
-  },
-  {
-    title: 'Weigh the layers',
-    spec: 'Selective layer summarization',
-    body: 'A learned gate scores every layer, the layers are blended by those scores, then pooled and passed through two small dense layers. This head is the only part that was trained.',
-  },
-  {
-    title: 'Decide',
-    spec: 'Synthetic if p ≥ 0.5',
-    body: 'The head outputs two probabilities. Anything at or above 50% synthetic is called synthetic; the gate scores become the layer chart you see with each verdict.',
-  },
-]
+const s = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' } as const
 
-const stage2 = [
+const NODES = [
   {
-    title: 'Make a voiceprint',
+    stage: 1,
+    title: 'Audio',
+    spec: '16 kHz mono',
+    body: 'Your browser converts the clip and cuts the window you chose.',
+    glyph: <path d="M4 20h3l2-8 3 16 3-22 3 18 2-8 3 4h5" {...s} />,
+  },
+  {
+    stage: 1,
+    title: 'Spectrogram',
+    spec: '4.04 s window',
+    body: '64,600 samples, looped if the clip is shorter.',
+    glyph: (
+      <g {...s}>
+        <rect x="4" y="6" width="28" height="24" rx="3" />
+        <path d="M9 24v-6M13 24V12M17 24v-9M21 24V10M25 24v-5M29 24v-3" />
+      </g>
+    ),
+  },
+  {
+    stage: 1,
+    title: 'XLS-R',
+    spec: '24 frozen layers',
+    body: 'A speech model pretrained on 128 languages. None of its 300M weights change.',
+    glyph: (
+      <g {...s}>
+        <rect x="6" y="5" width="24" height="5" rx="1.5" />
+        <rect x="6" y="15.5" width="24" height="5" rx="1.5" />
+        <rect x="6" y="26" width="24" height="5" rx="1.5" />
+      </g>
+    ),
+  },
+  {
+    stage: 1,
+    title: 'Layer gate',
+    spec: 'SLS head, 22.8M trained',
+    body: 'A learned gate weighs each layer, then the blend is pooled and classified.',
+    glyph: <path d="M6 8h10l8 10-8 10H6M24 18h7" {...s} />,
+  },
+  {
+    stage: 1,
+    title: 'Verdict',
+    spec: 'Generated if p ≥ 0.5',
+    body: 'Two probabilities: generated or real.',
+    glyph: (
+      <g {...s}>
+        <circle cx="18" cy="18" r="12" />
+        <path d="M12 18.5l4 4 8-9" />
+      </g>
+    ),
+  },
+  {
+    stage: 2,
+    title: 'Voiceprint',
     spec: 'ECAPA-TDNN, 192 numbers',
-    body: 'A pretrained speaker model from SpeechBrain turns each whole clip, the known voice and the voice to check, into a 192-number voiceprint. It is used exactly as published.',
+    body: 'One for the voice to check and one for the known voice, from whole clips.',
+    glyph: <path d="M5 18c3-9 5-9 7 0s4 9 6 0 4-9 6 0 4 9 7 0" {...s} />,
   },
   {
-    title: 'Compare them',
-    spec: 'Cosine similarity',
-    body: 'The two voiceprints are compared with cosine similarity. Recordings of the same person land near 0.6 on average; different people land near zero.',
-  },
-  {
-    title: 'Apply the cut-off',
+    stage: 2,
+    title: 'Match score',
     spec: 'Same speaker if ≥ 0.253',
-    body: 'The cut-off was calibrated on VoxCeleb1 trials, not guessed. Scores at or above it count as the same speaker, and the raw score is always shown.',
+    body: 'Cosine similarity against a cut-off calibrated on VoxCeleb1.',
+    glyph: (
+      <g {...s}>
+        <path d="M5 26h26" />
+        <path d="M14 26a9 9 0 0 1 18 0" opacity="0.4" />
+        <path d="M18 26l7-9" />
+      </g>
+    ),
   },
 ]
 
-const limits = [
+const LIMITS = [
   'Both stages were tested on clean recordings. Phone-call audio (8 kHz, compressed) has not been evaluated.',
-  'The deepfake results come from five speech generators. A new generator can fool it in ways this benchmark does not show.',
-  'The deepfake check only hears 4.04 seconds at a time. Check several windows of a long clip before drawing a conclusion.',
-  'The app runs the English-trained deepfake checkpoint. The Hindi-adapted heads from the experiments are not bundled.',
-  'The speaker cut-off was calibrated on VoxCeleb1, mostly English interviews. It has not been validated on Hindi or Hinglish speech.',
+  'Five generators made the benchmark fakes. A new one can fool it in ways these numbers do not show.',
+  'The deepfake check hears 4.04 seconds at a time. Check several windows of a long clip.',
+  'This app ships the English-trained deepfake checkpoint, not the Hindi-adapted heads from the experiments.',
+  'Nobody has tested the speaker cut-off on Hindi or Hinglish yet. It was calibrated on VoxCeleb1, mostly English interviews.',
+  'A verdict is evidence, not proof.',
 ]
-
-function Steps({ steps, start }: { steps: typeof stage1; start: number }) {
-  return (
-    <ol className="steps" start={start} style={{ '--cols': steps.length } as React.CSSProperties}>
-      {steps.map((s, i) => (
-        <li key={s.title} className="step">
-          <span className="step-n" aria-hidden="true">
-            {start + i}
-          </span>
-          <h4>{s.title}</h4>
-          <p className="step-spec">{s.spec}</p>
-          <p className="step-body">{s.body}</p>
-        </li>
-      ))}
-    </ol>
-  )
-}
 
 export function Method() {
   return (
-    <section className="method page" id="method" aria-labelledby="method-title">
-      <header className="method-head">
-        <h2 id="method-title">What happens to your clip</h2>
-        <p>Everything runs on your machine. The audio goes from this page to the Python server on localhost and nowhere else.</p>
-      </header>
+    <section className="method section band-fog" id="method" aria-labelledby="method-title">
+      <div className="page method-inner">
+        <header className="method-head reveal">
+          <h2 id="method-title">
+            From waveform to <em>verdict</em>
+          </h2>
+          <p>Everything runs on your machine. The audio goes from this page to the Python server on localhost and nowhere else.</p>
+        </header>
 
-      <div className="method-stage">
-        <h3 className="method-stage-title">
-          <span>Stage 1</span> Is the voice real?
-        </h3>
-        <Steps steps={stage1} start={1} />
-      </div>
+        <figure className="flowchart reveal" aria-label="Signal flow through both stages">
+          <div className="flowchart-stages" aria-hidden="true">
+            <span style={{ gridColumn: '1 / span 5' }}>Stage 1, is the voice real?</span>
+            <span style={{ gridColumn: '6 / span 2' }}>Stage 2, is it the same person?</span>
+          </div>
+          <ol className="flowchart-nodes">
+            {NODES.map((n, i) => (
+              <li key={n.title} className={`fc-node${n.stage === 2 ? ' is-stage2' : ''}${i === 5 ? ' after-lock' : ''}`}>
+                <svg viewBox="0 0 36 36" width="36" height="36" aria-hidden="true" className="fc-glyph">
+                  {n.glyph}
+                </svg>
+                <span className="fc-title">{n.title}</span>
+                <span className="fc-spec">{n.spec}</span>
+                <span className="fc-body">{n.body}</span>
+              </li>
+            ))}
+          </ol>
+          <figcaption className="interlock">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+              <rect x="5" y="11" width="14" height="10" rx="2.5" fill="currentColor" />
+              <path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" strokeWidth="2" />
+            </svg>
+            <p>
+              <strong>The interlock.</strong> If the verdict says generated, the voiceprint step never runs. B.S. Detector never confirms who is
+              speaking in a voice that may be a clone.
+            </p>
+          </figcaption>
+        </figure>
 
-      <div className="interlock">
-        <svg viewBox="0 0 40 40" width="36" height="36" aria-hidden="true">
-          <rect x="10" y="18" width="20" height="15" rx="3" fill="currentColor" />
-          <path d="M14 18v-4a6 6 0 0 1 12 0v4" fill="none" stroke="currentColor" strokeWidth="3" />
-        </svg>
-        <p>
-          <strong>The interlock.</strong> If stage 1 calls the voice synthetic, stage 2 does not run. The app never confirms who is speaking in a
-          voice that may be generated, because a convincing clone would otherwise pass as the real person.
-        </p>
-      </div>
-
-      <div className="method-stage">
-        <h3 className="method-stage-title">
-          <span>Stage 2</span> Is it the same person?
-        </h3>
-        <Steps steps={stage2} start={5} />
-      </div>
-
-      <div className="limits">
-        <h3>Before you rely on it</h3>
-        <ul>
-          {limits.map((l) => (
-            <li key={l}>{l}</li>
-          ))}
-        </ul>
+        <div className="limits reveal">
+          <h3 className="serif">Before you rely on it</h3>
+          <ul>
+            {LIMITS.map((l) => (
+              <li key={l}>{l}</li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   )

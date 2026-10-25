@@ -120,3 +120,6 @@ graphify-out/.graphify_root
 # Web app: the built UI is committed so the app runs with Python alone.
 !frontend/dist/
 frontend/node_modules/
+
+# playwright-cli session snapshots
+.playwright-cli/

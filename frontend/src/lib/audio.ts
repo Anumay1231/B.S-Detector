@@ -144,10 +144,11 @@ export function computeSpectrogram(samples: Float32Array): Spectrogram {
   return { frames, bins: BINS, data, hopSeconds: HOP / SAMPLE_RATE }
 }
 
-const MAGMA = ['#000004', '#1c1044', '#3b0f70', '#641a80', '#8c2981', '#b73779', '#de4968', '#f7705c', '#fe9f6d', '#fecf92', '#fcfdbf']
+/** Sienna on paper: silence is white, energy deepens toward sienna, like ink on kraft paper. */
+export const SIENNA_RAMP = ['#ffffff', '#fdf5ef', '#fbe9dd', '#f6d6c3', '#e9b89e', '#d3937a', '#b46f57', '#8e4c37', '#6e3523', '#5d2a1a', '#3f1c11']
 
 function buildLut(): Uint8ClampedArray {
-  const stops = MAGMA.map((h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)])
+  const stops = SIENNA_RAMP.map((h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)])
   const lut = new Uint8ClampedArray(256 * 3)
   for (let i = 0; i < 256; i++) {
     const t = (i / 255) * (stops.length - 1)

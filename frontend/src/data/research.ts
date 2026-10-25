@@ -111,6 +111,10 @@ export const speakerBaseline = {
   heldOutFrr: 0.004815,
   genuineMean: 0.590961,
   impostorMean: 0.023593,
+  /** calibration split, the scores the threshold was chosen on */
+  calibrationGenuineMean: 0.593241,
+  calibrationImpostorMean: 0.020799,
+  calibrationImpostorMax: 0.407291,
 }
 
 /** Phase 8C: the full official VoxCeleb1 trial list, for comparison with published results. */

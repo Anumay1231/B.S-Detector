@@ -1,0 +1,115 @@
+.dotgrid {
+  display: grid;
+  gap: var(--spacing-20);
+  padding: var(--spacing-24);
+  background: var(--surface-card-mist);
+  border-radius: var(--radius-cards);
+}
+
+.dotgrid-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-8);
+}
+
+.dotgrid-tab {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-slate-gray);
+}
+
+.dotgrid-tab:hover {
+  color: var(--color-ink-black);
+}
+
+.dotgrid-tab[aria-selected='true'] {
+  background: var(--color-paper-white);
+  border-color: var(--color-hairline);
+  color: var(--color-ink-black);
+}
+
+.dotgrid-field {
+  container-type: inline-size;
+  max-width: 440px;
+  width: 100%;
+  justify-self: center;
+}
+
+.dotgrid-canvas {
+  --step: calc(100cqw / 20);
+  position: relative;
+  height: calc(var(--step) * (var(--rows) + 1));
+}
+
+.dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(var(--step) * 0.72);
+  height: calc(var(--step) * 0.72);
+  border-radius: 50%;
+  background: var(--color);
+  box-shadow: inset 0 0 0 1.5px var(--color);
+  transform: translate(calc(var(--c) * var(--step)), calc((var(--r) + 1) * var(--step)));
+  transition:
+    transform var(--dur-slow) var(--ease-out),
+    background-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+
+.dot.is-ring {
+  background: transparent;
+}
+
+.dotgrid-pile {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translateY(calc(var(--row) * var(--step) + var(--step) * 0.1));
+  font-size: 13px;
+  line-height: 1;
+  color: var(--color-slate-gray);
+  white-space: nowrap;
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.dotgrid-caption {
+  display: grid;
+  gap: var(--spacing-12);
+}
+
+.dotgrid-caption > p:first-child {
+  font-size: 16px;
+  font-weight: var(--font-weight-w450);
+  max-width: 52ch;
+}
+
+.dotgrid-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-8) var(--spacing-20);
+  font-size: 14px;
+  color: var(--color-slate-gray);
+}
+
+.dotgrid-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.swatch.is-ring {
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+@media (max-width: 720px) {
+  .dotgrid-field {
+    max-width: none;
+  }
+}

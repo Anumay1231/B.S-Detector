@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { WINDOW_SECONDS, formatSeconds, peaks, type Clip } from '../lib/audio'
+import { SIENNA_RAMP, WINDOW_SECONDS, formatSeconds, peaks, type Clip } from '../lib/audio'
 import './Scope.css'
 
 interface Props {
@@ -61,7 +61,7 @@ export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, p
     const ph = playheadRef.current
     const drawPlayhead = () => {
       if (ph == null) return
-      ctx.fillStyle = '#fcfdbf'
+      ctx.fillStyle = '#17191c'
       ctx.fillRect(ph * pxPerSec - dpr, 0, 2 * dpr, h)
     }
     if (!windowed) {
@@ -72,12 +72,12 @@ export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, p
     const x1 = (windowStart + windowLen) * pxPerSec
 
     // dim everything the model won't hear
-    ctx.fillStyle = 'rgba(8, 10, 20, 0.66)'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.72)'
     ctx.fillRect(0, 0, x0, h)
     ctx.fillRect(x1, 0, w - x1, h)
 
     // window brackets
-    ctx.strokeStyle = 'rgba(252, 253, 191, 0.95)'
+    ctx.strokeStyle = '#17191c'
     ctx.lineWidth = 2 * dpr
     const tick = 10 * dpr
     ctx.beginPath()
@@ -110,7 +110,7 @@ export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, p
     for (let b = 0; b < buckets; b++) {
       const x = (b / buckets) * w
       const inside = !windowed || (x >= x0 && x <= x1)
-      ctx.fillStyle = inside ? '#fe9f6d' : 'rgba(141, 148, 171, 0.45)'
+      ctx.fillStyle = inside ? '#5d2a1a' : '#d6d7db'
       const lo = (pk[b * 2] / norm) * mid * 0.92
       const hi = (pk[b * 2 + 1] / norm) * mid * 0.92
       ctx.fillRect(x, mid - hi, Math.max(1, (w / buckets) * 0.6), Math.max(1, hi - lo))
@@ -153,12 +153,12 @@ export function Scope({ clip, image, windowStart, onWindowChange, playheadRef, p
     buf.width = LIVE_COLUMNS
     buf.height = 128
     const bctx = buf.getContext('2d')!
-    bctx.fillStyle = '#000004'
+    bctx.fillStyle = '#ffffff'
     bctx.fillRect(0, 0, buf.width, buf.height)
     liveBuf.current = buf
     const bins = new Uint8Array(live.frequencyBinCount)
     const col = bctx.createImageData(1, buf.height)
-    const lut = ['#000004', '#3b0f70', '#8c2981', '#de4968', '#fe9f6d', '#fcfdbf'].map((hex) => [
+    const lut = SIENNA_RAMP.map((hex) => [
       parseInt(hex.slice(1, 3), 16),
       parseInt(hex.slice(3, 5), 16),
       parseInt(hex.slice(5, 7), 16),
