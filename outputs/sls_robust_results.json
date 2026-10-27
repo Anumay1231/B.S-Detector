@@ -1,0 +1,39 @@
+{
+  "timestamp": "2026-10-27T19:17:05",
+  "epochs": 15,
+  "baseline": {
+    "overall": {
+      "eer": 43.43,
+      "accuracy": 57.71,
+      "threshold": -2.4816
+    },
+    "generator_accuracy": {
+      "bonafide_human": 44.0,
+      "xtts_v2": 61.04,
+      "edge_prabhat": 75.0,
+      "freevc24": 83.33,
+      "edge_neerja": 75.0,
+      "edge_swara": 62.5,
+      "edge_madhur": 75.0
+    },
+    "mid_sentence_false_alarm_rate": 94.32
+  },
+  "final": {
+    "overall": {
+      "eer": 1.71,
+      "accuracy": 98.86,
+      "threshold": -0.3965
+    },
+    "generator_accuracy": {
+      "bonafide_human": 97.71,
+      "xtts_v2": 100.0,
+      "edge_prabhat": 100.0,
+      "freevc24": 100.0,
+      "edge_neerja": 100.0,
+      "edge_swara": 100.0,
+      "edge_madhur": 100.0
+    },
+    "mid_sentence_false_alarm_rate": 2.27
+  },
+  "checkpoint": "models/sls_head_silence_invariant.pth"
+}

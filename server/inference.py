@@ -85,6 +85,10 @@ class ForensicInferenceResult:
     device_used: str             # "cuda", "mps", or "cpu"
     interlock_triggered: bool    # True if spoof, blocking Stage 2 biometrics
     layer_summary: str           # Forensic explanation of active layers
+    windows: List[Dict[str, Any]] = field(default_factory=list)
+    num_windows: int = 1
+    aggregation: str = "single"
+    peak_spoof_window: Optional[Dict[str, Any]] = None
 
 
 def select_best_device() -> str:
@@ -192,6 +196,54 @@ def pad_or_truncate_audio(waveform: "torch.Tensor", target_length: int = INPUT_L
     return waveform[onset : onset + target_length]
 
 
+def extract_sliding_windows(
+    waveform: "torch.Tensor",
+    window_length: int = INPUT_LENGTH,
+    stride_sec: float = 2.0,
+    sample_rate: int = TARGET_SR,
+    max_windows: int = 20,
+) -> Tuple[List["torch.Tensor"], List[Dict[str, Any]]]:
+    """
+    Slices a 1D waveform tensor into overlapping windows of window_length samples.
+    Returns:
+        windows: List of 1D tensors, each of length window_length.
+        window_metadata: List of dicts with window boundaries, indices, and padding status.
+    """
+    total_samples = waveform.shape[0]
+
+    # If the audio is shorter than or equal to window_length, tile-pad and return 1 window
+    if total_samples <= window_length:
+        repeats = (window_length // max(1, total_samples)) + 1
+        tiled = waveform.repeat(repeats)[:window_length]
+        dur_sec = round(total_samples / sample_rate, 3)
+        return [tiled], [{"index": 0, "start_sec": 0.0, "end_sec": dur_sec, "is_padded": total_samples < window_length}]
+
+    stride_samples = int(stride_sec * sample_rate)
+    stride_samples = max(int(0.5 * sample_rate), stride_samples)
+
+    # Calculate sliding window start positions
+    starts = list(range(0, total_samples - window_length + 1, stride_samples))
+    last_possible = total_samples - window_length
+    if starts and starts[-1] < last_possible:
+        starts.append(last_possible)
+
+    # Cap number of windows for responsiveness
+    if len(starts) > max_windows:
+        indices = np.linspace(0, len(starts) - 1, max_windows, dtype=int)
+        starts = [starts[i] for i in indices]
+
+    windows = []
+    metadata = []
+    for idx, s in enumerate(starts):
+        win = waveform[s : s + window_length]
+        start_s = round(s / sample_rate, 3)
+        end_s = round((s + window_length) / sample_rate, 3)
+        windows.append(win)
+        metadata.append({"index": idx, "start_sec": start_s, "end_sec": end_s, "is_padded": False})
+
+    return windows, metadata
+
+
 def load_and_preprocess_audio(audio_bytes_or_file, target_sr: int = TARGET_SR) -> Tuple["torch.Tensor", float, np.ndarray]:
     """
     Reads audio from bytes or file-like object, converts to mono, resamples to 16kHz,
@@ -280,14 +332,17 @@ def run_forensic_detection(
     audio_source: Any,
     backbone: Any,
     sls_head: Any,
-    device: str
+    device: str,
+    full_clip: bool = True,
+    stride_sec: float = 2.0,
+    aggregation: str = "max",
 ) -> ForensicInferenceResult:
     """
     Executes end-to-end forensic inference on audio input:
-    1. Preprocesses & normalizes audio to 16kHz (64,600 samples).
-    2. Passes waveform through frozen XLS-R 300M to extract all 24 transformer hidden states.
-    3. Feeds states through SLS head with per-layer attention gating.
-    4. Computes real class probabilities, layer attention scores, and latency.
+    1. Preprocesses & normalizes audio to 16kHz.
+    2. If full_clip is True and audio > 4.04s, extracts overlapping sliding windows (2.0s stride).
+    3. Batches windows through frozen XLS-R 300M and SLS Head in a single forward pass.
+    4. Aggregates scores across all windows (max-pooling or top2) and identifies peak spoof segment.
     """
     t_start = time.perf_counter()
     
@@ -295,48 +350,98 @@ def run_forensic_detection(
     waveform_1d, duration_sec, raw_samples = load_and_preprocess_audio(audio_source)
     
     # Check if input waveform is silence or muted mic (below acoustic detection threshold)
-    rms_energy = float(torch.sqrt(torch.mean(waveform_1d ** 2)).item())
-    max_amp = float(torch.max(torch.abs(waveform_1d)).item())
+    full_wave = torch.from_numpy(raw_samples)
+    rms_energy = float(torch.sqrt(torch.mean(full_wave ** 2)).item())
+    max_amp = float(torch.max(torch.abs(full_wave)).item())
     if max_amp < 1e-4 or rms_energy < 5e-5:
         raise ValueError(
             "The audio recording contains silence or is below the microphone detection threshold. "
             "Please speak clearly into the microphone."
         )
 
-    waveform_2d = waveform_1d.unsqueeze(0).to(device)  # (1, 64600)
+    # Extract windows: sliding full-clip if requested, else single speech-aligned window
+    if full_clip and full_wave.shape[0] > INPUT_LENGTH:
+        windows_list, win_meta = extract_sliding_windows(
+            full_wave, window_length=INPUT_LENGTH, stride_sec=stride_sec, sample_rate=TARGET_SR
+        )
+    else:
+        windows_list = [waveform_1d]
+        dur = min(round(duration_sec, 3), round(INPUT_LENGTH / TARGET_SR, 3))
+        win_meta = [{"index": 0, "start_sec": 0.0, "end_sec": dur, "is_padded": full_wave.shape[0] <= INPUT_LENGTH}]
+
+    K = len(windows_list)
+    batch_waveforms = torch.stack(windows_list, dim=0).to(device)  # (K, 64600)
     
     with torch.no_grad():
-        # Step 1: Feature Extraction across all 24 layers of XLS-R
-        outputs = backbone(waveform_2d, output_hidden_states=True)
-        hidden_states = list(outputs.hidden_states[1:])  # 24 tensors, each (1, 201, 1024)
+        # Step 1: Feature Extraction across all 24 layers of XLS-R in a single batched pass
+        outputs = backbone(batch_waveforms, output_hidden_states=True)
+        hidden_states = list(outputs.hidden_states[1:])  # 24 tensors, each (K, 201, 1024)
         
         # Step 2: SLS Classification & Layer Attention Gating
         log_probs, layer_weight_tensors = sls_head(hidden_states)
-        probs = torch.exp(log_probs).squeeze(0)  # [p_spoof, p_bonafide]
-        
-        p_spoof = float(probs[0].item())
-        p_bonafide = float(probs[1].item())
-        
-        # Extract per-layer attention scalar weights (24 values)
-        layer_weights = [float(w.squeeze().cpu().item()) for w in layer_weight_tensors]
+        probs = torch.exp(log_probs)  # (K, 2) [p_spoof, p_bonafide]
 
     latency_ms = (time.perf_counter() - t_start) * 1000.0
-    
+
+    # Record per-window probabilities
+    for i in range(K):
+        sp = float(probs[i, 0].item())
+        bf = float(probs[i, 1].item())
+        win_meta[i]["prob_spoof"] = round(sp, 4)
+        win_meta[i]["prob_bonafide"] = round(bf, 4)
+        win_meta[i]["verdict"] = "SPOOF" if sp >= 0.50 else "BONAFIDE"
+
+    # Aggregation
+    peak_idx = int(torch.argmax(probs[:, 0]).item())
+    max_spoof = float(probs[:, 0].max().item())
+    top2_spoof = float(probs[:, 0].topk(min(2, K)).values.mean().item())
+
+    if K == 1:
+        p_spoof = win_meta[0]["prob_spoof"]
+        p_bonafide = win_meta[0]["prob_bonafide"]
+        agg_name = "single"
+    elif aggregation == "top2":
+        p_spoof = top2_spoof
+        p_bonafide = 1.0 - p_spoof
+        agg_name = "sliding_window_top2"
+    else:
+        p_spoof = max_spoof
+        p_bonafide = 1.0 - p_spoof
+        agg_name = "sliding_window_max"
+
+    peak_window = {
+        "index": peak_idx,
+        "start_sec": win_meta[peak_idx]["start_sec"],
+        "end_sec": win_meta[peak_idx]["end_sec"],
+        "prob_spoof": win_meta[peak_idx]["prob_spoof"],
+        "prob_bonafide": win_meta[peak_idx]["prob_bonafide"],
+        "verdict": win_meta[peak_idx]["verdict"],
+    }
+
+    # Extract per-layer attention scalar weights for peak window
+    layer_weights = [float(w[peak_idx].squeeze().cpu().item()) for w in layer_weight_tensors]
+
     # Classification decision
     is_spoof = p_spoof >= 0.50
     verdict = "SPOOF" if is_spoof else "BONAFIDE"
     confidence = (p_spoof if is_spoof else p_bonafide) * 100.0
-    
-    # Forensic interpretation based on layer weights
+
+    # Forensic interpretation
     top_layers = [i + 1 for i, w in enumerate(layer_weights) if w >= np.percentile(layer_weights, 75)]
     if is_spoof:
-        layer_summary = (
-            f"Synthetic phase anomalies heavily weighted in transformer layers {top_layers}. "
-            "Biometric speaker verification permanently locked."
-        )
+        if K > 1:
+            layer_summary = (
+                f"Synthetic voice anomaly detected in window {peak_window['start_sec']}s-{peak_window['end_sec']}s "
+                f"(peak spoof prob {peak_window['prob_spoof']*100:.1f}%). Transformer layers {top_layers} active."
+            )
+        else:
+            layer_summary = (
+                f"Synthetic phase anomalies heavily weighted in transformer layers {top_layers}. "
+                "Biometric speaker verification permanently locked."
+            )
     else:
         layer_summary = (
-            f"Natural human glottal pulse consistency confirmed across layers {top_layers}. "
+            f"Natural human glottal pulse consistency confirmed across all {K} analysis windows. "
             "Authenticity certified for biometric verification."
         )
 
@@ -350,5 +455,9 @@ def run_forensic_detection(
         audio_duration_sec=duration_sec,
         device_used=device,
         interlock_triggered=is_spoof,
-        layer_summary=layer_summary
+        layer_summary=layer_summary,
+        windows=win_meta,
+        num_windows=K,
+        aggregation=agg_name,
+        peak_spoof_window=peak_window,
     )

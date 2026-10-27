@@ -48,6 +48,7 @@ DEVICE = os.environ.get("BSD_DEVICE") or None
 # checkpoint), best first: the N=500 head further fine-tuned on IndicSynth voice
 # clones, then the plain N=500 head. The first one present is used; BSD_HEAD forces one.
 HINDI_HEADS = {
+    "hindi-robust": REPO_ROOT / "models" / "sls_head_silence_invariant.pth",
     "hindi-indicsynth": REPO_ROOT / "models" / "sls_head_n500_indicsynth_best.pth",
     "hindi-n500": REPO_ROOT / "models" / "sls_head_n500_seed2_best.pth",
 }
@@ -178,9 +179,9 @@ async def analyze(request: Request) -> JSONResponse:
     return JSONResponse(detection_json(result))
 
 
-def detect(wav: bytes) -> engine.ForensicInferenceResult:
+def detect(wav: bytes, full_clip: bool = True) -> engine.ForensicInferenceResult:
     with model.lock:
-        return engine.run_forensic_detection(wav, model.backbone, model.head, model.device)
+        return engine.run_forensic_detection(wav, model.backbone, model.head, model.device, full_clip=full_clip)
 
 
 def detection_json(result: engine.ForensicInferenceResult) -> Dict[str, Any]:
@@ -193,6 +194,10 @@ def detection_json(result: engine.ForensicInferenceResult) -> Dict[str, Any]:
         "durationSec": result.audio_duration_sec,
         "device": result.device_used,
         "head": model.head_kind,
+        "windows": result.windows,
+        "numWindows": result.num_windows,
+        "aggregation": result.aggregation,
+        "peakSpoofWindow": result.peak_spoof_window,
     }
 
 
@@ -220,12 +225,10 @@ async def verify(
         # Stage 1 hears the same 4.04 s window the person chose on the test clip.
         start = max(0, int(windowStart * speaker.SAMPLE_RATE))
         window = tst[start : start + engine.INPUT_LENGTH]
-        detection = detect(speaker.wav_bytes(window if len(window) else tst))
+        detection = detect(speaker.wav_bytes(window if len(window) else tst), full_clip=False)
         # The known voice is checked too: a cloned "known voice" would otherwise
-        # vouch for a clone. Only its first window: the detector expects a clip to
-        # open on its leading silence and flags windows that start mid-speech, so
-        # scanning later windows flags real voices (docs/deepfake-improvement-plan.md).
-        reference_check = detect(speaker.wav_bytes(ref[: engine.INPUT_LENGTH]))
+        # vouch for a clone.
+        reference_check = detect(speaker.wav_bytes(ref[: engine.INPUT_LENGTH]), full_clip=False)
         reason = None
         if detection.verdict == "SPOOF":
             reason = "window"
