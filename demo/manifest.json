@@ -7,7 +7,7 @@
    "source": "Mozilla Common Voice 17 (hi), clip common_voice_hi_27637219.mp3",
    "license": "CC0-1.0",
    "text": "हैरतअंगेजः ऑस्ट्रेलिया की झाड़ियों में लगी आग का जिम्मेदार भारतीय मॉनसून!",
-   "probSpoof": 3.5831235436489806e-05
+   "probSpoof": 0.00010447865497553721
   },
   {
    "file": "deepfake/hindi/fake_xtts_clone_of_person1.wav",
@@ -16,7 +16,7 @@
    "source": "Coqui XTTS-v2 voice clone of real_person1 (cloned from that clip)",
    "license": "CPML (non-commercial)",
    "text": "इस परियोजना का अंतिम प्रस्तुतीकरण अगले सोमवार को है।",
-   "probSpoof": 0.9935239553451538
+   "probSpoof": 0.9998824596405029
   },
   {
    "file": "deepfake/hindi/real_person2.wav",
@@ -25,7 +25,7 @@
    "source": "Mozilla Common Voice 17 (hi), clip common_voice_hi_23976026.mp3",
    "license": "CC0-1.0",
    "text": "विजयलक्ष्मी के बयानों पर चुनाव आयोग करेगा कार्रवाई",
-   "probSpoof": 9.700542432256043e-05
+   "probSpoof": 0.00012141867046011612
   },
   {
    "file": "deepfake/hindi/fake_xtts_clone_of_person2.wav",
@@ -34,7 +34,7 @@
    "source": "Coqui XTTS-v2 voice clone of real_person2 (cloned from that clip)",
    "license": "CPML (non-commercial)",
    "text": "मेरी आवाज़ पहचानिए, मैं तुम्हारा भाई बोल रहा हूँ, तुरंत पैसे भेजो।",
-   "probSpoof": 0.9996857643127441
+   "probSpoof": 0.9999954700469971
   },
   {
    "file": "deepfake/hindi/fake_edge_tts_madhur_1.wav",
@@ -43,7 +43,7 @@
    "source": "Microsoft Edge neural TTS, stock voice hi-IN-MadhurNeural",
    "license": "Generated with Microsoft Edge TTS",
    "text": "कल सुबह की बैठक दस बजे की जगह ग्यारह बजे होगी।",
-   "probSpoof": 0.98111492395401
+   "probSpoof": 0.995692789554596
   },
   {
    "file": "deepfake/hindi/fake_edge_tts_swara_2.wav",
@@ -52,7 +52,7 @@
    "source": "Microsoft Edge neural TTS, stock voice hi-IN-SwaraNeural",
    "license": "Generated with Microsoft Edge TTS",
    "text": "इस परियोजना का अंतिम प्रस्तुतीकरण अगले सोमवार को है।",
-   "probSpoof": 0.8762462139129639
+   "probSpoof": 0.9309505224227905
   },
   {
    "file": "deepfake/english/real_person1.wav",
@@ -61,7 +61,7 @@
    "source": "Mozilla Common Voice 17 (en), clip common_voice_en_26950526.mp3",
    "license": "CC0-1.0",
    "text": "A Baraita taught that Zelophehad's daughters were wise, Torah students, and righteous.",
-   "probSpoof": 0.0034118276089429855
+   "probSpoof": 0.030301980674266815
   },
   {
    "file": "deepfake/english/fake_xtts_clone_of_person1.wav",
@@ -70,7 +70,7 @@
    "source": "Coqui XTTS-v2 voice clone of real_person1 (cloned from that clip)",
    "license": "CPML (non-commercial)",
    "text": "The meeting has been moved to eleven tomorrow morning, see you there.",
-   "probSpoof": 0.9979289770126343
+   "probSpoof": 0.9999326467514038
   },
   {
    "file": "deepfake/english/real_person2.wav",
@@ -79,7 +79,7 @@
    "source": "Mozilla Common Voice 17 (en), clip common_voice_en_34693.mp3",
    "license": "CC0-1.0",
    "text": "She joined up too.",
-   "probSpoof": 0.00028171224403195083
+   "probSpoof": 0.0029076412320137024
   },
   {
    "file": "deepfake/english/fake_xtts_clone_of_person2.wav",
@@ -88,7 +88,7 @@
    "source": "Coqui XTTS-v2 voice clone of real_person2 (cloned from that clip)",
    "license": "CPML (non-commercial)",
    "text": "Please transfer the money to this account before the end of the day.",
-   "probSpoof": 0.9920693635940552
+   "probSpoof": 0.9995027780532837
   },
   {
    "file": "deepfake/english/fake_edge_tts_prabhat_1.wav",
@@ -97,7 +97,7 @@
    "source": "Microsoft Edge neural TTS, stock voice en-IN-PrabhatNeural",
    "license": "Generated with Microsoft Edge TTS",
    "text": "Hi, it's me. I lost my phone, so I'm calling from a friend's number.",
-   "probSpoof": 0.9976723790168762
+   "probSpoof": 0.9996984004974365
   },
   {
    "file": "deepfake/english/fake_edge_tts_prabhat_2.wav",
@@ -106,7 +106,7 @@
    "source": "Microsoft Edge neural TTS, stock voice en-IN-PrabhatNeural",
    "license": "Generated with Microsoft Edge TTS",
    "text": "Our final project presentation is scheduled for next Monday afternoon.",
-   "probSpoof": 0.9640550017356873
+   "probSpoof": 0.9985116124153137
   },
   {
    "file": "speaker/hindi/person_A_take1.wav",
@@ -115,7 +115,7 @@
    "person": "A",
    "source": "Google SVQ hi_in (speaker_7113944816261864857), 3 utterances joined",
    "license": "CC-BY-4.0",
-   "probSpoof": 0.0001384397182846442
+   "probSpoof": 0.0008194049587473273
   },
   {
    "file": "speaker/hindi/person_A_take2.wav",
@@ -124,7 +124,7 @@
    "person": "A",
    "source": "Google SVQ hi_in (speaker_7113944816261864857), 3 utterances joined",
    "license": "CC-BY-4.0",
-   "probSpoof": 1.930739381350577e-05
+   "probSpoof": 4.1410930862184614e-05
   },
   {
    "file": "speaker/hindi/person_B.wav",
@@ -133,7 +133,7 @@
    "person": "B",
    "source": "Google SVQ hi_in (speaker_11298494297948342752), 3 utterances joined",
    "license": "CC-BY-4.0",
-   "probSpoof": 1.1971736057603266e-05
+   "probSpoof": 6.446344923460856e-05
   },
   {
    "file": "speaker/hindi/same_room_person_A.wav",
@@ -142,7 +142,7 @@
    "person": "A",
    "source": "Google SVQ hi_in (speaker_7113944816261864857), 3 utterances joined; passed through the same simulated room + laptop mic",
    "license": "CC-BY-4.0",
-   "probSpoof": 0.000760131748393178
+   "probSpoof": 0.04185713827610016
   },
   {
    "file": "speaker/hindi/same_room_person_B.wav",
@@ -151,7 +151,7 @@
    "person": "B",
    "source": "Google SVQ hi_in (speaker_11298494297948342752), 3 utterances joined; passed through the same simulated room + laptop mic",
    "license": "CC-BY-4.0",
-   "probSpoof": 0.0013017784804105759
+   "probSpoof": 0.0547514408826828
   },
   {
    "file": "speaker/english/person_A_take1.wav",
@@ -160,7 +160,7 @@
    "person": "A",
    "source": "Google SVQ en_in (speaker_11298494297948342752), 5 utterances joined",
    "license": "CC-BY-4.0",
-   "probSpoof": 3.0596216674894094e-05
+   "probSpoof": 1.422070727130631e-05
   },
   {
    "file": "speaker/english/person_A_take2.wav",
@@ -169,7 +169,7 @@
    "person": "A",
    "source": "Google SVQ en_in (speaker_11298494297948342752), 5 utterances joined",
    "license": "CC-BY-4.0",
-   "probSpoof": 0.00015212924336083233
+   "probSpoof": 0.0011297445744276047
   },
   {
    "file": "speaker/english/person_B.wav",
@@ -178,7 +178,7 @@
    "person": "B",
    "source": "Google SVQ en_in (speaker_8706784997864741703), 5 utterances joined",
    "license": "CC-BY-4.0",
-   "probSpoof": 8.847577555570751e-05
+   "probSpoof": 0.00048605812480673194
   },
   {
    "file": "speaker/english/same_room_person_A.wav",
@@ -187,7 +187,7 @@
    "person": "A",
    "source": "Google SVQ en_in (speaker_11298494297948342752), 5 utterances joined; passed through the same simulated room + laptop mic",
    "license": "CC-BY-4.0",
-   "probSpoof": 0.003959565423429012
+   "probSpoof": 0.03561648726463318
   },
   {
    "file": "speaker/english/same_room_person_B.wav",
@@ -196,7 +196,7 @@
    "person": "B",
    "source": "Google SVQ en_in (speaker_8706784997864741703), 5 utterances joined; passed through the same simulated room + laptop mic",
    "license": "CC-BY-4.0",
-   "probSpoof": 0.00029770948458462954
+   "probSpoof": 0.008942075073719025
   }
  ],
  "pairs": [
@@ -215,7 +215,7 @@
     "wespeaker": 0.9188072422195932
    },
    "isCalibrated": true,
-   "latencyMs": 885.9990999999354,
+   "latencyMs": 1087.581599999794,
    "referenceSeconds": 13.5,
    "testSeconds": 14.43,
    "reliable": true,
@@ -239,7 +239,7 @@
     "wespeaker": 0.307388570420633
    },
    "isCalibrated": true,
-   "latencyMs": 688.842399999885,
+   "latencyMs": 857.4321000005511,
    "referenceSeconds": 13.5,
    "testSeconds": 9.96,
    "reliable": true,
@@ -254,16 +254,16 @@
    "test": "same_room_person_B",
    "expected": "different",
    "outcome": "NON_MATCH",
-   "score": 1.1607632225684337,
+   "score": 1.1607632838092674,
    "threshold": 2.1596925733619714,
    "margin": 0.4,
    "system": "fused",
    "cosines": {
-    "ecapa": 0.29026813142028113,
+    "ecapa": 0.29026814731509454,
     "wespeaker": 0.4308150554860597
    },
    "isCalibrated": true,
-   "latencyMs": 660.6832999996186,
+   "latencyMs": 801.6944999999396,
    "referenceSeconds": 14.01,
    "testSeconds": 7.29,
    "reliable": false,
@@ -287,7 +287,7 @@
     "wespeaker": 0.8325212566247772
    },
    "isCalibrated": true,
-   "latencyMs": 762.8629999999248,
+   "latencyMs": 909.2489999993631,
    "referenceSeconds": 12.9,
    "testSeconds": 13.11,
    "reliable": true,
@@ -311,7 +311,7 @@
     "wespeaker": 0.424756477665587
    },
    "isCalibrated": true,
-   "latencyMs": 871.0737999999765,
+   "latencyMs": 1055.9890000004089,
    "referenceSeconds": 12.9,
    "testSeconds": 16.17,
    "reliable": true,
@@ -335,7 +335,7 @@
     "wespeaker": 0.5178893118137818
    },
    "isCalibrated": true,
-   "latencyMs": 787.9145000006247,
+   "latencyMs": 920.267700000295,
    "referenceSeconds": 12.0,
    "testSeconds": 12.27,
    "reliable": true,

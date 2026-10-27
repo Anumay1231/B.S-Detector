@@ -9,7 +9,7 @@ export function statusText(s: Status) {
   const v = s.verifier?.state
   switch (s.state) {
     case 'ready':
-      if (v === 'ready') return `Models ready on ${s.device?.toUpperCase() ?? 'CPU'}${s.head === 'hindi-n500' ? ', Hindi head' : ''}`
+      if (v === 'ready') return `Models ready on ${s.device?.toUpperCase() ?? 'CPU'}${s.head?.startsWith('hindi') ? ', Hindi head' : ''}`
       if (v === 'loading' || v === undefined) return 'Loading speaker model'
       return 'Speaker model unavailable'
     case 'loading':

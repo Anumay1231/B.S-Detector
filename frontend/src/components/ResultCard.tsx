@@ -31,13 +31,13 @@ export function ResultCard({ run }: { run: Run }) {
   const p = a.probSpoof
   const flagged = a.verdict === 'SPOOF'
   const [lead, em] = stage1Words(p)
-  const hindi = a.head === 'hindi-n500'
+  const hindi = !!a.head?.startsWith('hindi')
   const ref = hindi ? regimes[3] : regimes[0]
   const end = Math.min(run.clipDuration, run.windowStart + WINDOW_SECONDS)
 
   const verify = run.mode === 'verify' ? run : null
   const v = verify?.verification ?? null
-  // the interlock also trips on another window, or on the known voice
+  // the interlock also trips on the known voice
   const blocked = flagged || !!verify?.interlocked
 
   return (
@@ -56,7 +56,9 @@ export function ResultCard({ run }: { run: Run }) {
         <Stroke value={p} tick={0.5} label={`${(p * 100).toFixed(1)}% chance generated, flag line at 50%`} />
         <p className="rc-caveat">
           {hindi
-            ? `This is the Hindi head trained on 500 clips per class. On the benchmark it caught ${ref.fakesCaught} of 200 fakes and passed ${ref.genuinePassed} of 200 real voices.`
+            ? a.head === 'hindi-indicsynth'
+              ? `This is the Hindi head trained on 500 clips per class, then fine-tuned on IndicSynth voice clones. On the team's IndicSynth test it scored 98.75%, catching 98% of XTTS-v2 clones.`
+              : `This is the Hindi head trained on 500 clips per class. On the benchmark it caught ${ref.fakesCaught} of 200 fakes and passed ${ref.genuinePassed} of 200 real voices.`
             : flagged
               ? `This is the English checkpoint. On the Hindi benchmark it passed ${ref.genuinePassed} of 200 real voices, so a flag is the stronger signal.`
               : `This is the English checkpoint. On the Hindi benchmark it caught only ${ref.fakesCaught} of 200 fakes, so a pass is weak evidence.`}

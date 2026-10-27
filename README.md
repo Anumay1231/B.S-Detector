@@ -151,7 +151,7 @@ npm run build                                  # rebuild frontend/dist before co
 ## Limitations
 
 - Both stages were evaluated on clean recordings. Phone-call audio (8 kHz, compressed codecs) has not been tested.
-- The app uses the Hindi head trained on 500 clips per class (`models/sls_head_n500_seed2_best.pth`, 89 MB, in the repo); the status tag says "Hindi head". If the file is missing, `run.py` tries the `hindi-head-n500` release, and otherwise the app falls back to the English checkpoint, which misses most Hindi fakes.
+- The app uses the Hindi head fine-tuned on IndicSynth voice clones (`models/sls_head_n500_indicsynth_best.pth`), then the plain 500-clip Hindi head (`models/sls_head_n500_seed2_best.pth`); both are in the repo and the status tag says "Hindi head". If neither is there, `run.py` tries the `hindi-head-n500` release, and otherwise the app falls back to the English checkpoint, which misses most Hindi fakes.
 - Stage 1 hears 4.04 seconds and relies heavily on the clip opening with a pause: a real voice cut mid-word can be flagged, and a fake with silence added in front can pass. Keep the window at the start of a recording. See [`docs/deepfake-improvement-plan.md`](docs/deepfake-improvement-plan.md).
 - Stage 2 needs about 8-15 s of speech in each clip to reach the accuracy above; shorter clips are marked less reliable. Hinglish (code-mixed) speech has not been tested separately.
 - Stage 2 needs the voice clearly above the background. The app trims silence before comparing and refuses clips whose speech sits within 6 dB of the noise: ECAPA-TDNN embeds a noise-dominated clip as the room rather than the person, and in tests on random LibriSpeech speakers buried in noise, most pairs of different people crossed the threshold.

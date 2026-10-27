@@ -44,9 +44,15 @@ logger = logging.getLogger("bsdetector.server")
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 CHECKPOINT = os.environ.get("BSD_CHECKPOINT", "v1")
 DEVICE = os.environ.get("BSD_DEVICE") or None
-# A Hindi-adapted SLS head from the team's few-shot runs (same layer layout as the
-# English checkpoint). Used automatically when present; not in Git because of its size.
-HINDI_HEAD = Path(os.environ.get("BSD_HEAD") or REPO_ROOT / "models" / "sls_head_n500_seed2_best.pth")
+# Hindi-adapted SLS heads from the team's runs (same layer layout as the English
+# checkpoint), best first: the N=500 head further fine-tuned on IndicSynth voice
+# clones, then the plain N=500 head. The first one present is used; BSD_HEAD forces one.
+HINDI_HEADS = {
+    "hindi-indicsynth": REPO_ROOT / "models" / "sls_head_n500_indicsynth_best.pth",
+    "hindi-n500": REPO_ROOT / "models" / "sls_head_n500_seed2_best.pth",
+}
+if os.environ.get("BSD_HEAD"):
+    HINDI_HEADS = {"hindi-custom": Path(os.environ["BSD_HEAD"])}
 
 
 def load_hindi_head(head: Any, path: Path) -> None:
@@ -71,7 +77,7 @@ class ModelState:
         self.head: Any = None
         self.loaded_at: Optional[float] = None
         self.lock = threading.Lock()
-        # "english" (the published English checkpoint) or "hindi-n500" (the team's adapted head)
+        # "english" (the published English checkpoint) or a key of HINDI_HEADS
         self.head_kind = "english"
         self.head_note: Optional[str] = None
 
@@ -83,14 +89,17 @@ class ModelState:
             self.backbone, self.head, self.device = engine.load_detector_models(
                 device=DEVICE, checkpoint_version=CHECKPOINT
             )
-            if HINDI_HEAD.is_file():
+            for kind, path in HINDI_HEADS.items():
+                if not path.is_file():
+                    continue
                 try:
-                    load_hindi_head(self.head, HINDI_HEAD)
-                    self.head_kind = "hindi-n500"
-                    logger.info("Using the Hindi-adapted SLS head from %s", HINDI_HEAD)
-                except Exception as exc:  # keep the English head rather than failing
-                    logger.exception("Could not load %s", HINDI_HEAD)
-                    self.head_note = f"{HINDI_HEAD.name} could not be loaded ({exc}); using the English checkpoint."
+                    load_hindi_head(self.head, path)
+                    self.head_kind = kind
+                    logger.info("Using the Hindi-adapted SLS head from %s", path)
+                    break
+                except Exception as exc:  # try the next head, else keep the English one
+                    logger.exception("Could not load %s", path)
+                    self.head_note = f"{path.name} could not be loaded ({exc})."
             self.loaded_at = time.time()
             self.state = "ready"
             self.message = f"Ready in {time.perf_counter() - t0:.0f} s."

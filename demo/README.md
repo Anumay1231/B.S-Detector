@@ -13,22 +13,23 @@ held-out results in `docs/speaker-verification-hindi-english.md` and
 ## 1. Real vs generated (`deepfake/`)
 
 Put a clip in **Voice to check** alone and press *Check this voice*. Leave the
-window at the start of the clip (see the note at the end).
+window at the start of the clip (see the note at the end). Scores are from the
+IndicSynth-tuned Hindi head the app now loads.
 
 | File | What it is | Chance generated | Verdict |
 |---|---|---|---|
 | `hindi/real_person1.wav` | Real Hindi speaker (Common Voice) | 0.0% | real |
-| `hindi/fake_xtts_clone_of_person1.wav` | XTTS-v2 clone of **that same person**, new sentence | 99.4% | generated |
+| `hindi/fake_xtts_clone_of_person1.wav` | XTTS-v2 clone of **that same person**, new sentence | 100.0% | generated |
 | `hindi/real_person2.wav` | Real Hindi speaker (Common Voice) | 0.0% | real |
 | `hindi/fake_xtts_clone_of_person2.wav` | XTTS-v2 clone of that same person | 100.0% | generated |
-| `hindi/fake_edge_tts_madhur_1.wav` | Microsoft Edge neural TTS, hi-IN Madhur | 98.1% | generated |
-| `hindi/fake_edge_tts_swara_2.wav` | Microsoft Edge neural TTS, hi-IN Swara | 87.6% | generated |
-| `english/real_person1.wav` | Real Indian-English speaker (Common Voice) | 0.3% | real |
-| `english/fake_xtts_clone_of_person1.wav` | XTTS-v2 clone of that same person | 99.8% | generated |
-| `english/real_person2.wav` | Real Indian-English speaker (Common Voice) | 0.0% | real |
-| `english/fake_xtts_clone_of_person2.wav` | XTTS-v2 clone of that same person | 99.2% | generated |
-| `english/fake_edge_tts_prabhat_1.wav` | Microsoft Edge neural TTS, en-IN Prabhat | 99.8% | generated |
-| `english/fake_edge_tts_prabhat_2.wav` | Microsoft Edge neural TTS, en-IN Prabhat | 96.4% | generated |
+| `hindi/fake_edge_tts_madhur_1.wav` | Microsoft Edge neural TTS, hi-IN Madhur | 99.6% | generated |
+| `hindi/fake_edge_tts_swara_2.wav` | Microsoft Edge neural TTS, hi-IN Swara | 93.1% | generated |
+| `english/real_person1.wav` | Real Indian-English speaker (Common Voice) | 3.0% | real |
+| `english/fake_xtts_clone_of_person1.wav` | XTTS-v2 clone of that same person | 100.0% | generated |
+| `english/real_person2.wav` | Real Indian-English speaker (Common Voice) | 0.3% | real |
+| `english/fake_xtts_clone_of_person2.wav` | XTTS-v2 clone of that same person | 100.0% | generated |
+| `english/fake_edge_tts_prabhat_1.wav` | Microsoft Edge neural TTS, en-IN Prabhat | 100.0% | generated |
+| `english/fake_edge_tts_prabhat_2.wav` | Microsoft Edge neural TTS, en-IN Prabhat | 99.9% | generated |
 
 **The interlock, live:** put `real_personN.wav` in **Known voice** and its
 `fake_xtts_clone_of_personN.wav` in **Voice to check**. The deepfake check
@@ -65,7 +66,8 @@ Each speaker file is 3-5 short questions by one person, joined (10-20 s).
   where the recording starts. A window dragged to the middle of a sentence can
   flag a real voice, and a fake with half a second of silence added in front can
   pass. See `docs/deepfake-improvement-plan.md`; it is the top item there.
-- Edge-TTS voices are the detector's weak spot (10 of 16 caught in our tests).
+- Edge-TTS voices were the old head's weak spot (10 of 16 caught at the 0.5 line; the
+  IndicSynth head catches more as-saved fakes overall, 33 of 36).
   The two Hindi and two English ones here are among those it catches.
 - For your own live recordings, speak for 10-15 s per clip.
 

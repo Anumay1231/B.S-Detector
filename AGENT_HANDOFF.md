@@ -101,3 +101,4 @@ python scripts/infer_local.py --audio sample.wav --device mps
 - **Interlock** also runs stage 1 on the known voice, so a cloned reference can't vouch for a clone.
 - **Stage 1 leans on leading silence.** With 0.5 s of silence added in front, only 6% of fakes are flagged; real clips cut mid-word are flagged 35% of the time. It is not fixed yet: the plan is in `docs/deepfake-improvement-plan.md`. Re-checking the 98% benchmark after any fix needs SEA-Spoof access (gated on Hugging Face).
 - **Demo clips** for both stages are in `demo/` (see `demo/README.md`).
+- **The app now loads the IndicSynth head** (`models/sls_head_n500_indicsynth_best.pth`), falling back to the N=500 head and then the English checkpoint. On our clips it catches 33 of 36 fakes as saved (old head: 30), with no false alarms on 86 real clips; the silence shortcut is unchanged.

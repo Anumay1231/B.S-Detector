@@ -64,12 +64,14 @@ class Detector:
     def __init__(self):
         import torch
 
-        from app import load_hindi_head  # noqa: E402
+        from app import HINDI_HEADS, load_hindi_head  # noqa: E402
 
         self.torch = torch
         self.backbone, self.english, self.device = engine.load_detector_models(device="cpu")
         _, hindi, _ = engine.load_detector_models(device="cpu")
-        load_hindi_head(hindi, ROOT / "models" / "sls_head_n500_seed2_best.pth")
+        # the same Hindi head the app picks: the first one present
+        self.hindi_kind, path = next((k, p) for k, p in HINDI_HEADS.items() if p.is_file())
+        load_hindi_head(hindi, path)
         self.heads = {"english": self.english, "hindi": hindi}
 
     def __call__(self, audio: np.ndarray) -> dict:

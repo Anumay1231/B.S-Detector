@@ -47,6 +47,21 @@ mid-word is flagged. Two consequences in the app today:
   real voice), and
 - the interlock checks only the first window of each clip, not every window.
 
+**IndicSynth head (now the app's default).** The team's head fine-tuned on
+IndicSynth clones (`models/sls_head_n500_indicsynth_best.pth`) was run through
+the same edits (`outputs/indicsynth_check.json`), % flagged at p_spoof >= 0.5:
+
+| | Old N=500 head | IndicSynth head |
+|---|---|---|
+| Fakes as saved (36) | 83.3% | **91.7%** |
+| Real as saved (86) | 0% | 0% |
+| Fakes, 0.5 s quiet in front | 5.6% | 16.7% |
+| Real, window starting 1 s in | 68.6% | 76.7% |
+
+It catches more fakes as saved, with no new false alarms, so the app now loads
+it. The silence shortcut is unchanged. Its training zero-pads short clips while
+the app tile-pads them, and neither randomises leading silence.
+
 The fix is item 1 below, with leading-silence randomisation as part of it:
 trim every training clip and re-pad it with a random 0-1 s of silence or room
 tone, for both classes, so silence carries no label information.

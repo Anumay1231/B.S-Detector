@@ -77,7 +77,8 @@ def ensure_frontend() -> None:
 
 def ensure_hindi_head() -> None:
     """Fetch the Hindi head once. Without it the app falls back to the English checkpoint."""
-    if os.environ.get("BSD_HEAD") or HEAD_FILE.exists():
+    # the IndicSynth head ships in the repo; the plain N=500 head is the fallback
+    if os.environ.get("BSD_HEAD") or HEAD_FILE.exists() or (HEAD_FILE.parent / "sls_head_n500_indicsynth_best.pth").exists():
         return
     say("Downloading the Hindi detector head (~89 MB) ...")
     part = HEAD_FILE.with_suffix(".part")
