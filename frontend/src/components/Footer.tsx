@@ -8,6 +8,7 @@ const LINKS = [
   { href: `${REPO_URL}/archive/refs/heads/main.zip`, label: 'Download the ZIP' },
   { href: REPO_URL, label: 'Source on GitHub' },
   { href: `${REPO_URL}/blob/main/docs/calibration.md`, label: 'Speaker calibration notes' },
+  { href: `${REPO_URL}/blob/main/docs/speaker-verification-hindi-english.md`, label: 'Speaker check on Hindi and English' },
   { href: `${REPO_URL}/blob/main/docs/EXPERIMENT_PROTOCOL_AND_RESULTS.md`, label: 'Deepfake experiment protocol' },
 ]
 
@@ -15,6 +16,7 @@ const CREDITS = [
   { href: 'https://huggingface.co/sukhdeveyash/XLS-R-SLS-Deepfake-Detection', label: 'SLS checkpoint' },
   { href: 'https://huggingface.co/facebook/wav2vec2-xls-r-300m', label: 'XLS-R 300M' },
   { href: 'https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb', label: 'ECAPA-TDNN' },
+  { href: 'https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet34-LM', label: 'WeSpeaker ResNet34' },
   { href: 'https://huggingface.co/datasets/Jack-ppkdczgx/SEA-Spoof', label: 'SEA-Spoof' },
   { href: 'https://www.robots.ox.ac.uk/~vgg/data/voxceleb/', label: 'VoxCeleb1' },
   { href: '/samples/CREDITS.md', label: 'Sample credits' },

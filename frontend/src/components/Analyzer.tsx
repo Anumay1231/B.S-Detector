@@ -124,7 +124,7 @@ export function Analyzer({ status, manifest, request }: Props) {
   }
 
   let hint = 'The deepfake check listens to the highlighted 4.04 seconds.'
-  if (withSpeaker) hint = 'The deepfake check runs first. The voices are compared only if it passes.'
+  if (withSpeaker) hint = 'The deepfake check runs first, on both voices. They are compared only if both pass.'
   if (!ready) hint = withSpeaker && detectorReady ? (status.verifier?.message ?? hint) : status.message
 
   const chips = manifest
@@ -175,7 +175,7 @@ export function Analyzer({ status, manifest, request }: Props) {
           <VoiceInput
             slot={known}
             title="Known voice"
-            helper="Optional. A real recording of the person the voice claims to be."
+            helper="Optional. A real recording of the person the voice claims to be. 10 to 15 seconds of speech works best."
             placeholder="Add a known voice for the speaker check"
             windowed={false}
             locked={running || test.busy}

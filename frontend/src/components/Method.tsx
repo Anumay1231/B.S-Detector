@@ -77,7 +77,7 @@ const NODES = [
 ]
 
 const LIMITS = [
-  'Both stages were tested on clean recordings. Phone-call audio (8 kHz, compressed) has not been evaluated.',
+  'Phone-call audio (8 kHz, compressed) has not been tested for either stage.',
   'Five generators made the benchmark fakes. A new one can fool it in ways these numbers do not show.',
   'The deepfake check hears 4.04 seconds and expects them to start where the recording starts. A window that begins mid-speech can flag a real voice.',
   'The app uses the Hindi head fine-tuned on IndicSynth clones (models/sls_head_n500_indicsynth_best.pth), then the plain 500-clip Hindi head. Without either, it falls back to the English checkpoint, which misses most Hindi fakes.',
@@ -119,7 +119,7 @@ export function Method() {
               <path className="shackle" d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" strokeWidth="2" />
             </svg>
             <p>
-              <strong>The interlock.</strong> If the verdict says generated, the voiceprint step never runs. B.S. Detector never confirms who is
+              <strong>The interlock.</strong> If either voice sounds generated, the voiceprint step never runs. B.S. Detector never confirms who is
               speaking in a voice that may be a clone.
             </p>
           </figcaption>

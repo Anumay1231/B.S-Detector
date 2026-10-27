@@ -128,7 +128,7 @@ export function VoiceInput({ slot, title, helper, placeholder, windowed, locked,
                 <>
                   The deepfake check hears <span className="num">{formatSeconds(slot.windowStart)}</span> to{' '}
                   <span className="num">{formatSeconds(end)}</span>
-                  {clip.duration > WINDOW_SECONDS && '. Drag the bracket, or use the arrow keys, to choose another part.'}
+                  {clip.duration > WINDOW_SECONDS && '. Drag the bracket or use the arrow keys to move it, though the check is most reliable from 0 s.'}
                 </>
               ) : (
                 'The speaker check uses the whole clip.'
