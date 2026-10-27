@@ -202,9 +202,13 @@ def extract_sliding_windows(
     stride_sec: float = 2.0,
     sample_rate: int = TARGET_SR,
     max_windows: int = 20,
+    align_onset: bool = True,
 ) -> Tuple[List["torch.Tensor"], List[Dict[str, Any]]]:
     """
     Slices a 1D waveform tensor into overlapping windows of window_length samples.
+    If align_onset is True, windows begin from the first detected active speech frame
+    (avoiding lead-in silence/room noise), up to the end of the recording.
+
     Returns:
         windows: List of 1D tensors, each of length window_length.
         window_metadata: List of dicts with window boundaries, indices, and padding status.
@@ -221,11 +225,16 @@ def extract_sliding_windows(
     stride_samples = int(stride_sec * sample_rate)
     stride_samples = max(int(0.5 * sample_rate), stride_samples)
 
+    # Determine starting sample (aligning to speech onset if enabled)
+    start_offset = find_speech_onset_index(waveform, target_length=window_length, sample_rate=sample_rate) if align_onset else 0
+
     # Calculate sliding window start positions
-    starts = list(range(0, total_samples - window_length + 1, stride_samples))
+    starts = list(range(start_offset, total_samples - window_length + 1, stride_samples))
     last_possible = total_samples - window_length
     if starts and starts[-1] < last_possible:
         starts.append(last_possible)
+    elif not starts:
+        starts = [last_possible]
 
     # Cap number of windows for responsiveness
     if len(starts) > max_windows:
@@ -336,6 +345,7 @@ def run_forensic_detection(
     full_clip: bool = True,
     stride_sec: float = 2.0,
     aggregation: str = "max",
+    align_onset: bool = True,
 ) -> ForensicInferenceResult:
     """
     Executes end-to-end forensic inference on audio input:
@@ -362,7 +372,11 @@ def run_forensic_detection(
     # Extract windows: sliding full-clip if requested, else single speech-aligned window
     if full_clip and full_wave.shape[0] > INPUT_LENGTH:
         windows_list, win_meta = extract_sliding_windows(
-            full_wave, window_length=INPUT_LENGTH, stride_sec=stride_sec, sample_rate=TARGET_SR
+            full_wave,
+            window_length=INPUT_LENGTH,
+            stride_sec=stride_sec,
+            sample_rate=TARGET_SR,
+            align_onset=align_onset,
         )
     else:
         windows_list = [waveform_1d]

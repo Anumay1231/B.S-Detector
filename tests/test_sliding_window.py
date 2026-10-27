@@ -124,3 +124,41 @@ def test_detection_json_sliding_window_structure():
     assert data["peakSpoofWindow"]["start_sec"] == 2.0
     assert data["peakSpoofWindow"]["prob_spoof"] == 0.985
 
+
+def test_sliding_window_with_leading_silence_onset_aligned():
+    sr = 16000
+    # 2.5 seconds of leading silence followed by 5.5 seconds of speech (total 8.0s)
+    silence = torch.zeros(int(2.5 * sr))
+    speech = torch.randn(int(5.5 * sr)) * 0.1
+    combo = torch.cat([silence, speech])
+
+    windows, meta = extract_sliding_windows(
+        combo, window_length=INPUT_LENGTH, stride_sec=2.0, sample_rate=sr, align_onset=True
+    )
+
+    # First window must align to detected speech onset (~2.35s), skipping leading dead silence
+    assert 2.2 <= meta[0]["start_sec"] <= 2.5
+    assert meta[0]["start_sec"] > 0.0
+    # Last window should reach the end of the recording (8.0s)
+    assert meta[-1]["end_sec"] == 8.0
+    for w in windows:
+        assert w.shape[0] == INPUT_LENGTH
+        # Each window has real speech energy rather than dead silence
+        assert torch.sqrt(torch.mean(w ** 2)).item() > 0.03
+
+
+def test_sliding_window_onset_alignment_disabled():
+    sr = 16000
+    silence = torch.zeros(int(2.5 * sr))
+    speech = torch.randn(int(5.5 * sr)) * 0.1
+    combo = torch.cat([silence, speech])
+
+    windows, meta = extract_sliding_windows(
+        combo, window_length=INPUT_LENGTH, stride_sec=2.0, sample_rate=sr, align_onset=False
+    )
+
+    # When align_onset is False, first window must start at 0.0s
+    assert meta[0]["start_sec"] == 0.0
+    assert meta[-1]["end_sec"] == 8.0
+
+
