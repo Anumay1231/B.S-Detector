@@ -1,0 +1,348 @@
+{
+ "clips": [
+  {
+   "file": "deepfake/hindi/real_person1.wav",
+   "kind": "real",
+   "lang": "hindi",
+   "source": "Mozilla Common Voice 17 (hi), clip common_voice_hi_27637219.mp3",
+   "license": "CC0-1.0",
+   "text": "हैरतअंगेजः ऑस्ट्रेलिया की झाड़ियों में लगी आग का जिम्मेदार भारतीय मॉनसून!",
+   "probSpoof": 3.5831235436489806e-05
+  },
+  {
+   "file": "deepfake/hindi/fake_xtts_clone_of_person1.wav",
+   "kind": "fake",
+   "lang": "hindi",
+   "source": "Coqui XTTS-v2 voice clone of real_person1 (cloned from that clip)",
+   "license": "CPML (non-commercial)",
+   "text": "इस परियोजना का अंतिम प्रस्तुतीकरण अगले सोमवार को है।",
+   "probSpoof": 0.9935239553451538
+  },
+  {
+   "file": "deepfake/hindi/real_person2.wav",
+   "kind": "real",
+   "lang": "hindi",
+   "source": "Mozilla Common Voice 17 (hi), clip common_voice_hi_23976026.mp3",
+   "license": "CC0-1.0",
+   "text": "विजयलक्ष्मी के बयानों पर चुनाव आयोग करेगा कार्रवाई",
+   "probSpoof": 9.700542432256043e-05
+  },
+  {
+   "file": "deepfake/hindi/fake_xtts_clone_of_person2.wav",
+   "kind": "fake",
+   "lang": "hindi",
+   "source": "Coqui XTTS-v2 voice clone of real_person2 (cloned from that clip)",
+   "license": "CPML (non-commercial)",
+   "text": "मेरी आवाज़ पहचानिए, मैं तुम्हारा भाई बोल रहा हूँ, तुरंत पैसे भेजो।",
+   "probSpoof": 0.9996857643127441
+  },
+  {
+   "file": "deepfake/hindi/fake_edge_tts_madhur_1.wav",
+   "kind": "fake",
+   "lang": "hindi",
+   "source": "Microsoft Edge neural TTS, stock voice hi-IN-MadhurNeural",
+   "license": "Generated with Microsoft Edge TTS",
+   "text": "कल सुबह की बैठक दस बजे की जगह ग्यारह बजे होगी।",
+   "probSpoof": 0.98111492395401
+  },
+  {
+   "file": "deepfake/hindi/fake_edge_tts_swara_2.wav",
+   "kind": "fake",
+   "lang": "hindi",
+   "source": "Microsoft Edge neural TTS, stock voice hi-IN-SwaraNeural",
+   "license": "Generated with Microsoft Edge TTS",
+   "text": "इस परियोजना का अंतिम प्रस्तुतीकरण अगले सोमवार को है।",
+   "probSpoof": 0.8762462139129639
+  },
+  {
+   "file": "deepfake/english/real_person1.wav",
+   "kind": "real",
+   "lang": "english",
+   "source": "Mozilla Common Voice 17 (en), clip common_voice_en_26950526.mp3",
+   "license": "CC0-1.0",
+   "text": "A Baraita taught that Zelophehad's daughters were wise, Torah students, and righteous.",
+   "probSpoof": 0.0034118276089429855
+  },
+  {
+   "file": "deepfake/english/fake_xtts_clone_of_person1.wav",
+   "kind": "fake",
+   "lang": "english",
+   "source": "Coqui XTTS-v2 voice clone of real_person1 (cloned from that clip)",
+   "license": "CPML (non-commercial)",
+   "text": "The meeting has been moved to eleven tomorrow morning, see you there.",
+   "probSpoof": 0.9979289770126343
+  },
+  {
+   "file": "deepfake/english/real_person2.wav",
+   "kind": "real",
+   "lang": "english",
+   "source": "Mozilla Common Voice 17 (en), clip common_voice_en_34693.mp3",
+   "license": "CC0-1.0",
+   "text": "She joined up too.",
+   "probSpoof": 0.00028171224403195083
+  },
+  {
+   "file": "deepfake/english/fake_xtts_clone_of_person2.wav",
+   "kind": "fake",
+   "lang": "english",
+   "source": "Coqui XTTS-v2 voice clone of real_person2 (cloned from that clip)",
+   "license": "CPML (non-commercial)",
+   "text": "Please transfer the money to this account before the end of the day.",
+   "probSpoof": 0.9920693635940552
+  },
+  {
+   "file": "deepfake/english/fake_edge_tts_prabhat_1.wav",
+   "kind": "fake",
+   "lang": "english",
+   "source": "Microsoft Edge neural TTS, stock voice en-IN-PrabhatNeural",
+   "license": "Generated with Microsoft Edge TTS",
+   "text": "Hi, it's me. I lost my phone, so I'm calling from a friend's number.",
+   "probSpoof": 0.9976723790168762
+  },
+  {
+   "file": "deepfake/english/fake_edge_tts_prabhat_2.wav",
+   "kind": "fake",
+   "lang": "english",
+   "source": "Microsoft Edge neural TTS, stock voice en-IN-PrabhatNeural",
+   "license": "Generated with Microsoft Edge TTS",
+   "text": "Our final project presentation is scheduled for next Monday afternoon.",
+   "probSpoof": 0.9640550017356873
+  },
+  {
+   "file": "speaker/hindi/person_A_take1.wav",
+   "kind": "real",
+   "lang": "hindi",
+   "person": "A",
+   "source": "Google SVQ hi_in (speaker_7113944816261864857), 3 utterances joined",
+   "license": "CC-BY-4.0",
+   "probSpoof": 0.0001384397182846442
+  },
+  {
+   "file": "speaker/hindi/person_A_take2.wav",
+   "kind": "real",
+   "lang": "hindi",
+   "person": "A",
+   "source": "Google SVQ hi_in (speaker_7113944816261864857), 3 utterances joined",
+   "license": "CC-BY-4.0",
+   "probSpoof": 1.930739381350577e-05
+  },
+  {
+   "file": "speaker/hindi/person_B.wav",
+   "kind": "real",
+   "lang": "hindi",
+   "person": "B",
+   "source": "Google SVQ hi_in (speaker_11298494297948342752), 3 utterances joined",
+   "license": "CC-BY-4.0",
+   "probSpoof": 1.1971736057603266e-05
+  },
+  {
+   "file": "speaker/hindi/same_room_person_A.wav",
+   "kind": "real",
+   "lang": "hindi",
+   "person": "A",
+   "source": "Google SVQ hi_in (speaker_7113944816261864857), 3 utterances joined; passed through the same simulated room + laptop mic",
+   "license": "CC-BY-4.0",
+   "probSpoof": 0.000760131748393178
+  },
+  {
+   "file": "speaker/hindi/same_room_person_B.wav",
+   "kind": "real",
+   "lang": "hindi",
+   "person": "B",
+   "source": "Google SVQ hi_in (speaker_11298494297948342752), 3 utterances joined; passed through the same simulated room + laptop mic",
+   "license": "CC-BY-4.0",
+   "probSpoof": 0.0013017784804105759
+  },
+  {
+   "file": "speaker/english/person_A_take1.wav",
+   "kind": "real",
+   "lang": "english",
+   "person": "A",
+   "source": "Google SVQ en_in (speaker_11298494297948342752), 5 utterances joined",
+   "license": "CC-BY-4.0",
+   "probSpoof": 3.0596216674894094e-05
+  },
+  {
+   "file": "speaker/english/person_A_take2.wav",
+   "kind": "real",
+   "lang": "english",
+   "person": "A",
+   "source": "Google SVQ en_in (speaker_11298494297948342752), 5 utterances joined",
+   "license": "CC-BY-4.0",
+   "probSpoof": 0.00015212924336083233
+  },
+  {
+   "file": "speaker/english/person_B.wav",
+   "kind": "real",
+   "lang": "english",
+   "person": "B",
+   "source": "Google SVQ en_in (speaker_8706784997864741703), 5 utterances joined",
+   "license": "CC-BY-4.0",
+   "probSpoof": 8.847577555570751e-05
+  },
+  {
+   "file": "speaker/english/same_room_person_A.wav",
+   "kind": "real",
+   "lang": "english",
+   "person": "A",
+   "source": "Google SVQ en_in (speaker_11298494297948342752), 5 utterances joined; passed through the same simulated room + laptop mic",
+   "license": "CC-BY-4.0",
+   "probSpoof": 0.003959565423429012
+  },
+  {
+   "file": "speaker/english/same_room_person_B.wav",
+   "kind": "real",
+   "lang": "english",
+   "person": "B",
+   "source": "Google SVQ en_in (speaker_8706784997864741703), 5 utterances joined; passed through the same simulated room + laptop mic",
+   "license": "CC-BY-4.0",
+   "probSpoof": 0.00029770948458462954
+  }
+ ],
+ "pairs": [
+  {
+   "lang": "hindi",
+   "reference": "person_A_take1",
+   "test": "person_A_take2",
+   "expected": "same",
+   "outcome": "MATCH",
+   "score": 5.140471061723656,
+   "threshold": 2.823724334139769,
+   "margin": 0.4,
+   "system": "fused",
+   "cosines": {
+    "ecapa": 0.8657074690228223,
+    "wespeaker": 0.9188072422195932
+   },
+   "isCalibrated": true,
+   "latencyMs": 885.9990999999354,
+   "referenceSeconds": 13.5,
+   "testSeconds": 14.43,
+   "reliable": true,
+   "reliableSeconds": 8.0,
+   "oldScore": 0.8822920322418213,
+   "oldThreshold": 0.252784,
+   "oldOutcome": "MATCH"
+  },
+  {
+   "lang": "hindi",
+   "reference": "person_A_take1",
+   "test": "person_B",
+   "expected": "different",
+   "outcome": "NON_MATCH",
+   "score": 1.3777869503512221,
+   "threshold": 2.495997984051832,
+   "margin": 0.4,
+   "system": "fused",
+   "cosines": {
+    "ecapa": 0.4623043679487726,
+    "wespeaker": 0.307388570420633
+   },
+   "isCalibrated": true,
+   "latencyMs": 688.842399999885,
+   "referenceSeconds": 13.5,
+   "testSeconds": 9.96,
+   "reliable": true,
+   "reliableSeconds": 8.0,
+   "oldScore": 0.4933694303035736,
+   "oldThreshold": 0.252784,
+   "oldOutcome": "MATCH"
+  },
+  {
+   "lang": "hindi",
+   "reference": "same_room_person_A",
+   "test": "same_room_person_B",
+   "expected": "different",
+   "outcome": "NON_MATCH",
+   "score": 1.1607632225684337,
+   "threshold": 2.1596925733619714,
+   "margin": 0.4,
+   "system": "fused",
+   "cosines": {
+    "ecapa": 0.29026813142028113,
+    "wespeaker": 0.4308150554860597
+   },
+   "isCalibrated": true,
+   "latencyMs": 660.6832999996186,
+   "referenceSeconds": 14.01,
+   "testSeconds": 7.29,
+   "reliable": false,
+   "reliableSeconds": 8.0,
+   "oldScore": 0.2944909334182739,
+   "oldThreshold": 0.252784,
+   "oldOutcome": "MATCH"
+  },
+  {
+   "lang": "english",
+   "reference": "person_A_take1",
+   "test": "person_A_take2",
+   "expected": "same",
+   "outcome": "MATCH",
+   "score": 4.6222719514154385,
+   "threshold": 2.7747318976406996,
+   "margin": 0.4,
+   "system": "fused",
+   "cosines": {
+    "ecapa": 0.8121014640686608,
+    "wespeaker": 0.8325212566247772
+   },
+   "isCalibrated": true,
+   "latencyMs": 762.8629999999248,
+   "referenceSeconds": 12.9,
+   "testSeconds": 13.11,
+   "reliable": true,
+   "reliableSeconds": 8.0,
+   "oldScore": 0.8463852405548096,
+   "oldThreshold": 0.252784,
+   "oldOutcome": "MATCH"
+  },
+  {
+   "lang": "english",
+   "reference": "person_A_take1",
+   "test": "person_B",
+   "expected": "different",
+   "outcome": "NON_MATCH",
+   "score": 1.8731866851864796,
+   "threshold": 2.7747318976406996,
+   "margin": 0.4,
+   "system": "fused",
+   "cosines": {
+    "ecapa": 0.4808545248826629,
+    "wespeaker": 0.424756477665587
+   },
+   "isCalibrated": true,
+   "latencyMs": 871.0737999999765,
+   "referenceSeconds": 12.9,
+   "testSeconds": 16.17,
+   "reliable": true,
+   "reliableSeconds": 8.0,
+   "oldScore": 0.4257190227508545,
+   "oldThreshold": 0.252784,
+   "oldOutcome": "MATCH"
+  },
+  {
+   "lang": "english",
+   "reference": "same_room_person_A",
+   "test": "same_room_person_B",
+   "expected": "different",
+   "outcome": "NON_MATCH",
+   "score": 2.030157069911493,
+   "threshold": 2.6967956813307388,
+   "margin": 0.4,
+   "system": "fused",
+   "cosines": {
+    "ecapa": 0.43428634562610735,
+    "wespeaker": 0.5178893118137818
+   },
+   "isCalibrated": true,
+   "latencyMs": 787.9145000006247,
+   "referenceSeconds": 12.0,
+   "testSeconds": 12.27,
+   "reliable": true,
+   "reliableSeconds": 8.0,
+   "oldScore": 0.4768216609954834,
+   "oldThreshold": 0.252784,
+   "oldOutcome": "MATCH"
+  }
+ ]
+}
