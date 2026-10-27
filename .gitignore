@@ -128,6 +128,7 @@ frontend/node_modules/
 models/*.pth
 !models/sls_head_n500_seed2_best.pth
 !models/sls_head_n500_indicsynth_best.pth
+!models/ecapa_indian_adapted.pth
 !outputs/indicsynth_results.json
 *.aux
 *.log

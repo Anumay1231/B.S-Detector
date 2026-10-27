@@ -47,8 +47,10 @@ location is outside of any Git-tracked directory. See docs/model.md.
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 import torch
@@ -59,6 +61,8 @@ import torch
 # redirects here with a UserWarning). This was verified against the
 # installed speechbrain==1.1.0 package before writing this module.
 from speechbrain.inference.speaker import EncoderClassifier
+
+logger = logging.getLogger(__name__)
 
 # --------------------------------------------------------------------------
 # Constants
@@ -204,6 +208,7 @@ class SpeakerEncoder:
         model_source: str = DEFAULT_MODEL_SOURCE,
         device: Optional[str] = None,
         savedir: Optional[str] = None,
+        adapted_weights: Optional[str | Path] = None,
     ) -> None:
         """Load the pretrained model. This performs (or reuses a cached)
         model download and should be done once, not per-file.
@@ -220,6 +225,9 @@ class SpeakerEncoder:
                 (the Hugging Face Hub cache, typically
                 ``~/.cache/huggingface/hub``) rather than any
                 project-local directory. See docs/model.md.
+            adapted_weights: Optional path to Indian-adapted weights (.pth).
+                If None and models/ecapa_indian_adapted.pth exists, it will
+                be loaded automatically.
 
         Raises:
             DeviceError: If ``device`` explicitly requests CUDA but none
@@ -250,6 +258,25 @@ class SpeakerEncoder:
                 f"pre-populate the local cache from a machine that has "
                 f"network access."
             ) from exc
+
+        # Check for Indian-adapted ECAPA weights (models/ecapa_indian_adapted.pth)
+        self.is_adapted = False
+        target_weights = adapted_weights
+        if target_weights is None:
+            default_weights = Path(__file__).resolve().parent.parent.parent / "models" / "ecapa_indian_adapted.pth"
+            if default_weights.exists():
+                target_weights = default_weights
+
+        if target_weights is not None:
+            weights_path = Path(target_weights)
+            if weights_path.exists():
+                try:
+                    state_dict = torch.load(weights_path, map_location=self.device_info.device)
+                    self._model.mods.embedding_model.load_state_dict(state_dict)
+                    self.is_adapted = True
+                    logger.info("Loaded Indian-adapted ECAPA weights from %s", weights_path)
+                except Exception as exc:
+                    logger.warning("Could not load adapted weights from %s: %s", weights_path, exc)
 
         # Explicitly ensure eval mode (no dropout/batchnorm updates) even
         # though SpeechBrain's Pretrained already freezes parameters by

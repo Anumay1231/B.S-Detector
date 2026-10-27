@@ -105,7 +105,8 @@ class VerifierState:
             self.message = f"The speaker encoder failed to load: {exc}"
 
     def as_json(self) -> Dict[str, Any]:
-        models = ["speechbrain/spkrec-ecapa-voxceleb"]
+        ecapa_name = "ECAPA-TDNN (Indian-adapted)" if getattr(self.encoder, "is_adapted", False) else "speechbrain/spkrec-ecapa-voxceleb"
+        models = [ecapa_name]
         if self.system == "fused":
             models.append("Wespeaker/wespeaker-voxceleb-resnet34-LM")
         return {
