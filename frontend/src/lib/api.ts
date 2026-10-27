@@ -33,20 +33,39 @@ export interface Analysis {
 }
 
 export interface Verification {
-  outcome: 'MATCH' | 'NON_MATCH'
-  /** cosine similarity of the two ECAPA-TDNN embeddings, about -1..1 */
+  /** UNCERTAIN: the score sits too close to the cut-off to call */
+  outcome: 'MATCH' | 'NON_MATCH' | 'UNCERTAIN'
+  /** 'fused': ECAPA + ResNet34 z-scores averaged; 'ecapa': the plain ECAPA cosine, about -1..1 */
   score: number
   threshold: number
+  /** half-width of the UNCERTAIN band around the threshold */
+  margin?: number
+  system?: 'fused' | 'ecapa'
+  cosines?: { ecapa: number; wespeaker?: number }
   isCalibrated: boolean
   latencyMs: number
+  /** seconds of speech left in each clip after silence is trimmed */
   referenceSeconds: number
   testSeconds: number
+  /** both clips had enough speech for the calibrated accuracy to apply */
+  reliable?: boolean
+  reliableSeconds?: number
+}
+
+/** Speaker score on a 0..1 meter with the cut-off in the middle. */
+export function speakerMeter(v: Pick<Verification, 'score' | 'threshold' | 'margin' | 'system'>): number {
+  const span = v.system === 'fused' ? Math.max(3 * (v.margin ?? 0), 2.5) : 0.5
+  return 0.5 + (v.score - v.threshold) / (2 * span)
 }
 
 export interface TwoStageResult {
   detection: Analysis
-  /** true when stage 1 called the voice synthetic, so stage 2 never ran */
+  /** stage 1 on the known voice's first 4.04 s, so a cloned reference can't vouch for a clone */
+  referenceDetection?: Analysis
+  /** true when stage 1 called a voice synthetic, so stage 2 never ran */
   interlocked: boolean
+  /** which clip tripped the interlock: the voice to check or the known voice */
+  interlockReason?: 'window' | 'reference' | null
   verification: Verification | null
 }
 

@@ -18,6 +18,9 @@ export interface VerifyRun extends RunBase {
   mode: 'verify'
   referenceName: string
   interlocked: boolean
+  interlockReason?: 'window' | 'reference' | null
+  /** stage 1 on the known voice */
+  referenceAnalysis?: Analysis | null
   verification: Verification | null
 }
 

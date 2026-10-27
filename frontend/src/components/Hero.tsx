@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { Showcase } from '../lib/useShowcase'
+import { speakerMeter } from '../lib/api'
 import { topLayers } from '../lib/layers'
 import './Hero.css'
 
@@ -94,22 +95,26 @@ function LayersArtifact({ show }: { show: Showcase }) {
 function Stage2Artifact({ show }: { show: Showcase }) {
   const v = show.pair?.verification
   const blocked = show.pair?.interlocked
-  const pos = (x: number) => `${Math.max(0, Math.min(1, x)) * 100}%`
+  const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
   return (
     <div className="artifact artifact-stat artifact-stage2" style={{ '--i': 3 } as React.CSSProperties}>
       <div className="artifact-head">
         <span className="artifact-title">Stage 2, speaker check</span>
       </div>
-      <p className="artifact-metric num">{v ? v.score.toFixed(3) : blocked ? 'Blocked' : '–'}</p>
+      <p className="artifact-metric num">{v ? v.score.toFixed(2) : blocked ? 'Blocked' : '–'}</p>
       <p className="artifact-delta">
-        {v ? (v.outcome === 'MATCH' ? 'same speaker, cut-off 0.253' : 'different speaker, cut-off 0.253') : blocked ? 'stage 1 flagged the voice' : 'voiceprint similarity'}
+        {v
+          ? `${v.outcome === 'MATCH' ? 'same speaker' : v.outcome === 'NON_MATCH' ? 'different speaker' : 'not sure'}, cut-off ${v.threshold.toFixed(2)}`
+          : blocked
+            ? 'stage 1 flagged the voice'
+            : 'voiceprint similarity'}
       </p>
       <svg className="match-line" viewBox="0 0 200 28" preserveAspectRatio="none" aria-hidden="true">
         <path d="M2 20 H198" className="match-track" />
-        {v && <path d={`M2 20 H${2 + 196 * Math.max(0, Math.min(1, v.score))}`} className="match-value" />}
-        <path d={`M${2 + 196 * 0.252784} 10 V26`} className="match-cut" />
+        {v && <path d={`M2 20 H${2 + 196 * clamp01(speakerMeter(v))}`} className="match-value" />}
+        <path d="M100 10 V26" className="match-cut" />
       </svg>
-      {v && <span className="visually-hidden">Similarity {v.score.toFixed(3)} against a cut-off of {pos(0.252784)}.</span>}
+      {v && <span className="visually-hidden">Score {v.score.toFixed(2)} against a cut-off of {v.threshold.toFixed(2)}.</span>}
       {show.pairTitle && <p className="tag">{show.pairTitle}</p>}
     </div>
   )

@@ -37,3 +37,40 @@ def test_noise_only_clip_is_refused_before_the_encoder():
     noise = (rng.standard_normal(5 * SR) * 0.01).astype(np.float32)
     with pytest.raises(ValueError, match="too quiet"):
         speaker.verify(None, voice_in_room(0.3), noise)
+
+
+def test_threshold_rises_with_speech_and_is_clamped():
+    t = [speaker.threshold_for(s) for s in (1.0, 3.0, 8.0, 15.0, 60.0)]
+    assert t[0] == t[1]  # below the minimum speech it never goes lower
+    assert t[1] < t[2] < t[3]
+    assert t[3] <= t[4] == speaker.threshold_for(20.0)
+    # every Phase 9 threshold is stricter than the VoxCeleb one that let friends through
+    assert min(t) > speaker.VOXCELEB_THRESHOLD
+
+
+def test_long_clips_are_embedded_as_the_mean_of_3_s_segments():
+    import torch
+
+    seen = []
+
+    class Encoder:
+        def encode(self, wav):
+            seen.append(wav.shape[-1])
+            return torch.ones(192) * (len(seen) + 1)
+
+    emb = speaker.embed(Encoder(), np.zeros(11 * SR, dtype=np.float32))
+    assert seen == [3 * SR, 3 * SR, 3 * SR, 2 * SR]  # 3 + 3 + 3 + the 2 s tail
+    seen.clear()
+    speaker.embed(Encoder(), np.zeros(10 * SR, dtype=np.float32))
+    assert seen == [3 * SR] * 3  # a 1 s tail is too short to stand on its own
+    assert torch.allclose(emb.norm(), torch.tensor(1.0))
+    seen.clear()
+    speaker.embed(Encoder(), np.zeros(4 * SR, dtype=np.float32))
+    assert seen == [4 * SR]  # short clips go in whole
+
+
+def test_too_little_speech_is_refused():
+    clip = voice_in_room(0.3)
+    clip[int(3.5 * SR) : 5 * SR] = rng.standard_normal(int(1.5 * SR)) * 0.003  # only 1.5 s of voice left
+    with pytest.raises(ValueError, match="clear speech"):
+        speaker.verify(None, clip, clip)

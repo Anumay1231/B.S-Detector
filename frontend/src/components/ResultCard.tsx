@@ -1,9 +1,11 @@
 import { WINDOW_SECONDS, formatSeconds } from '../lib/audio'
 import type { Run } from '../lib/runs'
-import { regimes, speakerBaseline } from '../data/research'
+import { speakerMeter } from '../lib/api'
+import { regimes, speakerPhase9 } from '../data/research'
 import './ResultCard.css'
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
+const pct = (w?: { probSpoof: number } | null) => `${((w?.probSpoof ?? 0) * 100).toFixed(0)}% generated`
 
 /** Stage 1 headline, worded so a pass on Hindi never reads as a guarantee. */
 function stage1Words(p: number): [string, string] {
@@ -35,11 +37,13 @@ export function ResultCard({ run }: { run: Run }) {
 
   const verify = run.mode === 'verify' ? run : null
   const v = verify?.verification ?? null
+  // the interlock also trips on another window, or on the known voice
+  const blocked = flagged || !!verify?.interlocked
 
   return (
-    <article className={`result${flagged ? ' is-flagged' : ''}`} aria-live="polite" aria-labelledby="rc-s1">
-      <span className={`rc-stamp ${flagged ? 'is-bs' : 'is-legit'}`} aria-hidden="true">
-        {flagged ? 'B.S.' : 'Legit'}
+    <article className={`result${blocked ? ' is-flagged' : ''}`} aria-live="polite" aria-labelledby="rc-s1">
+      <span className={`rc-stamp ${blocked ? 'is-bs' : 'is-legit'}`} aria-hidden="true">
+        {blocked ? 'B.S.' : 'Legit'}
       </span>
       <section className="rc-stage">
         <h3 className="rc-word serif" id="rc-s1">
@@ -72,21 +76,41 @@ export function ResultCard({ run }: { run: Run }) {
             <h3 className="rc-word serif" id="rc-s2">
               Not <em>compared</em>
             </h3>
-            <p className="rc-line">The deepfake check flagged the voice, so the speaker check did not run. A convincing clone would otherwise pass as the real person.</p>
+            <p className="rc-line">
+              {verify.interlockReason === 'reference'
+                ? `The known voice itself sounds generated (${pct(verify.referenceAnalysis)}), so the speaker check did not run. A clone can't be the reference for the real person.`
+                : 'The deepfake check flagged the voice, so the speaker check did not run. A convincing clone would otherwise pass as the real person.'}
+            </p>
           </>
         ) : (
           <>
             <h3 className="rc-word serif" id="rc-s2">
-              {v.outcome === 'MATCH' ? 'Same' : 'Different'} <em>speaker</em>
+              {v.outcome === 'MATCH' ? (
+                <>
+                  Same <em>speaker</em>
+                </>
+              ) : v.outcome === 'NON_MATCH' ? (
+                <>
+                  Different <em>speaker</em>
+                </>
+              ) : (
+                <>
+                  Not <em>sure</em>
+                </>
+              )}
             </h3>
             <p className="rc-line">
-              The speaker check scores the two voiceprints <strong className="num">{v.score.toFixed(3)}</strong> alike, against a cut-off of{' '}
-              <span className="num">{v.threshold.toFixed(3)}</span>.
+              {v.system === 'fused' ? 'Two speaker models together' : 'The speaker check'} score the voices{' '}
+              <strong className="num">{v.score.toFixed(2)}</strong> against a cut-off of <span className="num">{v.threshold.toFixed(2)}</span>
+              {v.outcome === 'UNCERTAIN'
+                ? `, too close to call. Record 10 to 15 s more of each voice and check again.`
+                : '.'}
             </p>
-            <Stroke value={v.score} tick={v.threshold} label={`Similarity ${v.score.toFixed(3)}, cut-off ${v.threshold.toFixed(3)}`} />
+            <Stroke value={speakerMeter(v)} tick={0.5} label={`Score ${v.score.toFixed(2)}, cut-off ${v.threshold.toFixed(2)}`} />
             <p className="rc-caveat">
-              The cut-off comes from VoxCeleb1, mostly English interviews, where {(speakerBaseline.heldOutFar * 100).toFixed(2)}% of impostors got
-              through. Nobody has tested it on Hindi or Hinglish speech yet.
+              {v.reliable === false
+                ? `Only ${Math.min(v.referenceSeconds, v.testSeconds).toFixed(1)} s of speech in the shorter clip. Below ${v.reliableSeconds ?? 8} s the check is much less sure, so record 10 to 15 s of each voice for a firm answer.`
+                : `The cut-off rises with the amount of speech and was calibrated on Hindi and Indian-English speakers. On held-out speakers with this much speech it was right on ${speakerPhase9.accuracyReliable} of the pairs it answered.`}
             </p>
           </>
         )}

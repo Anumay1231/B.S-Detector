@@ -13,14 +13,16 @@ function describe(r: Run): { check: string; result: string; tone: 'synthetic' | 
     }
   }
   if (r.interlocked || !r.verification) {
-    return { check: `Against ${r.referenceName}`, result: 'Blocked, sounds synthetic', tone: 'blocked', score: `${(r.analysis.probSpoof * 100).toFixed(1)}% synthetic` }
+    const p = r.interlockReason === 'reference' ? (r.referenceAnalysis?.probSpoof ?? r.analysis.probSpoof) : r.analysis.probSpoof
+    const result = r.interlockReason === 'reference' ? 'Blocked, known voice sounds synthetic' : 'Blocked, sounds synthetic'
+    return { check: `Against ${r.referenceName}`, result, tone: 'blocked', score: `${(p * 100).toFixed(1)}% synthetic` }
   }
-  const match = r.verification.outcome === 'MATCH'
+  const o = r.verification.outcome
   return {
     check: `Against ${r.referenceName}`,
-    result: match ? 'Same speaker' : 'Different speaker',
-    tone: match ? 'genuine' : 'synthetic',
-    score: `${r.verification.score.toFixed(3)} similarity`,
+    result: o === 'MATCH' ? 'Same speaker' : o === 'NON_MATCH' ? 'Different speaker' : 'Not sure, record more',
+    tone: o === 'MATCH' ? 'genuine' : o === 'NON_MATCH' ? 'synthetic' : 'blocked',
+    score: `${r.verification.score.toFixed(2)} vs ${r.verification.threshold.toFixed(2)}`,
   }
 }
 
@@ -37,6 +39,7 @@ export function SessionLog({ runs, onClear }: { runs: Run[]; onClear: () => void
         ? {
             reference: r.referenceName,
             interlocked: r.interlocked,
+            interlockReason: r.interlockReason ?? null,
             speaker: r.verification && {
               outcome: r.verification.outcome,
               similarity: r.verification.score,

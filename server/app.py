@@ -210,14 +210,27 @@ async def verify(
         start = max(0, int(windowStart * speaker.SAMPLE_RATE))
         window = tst[start : start + engine.INPUT_LENGTH]
         detection = detect(speaker.wav_bytes(window if len(window) else tst))
-        # The interlock: never vouch for the identity of a voice that sounds synthetic.
+        # The known voice is checked too: a cloned "known voice" would otherwise
+        # vouch for a clone. Only its first window: the detector expects a clip to
+        # open on its leading silence and flags windows that start mid-speech, so
+        # scanning later windows flags real voices (docs/deepfake-improvement-plan.md).
+        reference_check = detect(speaker.wav_bytes(ref[: engine.INPUT_LENGTH]))
+        reason = None
         if detection.verdict == "SPOOF":
-            return {"detection": detection_json(detection), "interlocked": True, "verification": None}
-        return {
+            reason = "window"
+        elif reference_check.verdict == "SPOOF":
+            reason = "reference"
+        payload = {
             "detection": detection_json(detection),
-            "interlocked": False,
-            "verification": speaker.verify(voices, ref, tst),
+            "referenceDetection": detection_json(reference_check),
+            "interlocked": reason is not None,
+            "interlockReason": reason,
+            "verification": None,
         }
+        # The interlock: never vouch for the identity of a voice that sounds synthetic.
+        if reason is None:
+            payload["verification"] = speaker.verify(voices, ref, tst)
+        return payload
 
     try:
         payload = await run_in_threadpool(run)

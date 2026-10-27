@@ -83,7 +83,16 @@ export function Analyzer({ status, manifest, request }: Props) {
       if (known.clip) {
         const res = await verifySpeaker(encodeWav(known.clip.samples), encodeWav(test.clip.samples), test.windowStart)
         setRuns((r) => [
-          { ...base, mode: 'verify', analysis: res.detection, referenceName: known.clip!.name, interlocked: res.interlocked, verification: res.verification },
+          {
+            ...base,
+            mode: 'verify',
+            analysis: res.detection,
+            referenceName: known.clip!.name,
+            interlocked: res.interlocked,
+            interlockReason: res.interlockReason,
+            referenceAnalysis: res.referenceDetection ?? null,
+            verification: res.verification,
+          },
           ...r,
         ])
       } else {
@@ -156,7 +165,7 @@ export function Analyzer({ status, manifest, request }: Props) {
             helper="The recording you are unsure about. WAV, MP3, FLAC, OGG or M4A, up to 2 minutes."
             placeholder="Drop a clip here, choose a file or record"
             windowed
-            locked={running}
+            locked={running || known.busy}
           />
           <div className="flow-link" aria-hidden="true">
             <svg viewBox="0 0 40 40" width="40" height="40">
@@ -169,7 +178,7 @@ export function Analyzer({ status, manifest, request }: Props) {
             helper="Optional. A real recording of the person the voice claims to be."
             placeholder="Add a known voice for the speaker check"
             windowed={false}
-            locked={running}
+            locked={running || test.busy}
             optional
           />
         </div>

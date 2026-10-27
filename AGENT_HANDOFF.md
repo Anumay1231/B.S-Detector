@@ -86,3 +86,18 @@ python scripts/infer_local.py --audio sample.wav --device cpu
 # Apple Silicon GPU acceleration
 python scripts/infer_local.py --audio sample.wav --device mps
 ```
+
+---
+
+## 6. Phase 9: speaker check on Hindi / Indian English, and a detector caveat
+
+- **Speaker check rebuilt** (`server/speaker.py`, `src/speaker_verification/wespeaker.py`):
+  - ECAPA-TDNN fused with WeSpeaker ResNet34 (ONNX)
+  - 3 s segment averaging
+  - duration-aware cut-off
+  - UNCERTAIN band
+
+  Fitted on Common Voice + Google SVQ. With 8 s+ of speech it is right on 96.9-100% of the held-out pairs it answers (Hindi and English, clean and same room). The old VoxCeleb cut-off accepted 42-70% of impostors. See `docs/speaker-verification-hindi-english.md`; the scripts are `scripts/sv_*.py`.
+- **Interlock** also runs stage 1 on the known voice, so a cloned reference can't vouch for a clone.
+- **Stage 1 leans on leading silence.** With 0.5 s of silence added in front, only 6% of fakes are flagged; real clips cut mid-word are flagged 35% of the time. It is not fixed yet: the plan is in `docs/deepfake-improvement-plan.md`. Re-checking the 98% benchmark after any fix needs SEA-Spoof access (gated on Hugging Face).
+- **Demo clips** for both stages are in `demo/` (see `demo/README.md`).

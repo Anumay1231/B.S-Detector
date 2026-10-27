@@ -36,16 +36,22 @@ export function useShowcase(status: Status, manifest: Manifest | null): Showcase
   // wait until the page has painted and the browser is idle, so the hero never competes with first paint
   const [idle, setIdle] = useState(false)
   useEffect(() => {
-    let handle = 0
+    let cancel = () => {}
     const go = () => {
-      const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
-      handle = ric ? ric(() => setIdle(true), { timeout: 2500 }) : window.setTimeout(() => setIdle(true), 1200)
+      // Safari has no requestIdleCallback
+      if (typeof window.requestIdleCallback === 'function') {
+        const id = window.requestIdleCallback(() => setIdle(true), { timeout: 2500 })
+        cancel = () => window.cancelIdleCallback(id)
+      } else {
+        const id = setTimeout(() => setIdle(true), 1200)
+        cancel = () => clearTimeout(id)
+      }
     }
     if (document.readyState === 'complete') go()
     else window.addEventListener('load', go, { once: true })
     return () => {
       window.removeEventListener('load', go)
-      window.clearTimeout(handle)
+      cancel()
     }
   }, [])
 

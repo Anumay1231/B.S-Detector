@@ -1,4 +1,4 @@
-import { ablations, bestRun, pct, regimes, speakerBaseline as sb, speakerProtocol as sp } from '../data/research'
+import { ablations, bestRun, pct, regimes, speakerBaseline as sb, speakerPhase9, speakerProtocol as sp } from '../data/research'
 import { REPO_URL } from './Header'
 import { DotGrid } from './DotGrid'
 import './Findings.css'
@@ -170,7 +170,11 @@ export function Findings() {
                 the speakers and tested it on the other {sb.speakers / 2}: {pct(sb.heldOutFar, 2)} of impostors got through and{' '}
                 {pct(sb.heldOutFrr, 2)} of real matches were turned away.
               </p>
-              <p>VoxCeleb1 is mostly English interviews. These numbers are an English baseline. The speaker check has not been validated on Hindi or Hinglish.</p>
+              <p>
+                VoxCeleb1 is mostly English interviews, and its cut-off let {speakerPhase9.oldImpostorsAccepted} of different Hindi and Indian-English
+                speakers through. Recalibrated on Hindi and English speakers, with a second model and a longer recording, the check is now right on{' '}
+                {speakerPhase9.accuracyReliable} of the pairs it answers.
+              </p>
               <a className="text-link" href={`${DOCS}/calibration.md`} target="_blank" rel="noreferrer">
                 Read the calibration notes <span aria-hidden="true">→</span>
               </a>

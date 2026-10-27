@@ -7,7 +7,7 @@ Unzip it, then double-click `start.bat` (Windows) or `start.command` (macOS). Fu
 A voice authentication system for Hindi and English speech that asks two questions about a recording, in order:
 
 1. **Is this voice real?** A deepfake detector, a frozen **XLS-R 300M** model with a **Sensitive Layer Selection (SLS)** head, listens for signs that the speech was generated.
-2. **Is it the same person?** If the voice sounds genuine, a pretrained **ECAPA-TDNN** speaker model compares it with a known recording of the claimed speaker.
+2. **Is it the same person?** If both voices sound genuine, two pretrained speaker models (**ECAPA-TDNN** and **WeSpeaker ResNet34**) compare it with a known recording of the claimed speaker, against a cut-off calibrated on Hindi and Indian-English speakers.
 
 The two stages are joined by an **interlock**. If stage 1 calls a voice synthetic, stage 2 never runs, because a convincing clone would otherwise pass as the real person. The repository contains the research behind both stages and a local web app that runs them on your own computer.
 
@@ -40,16 +40,17 @@ You need **Python 3.10 or newer**. The first run creates a `.venv`, installs PyT
                           no                               │
                           │                                │
               ┌───────────▼───────────┐        ┌───────────▼───────────┐
-  Stage 2     │ ECAPA-TDNN voiceprint │        │ ECAPA-TDNN voiceprint │
-  speaker     └───────────┬───────────┘        └───────────┬───────────┘
-  verification            └──────── cosine similarity ─────┘
+  Stage 2     │ ECAPA + ResNet34 per  │        │ ECAPA + ResNet34 per  │
+  speaker     │ 3 s piece, averaged   │        │ 3 s piece, averaged   │
+  verification└───────────┬───────────┘        └───────────┬───────────┘
+                          └─── fused cosine similarity ─────┘
                                          │
-                            ≥ 0.2528 → same speaker
+              cut-off rises with speech length; too close → "not sure"
 ```
 
 **Stage 1** turns 4.04 seconds of 16 kHz audio into the 24 hidden layers of XLS-R 300M. A learned sigmoid gate weighs each layer, the layers are blended and pooled, and two dense layers output the chance that the voice is synthetic. Only the 23.4M-parameter head is trained; the 315M backbone stays frozen.
 
-**Stage 2** uses `speechbrain/spkrec-ecapa-voxceleb` exactly as published. It turns each whole clip into a 192-dimensional voiceprint, and the two voiceprints are compared with cosine similarity. The cut-off, 0.252784, was calibrated on VoxCeleb1 trials rather than chosen by hand.
+**Stage 2** uses `speechbrain/spkrec-ecapa-voxceleb` and `Wespeaker/wespeaker-voxceleb-resnet34-LM` as published. Each clip's speech is cut into 3 s pieces, each piece becomes a voiceprint, and the voiceprints are averaged. Each model's cosine similarity is normalised and the two are averaged. The cut-off grows with the amount of speech in the shorter clip, and scores just around it come back "not sure". The constants were fitted on Hindi and English speakers (Common Voice, Google SVQ) rather than chosen by hand. The interlock checks the known voice for a deepfake too.
 
 ## Results
 
@@ -73,7 +74,19 @@ Adapted rows are the mean of 3 seeds; the counts are the mean of their confusion
 | Speaker-disjoint split | 28,280 | 0.87% | **0.252784** | Sets the threshold the app uses. On 20 held-out speakers: 1.15% of impostors accepted, 0.48% of genuine pairs rejected |
 | Full official protocol | 37,720 | 1.04% | 0.272217 | For comparison with published results (about 0.80% on the cleaned list). ROC-AUC 0.9989 |
 
-VoxCeleb1 is mostly English celebrity interviews, so these figures are an **English baseline**. Stage 2 has not yet been validated on Hindi or Hinglish speech. Details: [`docs/calibration.md`](docs/calibration.md).
+VoxCeleb1 is mostly English celebrity interviews, so these figures are an **English baseline**. Details: [`docs/calibration.md`](docs/calibration.md).
+
+### Stage 2: speaker verification on Hindi and Indian English (Phase 9)
+
+On held-out Google SVQ speakers, the VoxCeleb cut-off accepted 42-70% of different same-gender speakers, which is why two friends on one laptop came out as one person. With score fusion, segment averaging, a duration-aware cut-off and a "not sure" band (2-fold cross-validation over speakers, at least 8 s of speech per clip):
+
+| Held-out SVQ | Clean | Same room (simulated) |
+| :-- | --: | --: |
+| Hindi: accuracy on answers / answered | **100.0%** / 98% | **96.9%** / 81% |
+| Indian English: accuracy on answers / answered | **98.1%** / 95% | **99.0%** / 93% |
+| Old VoxCeleb cut-off, accuracy (Hindi / English) | 65.7% / 73.4% | 64.8% / 74.2% |
+
+Details, data and every intermediate step: [`docs/speaker-verification-hindi-english.md`](docs/speaker-verification-hindi-english.md). Demo clips for both stages: [`demo/`](demo/).
 
 ## The web app
 
@@ -139,12 +152,12 @@ npm run build                                  # rebuild frontend/dist before co
 
 - Both stages were evaluated on clean recordings. Phone-call audio (8 kHz, compressed codecs) has not been tested.
 - The app uses the Hindi head trained on 500 clips per class (`models/sls_head_n500_seed2_best.pth`, 89 MB, in the repo); the status tag says "Hindi head". If the file is missing, `run.py` tries the `hindi-head-n500` release, and otherwise the app falls back to the English checkpoint, which misses most Hindi fakes.
-- Stage 1 hears 4.04 seconds at a time. Check several windows of a long clip.
-- The stage 2 threshold is an English (VoxCeleb1) baseline and has not been validated on Hindi or Hinglish speech.
+- Stage 1 hears 4.04 seconds and relies heavily on the clip opening with a pause: a real voice cut mid-word can be flagged, and a fake with silence added in front can pass. Keep the window at the start of a recording. See [`docs/deepfake-improvement-plan.md`](docs/deepfake-improvement-plan.md).
+- Stage 2 needs about 8-15 s of speech in each clip to reach the accuracy above; shorter clips are marked less reliable. Hinglish (code-mixed) speech has not been tested separately.
 - Stage 2 needs the voice clearly above the background. The app trims silence before comparing and refuses clips whose speech sits within 6 dB of the noise: ECAPA-TDNN embeds a noise-dominated clip as the room rather than the person, and in tests on random LibriSpeech speakers buried in noise, most pairs of different people crossed the threshold.
 
 ## Credits
 
-Stage 1 checkpoint: [sukhdeveyash/XLS-R-SLS-Deepfake-Detection](https://huggingface.co/sukhdeveyash/XLS-R-SLS-Deepfake-Detection). Backbone: [facebook/wav2vec2-xls-r-300m](https://huggingface.co/facebook/wav2vec2-xls-r-300m). Stage 2 model: [speechbrain/spkrec-ecapa-voxceleb](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb). Data: [SEA-Spoof](https://huggingface.co/datasets/Jack-ppkdczgx/SEA-Spoof), [VoxCeleb1](https://www.robots.ox.ac.uk/~vgg/data/voxceleb/).
+Stage 1 checkpoint: [sukhdeveyash/XLS-R-SLS-Deepfake-Detection](https://huggingface.co/sukhdeveyash/XLS-R-SLS-Deepfake-Detection). Backbone: [facebook/wav2vec2-xls-r-300m](https://huggingface.co/facebook/wav2vec2-xls-r-300m). Stage 2 models: [speechbrain/spkrec-ecapa-voxceleb](https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb), [Wespeaker/wespeaker-voxceleb-resnet34-LM](https://huggingface.co/Wespeaker/wespeaker-voxceleb-resnet34-LM). Phase 9 data: [Common Voice 17](https://huggingface.co/datasets/fixie-ai/common_voice_17_0), [Google SVQ](https://huggingface.co/datasets/google/svq). Data: [SEA-Spoof](https://huggingface.co/datasets/Jack-ppkdczgx/SEA-Spoof), [VoxCeleb1](https://www.robots.ox.ac.uk/~vgg/data/voxceleb/).
 
 B.S. Detector is a research tool. Its verdicts are evidence, not proof.

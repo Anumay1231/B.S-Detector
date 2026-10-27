@@ -12,3 +12,5 @@ python-multipart>=0.0.9
 # at 2.11, so torch is held to the matching release.
 torchaudio>=2.2,<2.12
 speechbrain>=1.1,<1.2
+# Stage 2 score fusion: WeSpeaker ResNet34 runs as ONNX (src/speaker_verification/wespeaker.py)
+onnxruntime>=1.17

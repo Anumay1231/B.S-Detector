@@ -106,3 +106,14 @@ export const speakerProtocol = {
   /** SpeechBrain's published figure, reported on the cleaned trial list */
   publishedEer: 0.008,
 }
+
+// Phase 9: docs/speaker-verification-hindi-english.md. ECAPA-TDNN fused with
+// WeSpeaker ResNet34 on Hindi and Indian-English speakers: segment-averaged
+// embeddings, a duration-aware threshold and an unsure band, fitted on Common
+// Voice + SVQ and tested on held-out SVQ speakers (2-fold).
+export const speakerPhase9 = {
+  /** accuracy on the held-out SVQ pairs it answers with >= 8 s of speech, over hi/en and clean/same-room */
+  accuracyReliable: '96.9 to 100%',
+  /** same-gender impostors the VoxCeleb cut-off (0.2528) accepted on held-out SVQ */
+  oldImpostorsAccepted: '42 to 70%',
+}

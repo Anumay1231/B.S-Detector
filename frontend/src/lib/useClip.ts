@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { SAMPLE_RATE, WINDOW_SECONDS, computeSpectrogram, decodeToClip, paintSpectrogram, type Clip } from './audio'
 
-export const RECORD_LIMIT = 15
+// Long enough for the 10-15 s of speech the speaker check needs to be reliable.
+export const RECORD_LIMIT = 30
 
 export type ClipPhase = 'idle' | 'decoding' | 'recording' | 'ready'
 

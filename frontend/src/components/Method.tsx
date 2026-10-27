@@ -57,15 +57,15 @@ const NODES = [
   {
     stage: 2,
     title: 'Voiceprint',
-    spec: 'ECAPA-TDNN, 192 numbers',
-    body: 'One for the voice to check and one for the known voice, from whole clips.',
+    spec: 'ECAPA-TDNN + ResNet34',
+    body: 'One for the voice to check and one for the known voice, averaged over 3 s pieces.',
     glyph: <path d="M5 18c3-9 5-9 7 0s4 9 6 0 4-9 6 0 4 9 7 0" {...s} />,
   },
   {
     stage: 2,
     title: 'Match score',
-    spec: 'Same speaker if ≥ 0.253',
-    body: 'Cosine similarity against a cut-off calibrated on VoxCeleb1.',
+    spec: 'Cut-off rises with speech length',
+    body: 'Both models’ scores, fused, against a cut-off calibrated on Hindi and English speakers. Too close to call is "not sure".',
     glyph: (
       <g {...s}>
         <path d="M5 26h26" />
@@ -79,9 +79,9 @@ const NODES = [
 const LIMITS = [
   'Both stages were tested on clean recordings. Phone-call audio (8 kHz, compressed) has not been evaluated.',
   'Five generators made the benchmark fakes. A new one can fool it in ways these numbers do not show.',
-  'The deepfake check hears 4.04 seconds at a time. Check several windows of a long clip.',
+  'The deepfake check hears 4.04 seconds and expects them to start where the recording starts. A window that begins mid-speech can flag a real voice.',
   'The app uses the Hindi head trained on 500 clips per class when models/sls_head_n500_seed2_best.pth is present. Without it, it falls back to the English checkpoint, which misses most Hindi fakes.',
-  'Nobody has tested the speaker cut-off on Hindi or Hinglish yet. It was calibrated on VoxCeleb1, mostly English interviews.',
+  'The speaker check needs about 8 to 15 seconds of each voice to be reliable. Hinglish (code-mixed) speech has not been tested separately.',
   'A verdict is evidence, not proof.',
 ]
 

@@ -13,13 +13,12 @@ changed.
 - License: Creative Commons Attribution 4.0 International (CC-BY-4.0).
 - Source: https://huggingface.co/datasets/google/fleurs
 
-## speaker-a-1.wav, speaker-a-2.wav, speaker-b-1.wav: LibriSpeech
+## speaker-a-1.wav, speaker-a-2.wav: LibriSpeech
 
 | File | Utterance | Reader (speaker id) |
 | --- | --- | --- |
 | speaker-a-1.wav | 777-126732-0023 | 777 |
 | speaker-a-2.wav | 777-126732-0027 | 777 |
-| speaker-b-1.wav | 84-121123-0003 | 84 |
 
 - Corpus: LibriSpeech ASR corpus, dev-clean (Hugging Face `openslr/librispeech_asr`,
   config `clean`, split `validation`). The recordings are LibriVox public-domain audiobook
@@ -37,3 +36,12 @@ changed.
 - No real person's voice was cloned: no reference clip was given to the model.
 - The XTTS-v2 model is distributed under the Coqui Public Model License (CPML), which permits
   non-commercial use only. https://coqui.ai/cpml
+
+## speaker-b-1.wav: Google SVQ
+
+- Dataset: Simple Voice Questions (SVQ), `en_in` (Indian English), clean condition; five
+  utterances of one male speaker joined. The same file is `demo/speaker/english/person_B.wav`.
+- Replaced the earlier LibriSpeech reader 84 clip, which the Hindi deepfake head flags as
+  generated (p_spoof 0.91). Now that the known voice is checked too, that pair would have been blocked.
+- License: Creative Commons Attribution 4.0 International (CC-BY-4.0).
+- Source: https://huggingface.co/datasets/google/svq
