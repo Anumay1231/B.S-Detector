@@ -1,0 +1,54 @@
+{
+  "timestamp": "2026-10-27T10:36:02",
+  "base_checkpoint": "sls_head_n500_seed2_best.pth",
+  "num_train_samples": 600,
+  "num_test_samples": 400,
+  "baseline": {
+    "overall": {
+      "eer": 6.499999999999997,
+      "accuracy": 93.25,
+      "threshold": -0.01229340024292469
+    },
+    "per_gender": {
+      "male": {
+        "eer": 8.850717439293602,
+        "accuracy": 91.95979899497488,
+        "threshold": -0.01229340024292469
+      },
+      "female": {
+        "eer": 3.936499741868872,
+        "accuracy": 96.01990049751244,
+        "threshold": -0.03521307185292244
+      }
+    },
+    "generator_accuracy": {
+      "bonafide_human": 93.0,
+      "freevc24": 91.48936170212765,
+      "xtts_v2": 96.22641509433963
+    }
+  },
+  "adapted": {
+    "overall": {
+      "eer": 1.1666666666666654,
+      "accuracy": 98.75,
+      "threshold": -0.20856435596942902
+    },
+    "per_gender": {
+      "male": {
+        "eer": 2.0350441501103744,
+        "accuracy": 97.98994974874373,
+        "threshold": -0.20856435596942902
+      },
+      "female": {
+        "eer": 0.0,
+        "accuracy": 100.0,
+        "threshold": -0.39674749970436096
+      }
+    },
+    "generator_accuracy": {
+      "bonafide_human": 98.66666666666667,
+      "freevc24": 100.0,
+      "xtts_v2": 98.11320754716981
+    }
+  }
+}
