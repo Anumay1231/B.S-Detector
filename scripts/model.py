@@ -189,19 +189,57 @@ def extract_hidden_states(backbone, waveform, device='cpu'):
     return hidden_states
 
 
-def pad_or_truncate(waveform, target_length=INPUT_LENGTH):
-    """Pad (by tiling) or truncate waveform to fixed length.
+def find_speech_onset_index(waveform, target_length=INPUT_LENGTH, sample_rate=16000):
+    """Finds the onset sample index of active speech in a 1D waveform tensor.
+    
+    If speech starts after leading silence, returns the onset index offset by a 150ms buffer
+    so the 4.04-second analysis window aligns with real vocal activity rather than dead silence.
+    """
+    total_samples = waveform.shape[0]
+    if total_samples <= target_length:
+        return 0
+
+    frame_len = int(0.025 * sample_rate)  # 25 ms
+    hop_len = int(0.010 * sample_rate)    # 10 ms
+    if total_samples < frame_len:
+        return 0
+
+    unfolded = waveform.unfold(0, frame_len, hop_len)
+    frame_energies = (unfolded ** 2).mean(dim=1)
+    max_energy = frame_energies.max().item()
+
+    if max_energy < 1e-5:
+        return 0
+
+    thresh = max(1e-5, max_energy * 0.01)  # 1% of peak speech energy (-20 dB)
+    speech_indices = (frame_energies >= thresh).nonzero(as_tuple=True)[0]
+    if len(speech_indices) == 0:
+        return 0
+
+    first_speech_idx = speech_indices[0].item() * hop_len
+    onset = max(0, first_speech_idx - int(0.150 * sample_rate))
+    max_start = max(0, total_samples - target_length)
+    return min(onset, max_start)
+
+
+def pad_or_truncate(waveform, target_length=INPUT_LENGTH, align_onset=True):
+    """Pad (by tiling) or extract speech-centered window of exactly target_length samples.
     
     Args:
         waveform: 1D tensor of audio samples
         target_length: target number of samples
+        align_onset: whether to align window to speech onset if leading silence is detected
     
     Returns:
         1D tensor of exactly target_length samples
     """
-    if waveform.shape[0] >= target_length:
-        return waveform[:target_length]
-    # Tile-pad: repeat the waveform until we reach target length
-    repeats = (target_length // waveform.shape[0]) + 1
-    tiled = waveform.repeat(repeats)
-    return tiled[:target_length]
+    if waveform.shape[0] <= target_length:
+        repeats = (target_length // waveform.shape[0]) + 1
+        tiled = waveform.repeat(repeats)
+        return tiled[:target_length]
+
+    if align_onset:
+        onset = find_speech_onset_index(waveform, target_length=target_length)
+        return waveform[onset : onset + target_length]
+
+    return waveform[:target_length]

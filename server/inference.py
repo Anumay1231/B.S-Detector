@@ -144,13 +144,52 @@ def load_detector_models(device: Optional[str] = None, checkpoint_version: str =
     return backbone, sls_head, device
 
 
+def find_speech_onset_index(
+    waveform: "torch.Tensor",
+    target_length: int = INPUT_LENGTH,
+    sample_rate: int = TARGET_SR
+) -> int:
+    """
+    Finds the onset sample index of active speech in a 1D waveform tensor.
+    If speech starts after leading silence, returns the onset index offset by a 150ms buffer
+    so the 4.04-second analysis window aligns with real vocal activity rather than dead silence.
+    """
+    total_samples = waveform.shape[0]
+    if total_samples <= target_length:
+        return 0
+
+    frame_len = int(0.025 * sample_rate)  # 25 ms
+    hop_len = int(0.010 * sample_rate)    # 10 ms
+    if total_samples < frame_len:
+        return 0
+
+    unfolded = waveform.unfold(0, frame_len, hop_len)
+    frame_energies = (unfolded ** 2).mean(dim=1)
+    max_energy = frame_energies.max().item()
+
+    if max_energy < 1e-5:
+        # Near-zero signal across the whole clip
+        return 0
+
+    thresh = max(1e-5, max_energy * 0.01)  # 1% of peak speech energy (-20 dB)
+    speech_indices = (frame_energies >= thresh).nonzero(as_tuple=True)[0]
+    if len(speech_indices) == 0:
+        return 0
+
+    first_speech_idx = speech_indices[0].item() * hop_len
+    onset = max(0, first_speech_idx - int(0.150 * sample_rate))
+    max_start = max(0, total_samples - target_length)
+    return min(onset, max_start)
+
+
 def pad_or_truncate_audio(waveform: "torch.Tensor", target_length: int = INPUT_LENGTH) -> "torch.Tensor":
-    """Tile-pad or truncate audio tensor to exactly 64,600 samples."""
-    if waveform.shape[0] >= target_length:
-        return waveform[:target_length]
-    repeats = (target_length // waveform.shape[0]) + 1
-    tiled = waveform.repeat(repeats)
-    return tiled[:target_length]
+    """Tile-pad or extract speech-centered window of exactly target_length samples."""
+    if waveform.shape[0] <= target_length:
+        repeats = (target_length // waveform.shape[0]) + 1
+        tiled = waveform.repeat(repeats)
+        return tiled[:target_length]
+    onset = find_speech_onset_index(waveform, target_length=target_length)
+    return waveform[onset : onset + target_length]
 
 
 def load_and_preprocess_audio(audio_bytes_or_file, target_sr: int = TARGET_SR) -> Tuple["torch.Tensor", float, np.ndarray]:
@@ -254,6 +293,16 @@ def run_forensic_detection(
     
     # Preprocess
     waveform_1d, duration_sec, raw_samples = load_and_preprocess_audio(audio_source)
+    
+    # Check if input waveform is silence or muted mic (below acoustic detection threshold)
+    rms_energy = float(torch.sqrt(torch.mean(waveform_1d ** 2)).item())
+    max_amp = float(torch.max(torch.abs(waveform_1d)).item())
+    if max_amp < 1e-4 or rms_energy < 5e-5:
+        raise ValueError(
+            "The audio recording contains silence or is below the microphone detection threshold. "
+            "Please speak clearly into the microphone."
+        )
+
     waveform_2d = waveform_1d.unsqueeze(0).to(device)  # (1, 64600)
     
     with torch.no_grad():

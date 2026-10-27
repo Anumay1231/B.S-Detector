@@ -170,6 +170,8 @@ async def analyze(request: Request) -> JSONResponse:
 
     try:
         result = await run_in_threadpool(detect, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
         logger.exception("Analysis failed")
         raise HTTPException(status_code=422, detail=f"Couldn't read that audio: {exc}")

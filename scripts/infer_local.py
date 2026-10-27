@@ -80,7 +80,13 @@ def predict(
         sls_head.eval()
 
     # 3. Load and preprocess audio
-    waveform = load_audio(audio_path).unsqueeze(0).to(device)  # (1, 64600)
+    waveform_1d = load_audio(audio_path)
+    if waveform_1d.abs().max() < 1e-4:
+        raise ValueError(
+            f"Audio file '{audio_path}' contains silence or is below the acoustic detection threshold. "
+            "Please provide a recording with clear human speech."
+        )
+    waveform = waveform_1d.unsqueeze(0).to(device)  # (1, 64600)
 
     # 4. Extract 24-layer representations
     with torch.no_grad():
