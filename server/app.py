@@ -9,8 +9,9 @@ stages of the project:
 
   GET  /api/status   loading state of both models
   POST /api/analyze  body = WAV bytes (the browser sends 16 kHz mono) -> stage 1 verdict
-  POST /api/verify   form: reference, test (WAV), windowStart (s) -> stage 1 on the
-                     test clip, then stage 2 only if it sounds genuine (the interlock)
+  POST /api/verify   form: reference (1-3 WAVs of the known voice), test (WAV), windowStart (s)
+                     -> stage 1 on the test clip and each known clip, then stage 2 only if
+                     all sound genuine (the interlock)
 
 The models load in a background thread so the page is usable (and can show
 progress) while the weights download on first run.
@@ -23,7 +24,7 @@ import time
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -205,7 +206,7 @@ def detection_json(result: engine.ForensicInferenceResult) -> Dict[str, Any]:
 
 @app.post("/api/verify")
 async def verify(
-    reference: UploadFile = File(...),
+    reference: List[UploadFile] = File(...),
     test: UploadFile = File(...),
     windowStart: float = Form(0.0),
 ) -> JSONResponse:
@@ -213,24 +214,27 @@ async def verify(
         raise HTTPException(status_code=503, detail=model.message)
     if voices.state != "ready":
         raise HTTPException(status_code=503, detail=voices.message)
+    if len(reference) > speaker.MAX_REFERENCES:
+        raise HTTPException(status_code=400, detail=f"Send at most {speaker.MAX_REFERENCES} clips of the known voice.")
 
-    ref_bytes = await reference.read()
+    ref_bytes = [await r.read() for r in reference]
     test_bytes = await test.read()
-    if not ref_bytes or not test_bytes:
+    if not all(ref_bytes) or not test_bytes:
         raise HTTPException(status_code=400, detail="Both clips are needed: a known voice and a voice to check.")
-    if len(ref_bytes) > MAX_UPLOAD_BYTES or len(test_bytes) > MAX_UPLOAD_BYTES:
+    if any(len(b) > MAX_UPLOAD_BYTES for b in [*ref_bytes, test_bytes]):
         raise HTTPException(status_code=413, detail="Clips must be under 25 MB.")
 
     def run() -> Dict[str, Any]:
-        ref = speaker.read_wav(ref_bytes)
+        refs = [speaker.read_wav(b) for b in ref_bytes]
         tst = speaker.read_wav(test_bytes)
         # Stage 1 hears the same 4.04 s window the person chose on the test clip.
         start = max(0, int(windowStart * speaker.SAMPLE_RATE))
         window = tst[start : start + engine.INPUT_LENGTH]
         detection = detect(speaker.wav_bytes(window if len(window) else tst), full_clip=False)
         # The known voice is checked too: a cloned "known voice" would otherwise
-        # vouch for a clone.
-        reference_check = detect(speaker.wav_bytes(ref[: engine.INPUT_LENGTH]), full_clip=False)
+        # vouch for a clone. With several clips, each one is checked.
+        reference_checks = [detect(speaker.wav_bytes(r[: engine.INPUT_LENGTH]), full_clip=False) for r in refs]
+        reference_check = max(reference_checks, key=lambda d: d.prob_spoof)
         reason = None
         if detection.verdict == "SPOOF":
             reason = "window"
@@ -243,9 +247,11 @@ async def verify(
             "interlockReason": reason,
             "verification": None,
         }
+        if len(refs) > 1:
+            payload["referenceDetections"] = [detection_json(d) for d in reference_checks]
         # The interlock: never vouch for the identity of a voice that sounds synthetic.
         if reason is None:
-            payload["verification"] = speaker.verify(voices, ref, tst)
+            payload["verification"] = speaker.verify(voices, refs[0] if len(refs) == 1 else refs, tst)
         return payload
 
     try:

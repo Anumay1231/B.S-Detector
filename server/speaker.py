@@ -24,7 +24,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 
@@ -67,6 +67,9 @@ SEGMENT_SECONDS = 3.0
 #: on random LibriSpeech speakers at ~3 dB, 36-45 of 45 impostor pairs crossed the
 #: threshold, against 2 of 45 on clean audio. Clean speech measures ~38 dB.
 MIN_SNR_DB = 6.0
+#: The known voice may come as up to this many clips; their speech counts together, up to 20 s.
+MAX_REFERENCES = 3
+MAX_REFERENCE_SECONDS = 20.0
 
 
 class VerifierState:
@@ -170,21 +173,28 @@ def segments(speech: np.ndarray) -> List[np.ndarray]:
     return pieces
 
 
-def embed(encoder: Any, speech: np.ndarray) -> Any:
+def _all_segments(speech: Union[np.ndarray, Sequence[np.ndarray]]) -> List[np.ndarray]:
+    """Segments of one clip, or of several clips of the same voice pooled together."""
+    clips = [speech] if isinstance(speech, np.ndarray) else list(speech)
+    return [p for clip in clips for p in segments(clip)]
+
+
+def embed(encoder: Any, speech: Union[np.ndarray, Sequence[np.ndarray]]) -> Any:
     """Mean of the length-normalised ECAPA embeddings of each speech segment.
 
     On held-out SVQ speakers this beat one pass over the whole clip, most for long
-    clips in a shared room (Hindi, 11 s+: EER 16.8% -> 5.8%).
+    clips in a shared room (Hindi, 11 s+: EER 16.8% -> 5.8%). Several clips of the
+    known voice are averaged the same way, over all their segments.
     """
     import torch
 
-    embs = [encoder.encode(torch.from_numpy(np.ascontiguousarray(p)).unsqueeze(0)) for p in segments(speech)]
+    embs = [encoder.encode(torch.from_numpy(np.ascontiguousarray(p)).unsqueeze(0)) for p in _all_segments(speech)]
     return torch.stack([e / e.norm() for e in embs]).mean(dim=0)
 
 
-def embed_second(encoder: Any, speech: np.ndarray) -> np.ndarray:
+def embed_second(encoder: Any, speech: Union[np.ndarray, Sequence[np.ndarray]]) -> np.ndarray:
     """The same segment averaging for the WeSpeaker encoder (numpy in and out)."""
-    embs = [encoder.encode(p) for p in segments(speech)]
+    embs = [encoder.encode(p) for p in _all_segments(speech)]
     return np.mean([e / np.linalg.norm(e) for e in embs], axis=0)
 
 
@@ -251,29 +261,39 @@ def speech_only(samples: np.ndarray, frame: int = 480) -> np.ndarray:
     return voiced / peak * 0.9 if peak > 0 else voiced
 
 
-def verify(state: VerifierState, reference: np.ndarray, test: np.ndarray) -> Dict[str, Any]:
-    for name, clip in (("known voice", reference), ("voice to check", test)):
+def verify(state: VerifierState, reference: Union[np.ndarray, Sequence[np.ndarray]], test: np.ndarray) -> Dict[str, Any]:
+    """Compare a voice with a known voice given as one clip or up to MAX_REFERENCES clips."""
+    refs = [reference] if isinstance(reference, np.ndarray) else list(reference)
+    if not 1 <= len(refs) <= MAX_REFERENCES:
+        raise ValueError(f"Give between 1 and {MAX_REFERENCES} clips of the known voice.")
+    names = ["known voice"] if len(refs) == 1 else [f"known voice {i}" for i in range(1, len(refs) + 1)]
+    clips = list(zip(names, refs)) + [("voice to check", test)]
+    for name, clip in clips:
         if len(clip) < MIN_SECONDS * SAMPLE_RATE:
             raise ValueError(f"The {name} clip is shorter than {MIN_SECONDS:.0f} second. Use at least a few seconds of speech.")
 
-    snr = {"known voice": speech_snr(reference), "voice to check": speech_snr(test)}
-    for name, clip in (("known voice", reference), ("voice to check", test)):
+    snr = {name: speech_snr(clip) for name, clip in clips}
+    for name, _ in clips:
         if snr[name] < MIN_SNR_DB:
             logger.info("speaker check refused: %s SNR %.1f dB", name, snr[name])
             raise ValueError(
                 f"The {name} is too quiet next to the background noise to tell voices apart. "
                 "Record again closer to the microphone, in a quieter room."
             )
-    reference, test = speech_only(reference), speech_only(test)
-    for name, clip in (("known voice", reference), ("voice to check", test)):
+    clips = [(name, speech_only(clip)) for name, clip in clips]
+    for name, clip in clips:
         if len(clip) < MIN_SPEECH_SECONDS * SAMPLE_RATE:
             raise ValueError(
                 f"The {name} has only {len(clip) / SAMPLE_RATE:.1f} s of clear speech. "
                 f"It needs at least {MIN_SPEECH_SECONDS:.0f} s, and about {RELIABLE_SPEECH_SECONDS:.0f}-15 s for a reliable answer. "
                 "Record again closer to the microphone and keep talking."
             )
+    reference = [clip for _, clip in clips[:-1]]
+    test = clips[-1][1]
 
-    speech = min(len(reference), len(test)) / SAMPLE_RATE
+    # d is the shorter side; several known-voice clips count together, up to 20 s
+    reference_seconds = sum(len(r) for r in reference) / SAMPLE_RATE
+    speech = min(min(reference_seconds, MAX_REFERENCE_SECONDS), len(test) / SAMPLE_RATE)
     system = state.system
     t0 = time.perf_counter()
     with state.lock:
@@ -284,11 +304,11 @@ def verify(state: VerifierState, reference: np.ndarray, test: np.ndarray) -> Dic
     threshold, margin = threshold_for(speech, system), margin_for(speech, system)
     outcome = decide(score, threshold, margin)
     logger.info(
-        "speaker check: %s %s score %.3f vs %.3f +/- %.3f (cosines %s; SNR known %.1f dB, test %.1f dB; speech %.1f s / %.1f s)",
+        "speaker check: %s %s score %.3f vs %.3f +/- %.3f (cosines %s; SNR %s; speech %.1f s in %d known clip(s) / %.1f s)",
         outcome, system, score, threshold, margin, {k: round(v, 3) for k, v in cos.items()},
-        snr["known voice"], snr["voice to check"], len(reference) / SAMPLE_RATE, len(test) / SAMPLE_RATE,
+        {k: round(v, 1) for k, v in snr.items()}, reference_seconds, len(reference), len(test) / SAMPLE_RATE,
     )
-    return {
+    result = {
         "outcome": outcome,
         "score": score,
         "threshold": threshold,
@@ -297,9 +317,12 @@ def verify(state: VerifierState, reference: np.ndarray, test: np.ndarray) -> Dic
         "cosines": cos,
         "isCalibrated": FIXED_THRESHOLD is None,
         "latencyMs": (time.perf_counter() - t0) * 1000.0,
-        "referenceSeconds": len(reference) / SAMPLE_RATE,
+        "referenceSeconds": reference_seconds,
         "testSeconds": len(test) / SAMPLE_RATE,
         # below this the held-out error rate is several times higher; the UI says so
         "reliable": speech >= RELIABLE_SPEECH_SECONDS,
         "reliableSeconds": RELIABLE_SPEECH_SECONDS,
     }
+    if len(reference) > 1:
+        result["referenceClips"] = len(reference)
+    return result
