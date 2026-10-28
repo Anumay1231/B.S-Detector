@@ -18,17 +18,31 @@ function useStatus() {
   useEffect(() => {
     let timer = 0
     let alive = true
+    let misses = 0
+    let inFlight = false
     const poll = async () => {
+      if (inFlight) return
+      inFlight = true
+      window.clearTimeout(timer)
       const s = await fetchStatus()
+      inFlight = false
       if (!alive) return
       setStatus(s)
+      // each failed fetch logs a console error, so back off while the server is down
+      misses = s.state === 'offline' ? misses + 1 : 0
       const settled = s.state === 'ready' && s.verifier?.state !== 'loading'
-      timer = window.setTimeout(poll, settled ? 15000 : 2000)
+      timer = window.setTimeout(poll, misses ? Math.min(30000, 15000 * misses) : settled ? 15000 : 2000)
+    }
+    // coming back to the tab (say, after starting the server) checks again right away
+    const onFocus = () => {
+      if (misses) void poll()
     }
     void poll()
+    window.addEventListener('focus', onFocus)
     return () => {
       alive = false
       window.clearTimeout(timer)
+      window.removeEventListener('focus', onFocus)
     }
   }, [])
   return status
