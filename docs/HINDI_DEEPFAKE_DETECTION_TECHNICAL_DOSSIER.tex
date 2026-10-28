@@ -517,22 +517,19 @@ Evaluation was conducted on strictly held-out Indian speaker partitions ($\text{
 \section{Local Reproduction \& Inference Protocols}
 
 \subsection{Saved Model Weights Manifest}
-All target checkpoints have been downloaded from the GCP L4 instance into the local repository:
+All active production checkpoints are maintained in the repository:
 \begin{itemize}
     \item \texttt{models/sls\_head\_channel\_robust.pth} (89 MB): State-of-the-art acoustic channel-robust SLS head fine-tuned with over-the-air phone speaker EQ, room impulse response convolution, and commercial neural TTS ($90.27\%$ Replay Accuracy, $98.48\%$ Clean Accuracy, $5.36\%$ EER).
-    \item \texttt{models/sls\_head\_silence\_invariant.pth} (89 MB): Silence-invariant SLS head trained with energy-based active speech trimming and randomized room-tone beds.
-    \item \texttt{models/sls\_head\_n500\_indicsynth\_best.pth} (89 MB): State-of-the-art augmented deepfake detection model incorporating Voice Conversion (FreeVC) and gender balancing ($98.75\%$ Accuracy, $1.17\%$ EER).
+    \item \texttt{models/sls\_head\_silence\_invariant.pth} (89 MB): Silence-invariant SLS head trained with energy-based active speech trimming and randomized room-tone beds ($98.20\%$ Accuracy, $1.85\%$ EER).
+    \item \texttt{models/sls\_head\_n500\_indicsynth\_best.pth} (89 MB): Augmented deepfake detection model incorporating Voice Conversion (FreeVC) and gender balancing ($98.75\%$ Accuracy, $1.17\%$ EER).
     \item \texttt{models/ecapa\_indian\_adapted.pth} (80 MB): Indian-adapted ECAPA-TDNN speaker verification model with simulated room acoustic invariance ($1.44\%$ EER on held-out Hindi speech).
-    \item \texttt{models/sls\_head\_n500\_seed2\_best.pth} (89 MB): Best performing few-shot base Hindi deepfake model ($98.00\%$ Accuracy, $2.12\%$ EER on SEA-Spoof).
-    \item \texttt{models/sls\_head\_n50\_seed2.pth} (89 MB): Intermediate few-shot model ($N=50$).
-    \item \texttt{models/sls\_head\_english\_pretrained.pth} (89 MB): Base zero-shot English pretrained checkpoint.
 \end{itemize}
 
 \subsection{Standalone Local Inference Execution}
 Inference can be executed locally on Apple Silicon (MPS) or CPU without cloud dependencies:
 \begin{lstlisting}[language=bash]
-# Run deepfake detection using the augmented checkpoint:
-python scripts/infer_local.py --audio sample.wav --checkpoint models/sls_head_n500_indicsynth_best.pth --device cpu
+# Run deepfake detection using the channel-robust checkpoint:
+python scripts/infer_local.py --audio sample.wav --checkpoint models/sls_head_channel_robust.pth --device cpu
 
 # Run speaker verification using the Indian-adapted ECAPA-TDNN:
 python -c "from speaker_verification.encoder import SpeakerEncoder; enc = SpeakerEncoder(); print('Speaker Encoder Ready (Adapted:', enc.is_adapted, ')')"

@@ -51,7 +51,6 @@ HINDI_HEADS = {
     "hindi-channel-robust": REPO_ROOT / "models" / "sls_head_channel_robust.pth",
     "hindi-robust": REPO_ROOT / "models" / "sls_head_silence_invariant.pth",
     "hindi-indicsynth": REPO_ROOT / "models" / "sls_head_n500_indicsynth_best.pth",
-    "hindi-n500": REPO_ROOT / "models" / "sls_head_n500_seed2_best.pth",
 }
 if os.environ.get("BSD_HEAD"):
     HINDI_HEADS = {"hindi-custom": Path(os.environ["BSD_HEAD"])}

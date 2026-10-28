@@ -77,8 +77,15 @@ def ensure_frontend() -> None:
 
 def ensure_hindi_head() -> None:
     """Fetch the Hindi head once. Without it the app falls back to the English checkpoint."""
-    # the IndicSynth head ships in the repo; the plain N=500 head is the fallback
-    if os.environ.get("BSD_HEAD") or HEAD_FILE.exists() or (HEAD_FILE.parent / "sls_head_n500_indicsynth_best.pth").exists():
+    # the channel-robust / IndicSynth head ships in the repo; the plain N=500 head is the fallback
+    models_dir = ROOT / "models"
+    if (
+        os.environ.get("BSD_HEAD")
+        or (models_dir / "sls_head_channel_robust.pth").exists()
+        or (models_dir / "sls_head_silence_invariant.pth").exists()
+        or (models_dir / "sls_head_n500_indicsynth_best.pth").exists()
+        or HEAD_FILE.exists()
+    ):
         return
     say("Downloading the Hindi detector head (~89 MB) ...")
     part = HEAD_FILE.with_suffix(".part")

@@ -125,7 +125,7 @@ from scripts.infer_local import LocalDeepfakeDetector
 
 # Initialize detector (automatically loads frozen XLS-R 300M and SLS head weights)
 detector = LocalDeepfakeDetector(
-    weights_path="models/sls_head_n500_seed2_best.pth",
+    weights_path="models/sls_head_channel_robust.pth",
     device="cpu"  # or "mps" / "cuda"
 )
 
@@ -145,16 +145,13 @@ print(result)
 
 ## Checkpoint Manifest
 
-Trained SLS classifier head checkpoints are located in `models/`:
+Active trained SLS classifier head checkpoints are located in `models/`:
 
 | Checkpoint File | Configuration | Test Accuracy | Test EER | Size |
 | :--- | :--- | :---: | :---: | :---: |
 | `models/sls_head_channel_robust.pth` | Acoustic Channel Invariant (Phone Replay + Commercial TTS) | **94.52% (90.27% Replay, 98.48% Clean)** | **5.36%** | 89.2 MB |
 | `models/sls_head_silence_invariant.pth` | Silence Invariant (Active Speech Trimming + Random Beds) | **98.20%** | **1.85%** | 89.2 MB |
 | `models/sls_head_n500_indicsynth_best.pth` | IndicSynth Voice Conversion + FLEURS Balanced | **98.75%** | **1.17%** | 89.2 MB |
-| `models/sls_head_n500_seed2_best.pth` | $N=500$, Seed 2 (Few-shot base) | **98.00%** | **2.12%** | 89.2 MB |
-| `models/sls_head_n50_seed2.pth` | $N=50$, Seed 2 (Intermediate) | **79.50%** | **18.75%** | 89.2 MB |
-| `models/sls_head_english_pretrained.pth` | Zero-shot base (English pretrained) | **61.75%** | **32.25%** | 89.2 MB |
 
 *Note: The XLS-R 300M backbone is downloaded and cached automatically from Hugging Face Hub (`facebook/wav2vec2-xls-r-300m`).*
 
@@ -184,10 +181,11 @@ For every exact parameter, optimization equation, confusion matrix, hardware spe
 │   ├── fig2_fewshot_adaptation_curve.png
 │   ├── fig3_backbone_unfreezing_comparison.png
 │   └── fig4_generator_stratification.png
-├── models/                                           # Trained SLS head weights
-│   ├── sls_head_n500_seed2_best.pth
-│   ├── sls_head_n50_seed2.pth
-│   └── sls_head_english_pretrained.pth
+├── models/                                           # Active trained SLS head weights
+│   ├── sls_head_channel_robust.pth                   # Channel-robust (phone replay + neural TTS)
+│   ├── sls_head_silence_invariant.pth                # Silence-invariant SLS head
+│   ├── sls_head_n500_indicsynth_best.pth             # Voice conversion & balanced head
+│   └── ecapa_indian_adapted.pth                      # Indian-adapted ECAPA-TDNN speaker encoder
 ├── outputs/                                          # Evaluation splits and raw logs
 │   ├── benchmark_splits_n500.json                    # Exact audio IDs for test and train splits
 │   ├── experiment_n500.log                           # End-to-end execution log on GCP L4
