@@ -9,8 +9,8 @@ B.S. Detector — one-command local launcher.
 First run creates ./.venv and installs server/requirements.txt (PyTorch is the
 big one). The model weights (~1.3 GB) download from Hugging Face the first time
 the server starts and are cached after that. The team's Hindi-adapted detector
-head (~89 MB) downloads once from the GitHub release into models/. Uses the
-standard library only.
+head (~94 MB) ships in models/ and downloads once from GitHub if it's missing.
+Uses the standard library only.
 """
 
 import argparse
@@ -34,9 +34,10 @@ STAMP = VENV / ".bsd-requirements"
 FRONTEND = ROOT / "frontend"
 DIST = FRONTEND / "dist"
 
-# The Hindi-adapted SLS head is too big for Git; it ships as a GitHub release asset.
-HEAD_FILE = ROOT / "models" / "sls_head_n500_seed2_best.pth"
-HEAD_URL = "https://github.com/Anumay1231/B.S-Detector/releases/download/hindi-head-n500/sls_head_n500_seed2_best.pth"
+# The default Hindi head (first in server/app.py HINDI_HEADS) is committed to the repo;
+# this URL fetches it again if models/ lost it.
+HEAD_FILE = ROOT / "models" / "sls_head_silence_invariant.pth"
+HEAD_URL = "https://raw.githubusercontent.com/Anumay1231/B.S-Detector/main/models/sls_head_silence_invariant.pth"
 
 
 def say(msg: str) -> None:
@@ -77,17 +78,15 @@ def ensure_frontend() -> None:
 
 def ensure_hindi_head() -> None:
     """Fetch the Hindi head once. Without it the app falls back to the English checkpoint."""
-    # the channel-robust / IndicSynth head ships in the repo; the plain N=500 head is the fallback
     models_dir = ROOT / "models"
     if (
         os.environ.get("BSD_HEAD")
         or (models_dir / "sls_head_channel_robust.pth").exists()
-        or (models_dir / "sls_head_silence_invariant.pth").exists()
         or (models_dir / "sls_head_n500_indicsynth_best.pth").exists()
         or HEAD_FILE.exists()
     ):
         return
-    say("Downloading the Hindi detector head (~89 MB) ...")
+    say("Downloading the Hindi detector head (~94 MB) ...")
     part = HEAD_FILE.with_suffix(".part")
     try:
         HEAD_FILE.parent.mkdir(exist_ok=True)
@@ -102,7 +101,7 @@ def ensure_hindi_head() -> None:
     except Exception as exc:
         part.unlink(missing_ok=True)
         say(f"Couldn't get the Hindi head ({exc}). Using the English checkpoint, which misses most Hindi fakes.")
-        say(f"To add it by hand, put sls_head_n500_seed2_best.pth in {HEAD_FILE.parent}.")
+        say(f"To add it by hand, put sls_head_silence_invariant.pth in {HEAD_FILE.parent}.")
 
 
 def port_free(port: int) -> bool:
