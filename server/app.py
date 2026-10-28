@@ -45,12 +45,14 @@ MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 CHECKPOINT = os.environ.get("BSD_CHECKPOINT", "v1")
 DEVICE = os.environ.get("BSD_DEVICE") or None
 # Hindi-adapted SLS heads from the team's runs (same layer layout as the English
-# checkpoint), best first: the N=500 head further fine-tuned on IndicSynth voice
-# clones, then the plain N=500 head. The first one present is used; BSD_HEAD forces one.
+# checkpoint), best first. The first one present is used; BSD_HEAD forces one.
+# The silence-invariant head leads: on scripts/ui_path_check.py the channel-robust
+# head got 17 answers wrong to its 10 (19 to 12 on phone-line audio) and flagged
+# the clean built-in samples as generated. Keep it last until that is fixed.
 HINDI_HEADS = {
-    "hindi-channel-robust": REPO_ROOT / "models" / "sls_head_channel_robust.pth",
     "hindi-robust": REPO_ROOT / "models" / "sls_head_silence_invariant.pth",
     "hindi-indicsynth": REPO_ROOT / "models" / "sls_head_n500_indicsynth_best.pth",
+    "hindi-channel-robust": REPO_ROOT / "models" / "sls_head_channel_robust.pth",
 }
 if os.environ.get("BSD_HEAD"):
     HINDI_HEADS = {"hindi-custom": Path(os.environ["BSD_HEAD"])}
