@@ -37,48 +37,6 @@ export async function decodeToClip(blob: Blob, name: string, source: Clip['sourc
   return { name, samples: rendered.getChannelData(0).slice(), duration: seconds, source }
 }
 
-/** Find the onset time (in seconds) of active speech in the clip to auto-position the analysis window. */
-export function findSpeechOnset(samples: Float32Array, rate = SAMPLE_RATE): number {
-  if (samples.length <= WINDOW_SAMPLES) return 0
-
-  // 25ms frames with 10ms hop
-  const frameLen = Math.round(0.025 * rate)
-  const hopLen = Math.round(0.010 * rate)
-  const numFrames = Math.floor((samples.length - frameLen) / hopLen)
-  if (numFrames <= 0) return 0
-
-  let maxEnergy = 0
-  const energies = new Float32Array(numFrames)
-  for (let i = 0; i < numFrames; i++) {
-    let sumSq = 0
-    const offset = i * hopLen
-    for (let j = 0; j < frameLen; j++) {
-      const val = samples[offset + j]
-      sumSq += val * val
-    }
-    const e = sumSq / frameLen
-    energies[i] = e
-    if (e > maxEnergy) maxEnergy = e
-  }
-
-  if (maxEnergy < 1e-5) return 0
-
-  // Speech threshold: 1% of peak energy (-20 dB)
-  const thresh = Math.max(1e-5, maxEnergy * 0.01)
-  let onsetFrame = 0
-  for (let i = 0; i < numFrames; i++) {
-    if (energies[i] >= thresh) {
-      onsetFrame = i
-      break
-    }
-  }
-
-  // 150ms pre-onset acoustic buffer so plosives/breathing are preserved
-  const onsetSec = Math.max(0, (onsetFrame * hopLen) / rate - 0.15)
-  const maxStart = Math.max(0, (samples.length - WINDOW_SAMPLES) / rate)
-  return Math.min(onsetSec, maxStart)
-}
-
 /** Slice the 4.04 s analysis window starting at `start` seconds. */
 export function windowSlice(clip: Clip, start: number): Float32Array {
   const from = Math.max(0, Math.round(start * SAMPLE_RATE))

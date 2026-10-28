@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { SAMPLE_RATE, WINDOW_SECONDS, computeSpectrogram, decodeToClip, findSpeechOnset, paintSpectrogram, type Clip } from './audio'
+import { SAMPLE_RATE, WINDOW_SECONDS, computeSpectrogram, decodeToClip, paintSpectrogram, type Clip } from './audio'
 
 // Long enough for the 10-15 s of speech the speaker check needs to be reliable.
 export const RECORD_LIMIT = 30
@@ -48,8 +48,7 @@ export function useClip(onLevel: LevelSink) {
       await new Promise((r) => requestAnimationFrame(() => r(null)))
       setImage(paintSpectrogram(computeSpectrogram(c.samples)))
       setClip(c)
-      const onset = findSpeechOnset(c.samples)
-      setWindowStart(onset)
+      setWindowStart(0)
       setPhase('ready')
     } catch (e) {
       setError((e as Error).message)

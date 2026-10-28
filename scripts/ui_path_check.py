@@ -7,11 +7,11 @@ Check the running app the way the web page uses it, on clips with known answers.
 Three parts, all through the HTTP API, never the models directly:
 
 (a) "Check this voice": every demo/*/*/*.wav and frontend/public/samples/*.wav,
-    sent as the browser sends it. frontend/src/lib/audio.ts findSpeechOnset() picks
-    the 4.04 s window start, and only that 4.04 s slice is posted to /api/analyze.
+    sent as the browser sends it: the 4.04 s window starts at 0 s, and only that
+    slice is posted to /api/analyze.
     Files whose name starts with "fake" must come back SPOOF, the rest BONAFIDE.
 (b) "Run both checks": the demo speaker pairs, the clone interlock pairs and the
-    bundled sample pairs, posted to /api/verify with the same onset windowStart.
+    bundled sample pairs, posted to /api/verify with windowStart 0.
 (c) Stress table, informational: each file whole, first 4.04 s only, silence
     trimmed, 0.5 s of quiet in front, and starting 1 s into the speech.
 
@@ -38,21 +38,6 @@ import soundfile as sf
 ROOT = Path(__file__).resolve().parent.parent
 SR = 16_000
 WINDOW = 64_600  # what the model hears: ~4.04 s
-
-
-def find_speech_onset(s: np.ndarray) -> float:
-    """Port of findSpeechOnset() in frontend/src/lib/audio.ts, in seconds."""
-    if len(s) <= WINDOW:
-        return 0.0
-    frame, hop = round(0.025 * SR), round(0.010 * SR)
-    n = (len(s) - frame) // hop
-    if n <= 0:
-        return 0.0
-    energy = np.array([np.mean(s[i * hop : i * hop + frame] ** 2) for i in range(n)])
-    if energy.max() < 1e-5:
-        return 0.0
-    first = int(np.argmax(energy >= max(1e-5, energy.max() * 0.01)))
-    return min(max(0.0, first * hop / SR - 0.15), (len(s) - WINDOW) / SR)
 
 
 PHONE = False
@@ -158,21 +143,20 @@ def main() -> int:
     files = sorted((ROOT / "demo").glob("*/*/*.wav")) + sorted((ROOT / "frontend/public/samples").glob("*.wav"))
     wrong = 0
 
-    say("\n(a) Check this voice: onset-snapped 4.04 s window, as the browser sends it")
+    say("\n(a) Check this voice: 4.04 s window from 0 s, as the browser sends it")
     for f in files:
         x = read(f)
-        start = find_speech_onset(x)
-        r = post(f"{a.url}/api/analyze", wav(x[int(start * SR) : int(start * SR) + WINDOW]), "audio/wav")
+        r = post(f"{a.url}/api/analyze", wav(x[:WINDOW]), "audio/wav")
         expect = "SPOOF" if f.name.startswith("fake") else "BONAFIDE"
         ok = r.get("verdict") == expect
         wrong += not ok
         got = r.get("error") or f"{r.get('verdict')} p_spoof {r.get('probSpoof', 0):.3f}"
-        say(f"  {'ok   ' if ok else 'WRONG'} expect {expect:8s} got {got:28s} window {start:4.2f}s  {f.relative_to(ROOT).as_posix()}")
+        say(f"  {'ok   ' if ok else 'WRONG'} expect {expect:8s} got {got:28s} {f.relative_to(ROOT).as_posix()}")
 
-    say("\n(b) Run both checks: windowStart from the same onset rule")
+    say("\n(b) Run both checks: windowStart 0, as the browser sends it")
     for ref, tst, expect in pairs():
         test_audio = read(ROOT / tst)
-        body, ctype = form({"windowStart": find_speech_onset(test_audio)}, {"reference": wav(read(ROOT / ref)), "test": wav(test_audio)})
+        body, ctype = form({"windowStart": 0}, {"reference": wav(read(ROOT / ref)), "test": wav(test_audio)})
         r = post(f"{a.url}/api/verify", body, ctype)
         if "error" in r:
             got, extra = "ERROR", r["error"]
