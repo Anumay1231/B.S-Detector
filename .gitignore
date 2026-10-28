@@ -140,3 +140,6 @@ missfont.log
 paper/
 
 models/*.part
+
+# Consented real-world recordings (docs/recording-protocol.md): private, never commit
+data/real_recordings/
