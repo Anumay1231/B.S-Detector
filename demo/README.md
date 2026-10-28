@@ -14,22 +14,22 @@ held-out results in `docs/speaker-verification-hindi-english.md` and
 
 Put a clip in **Voice to check** alone and press *Check this voice*. Leave the
 window at the start of the clip (see the note at the end). Scores are from the
-IndicSynth-tuned Hindi head the app now loads.
+silence-invariant Hindi head the app loads by default, on the first 4.04 s.
 
 | File | What it is | Chance generated | Verdict |
 |---|---|---|---|
 | `hindi/real_person1.wav` | Real Hindi speaker (Common Voice) | 0.0% | real |
-| `hindi/fake_xtts_clone_of_person1.wav` | XTTS-v2 clone of **that same person**, new sentence | 100.0% | generated |
+| `hindi/fake_xtts_clone_of_person1.wav` | XTTS-v2 clone of **that same person**, new sentence | 81.3% | generated |
 | `hindi/real_person2.wav` | Real Hindi speaker (Common Voice) | 0.0% | real |
-| `hindi/fake_xtts_clone_of_person2.wav` | XTTS-v2 clone of that same person | 100.0% | generated |
-| `hindi/fake_edge_tts_madhur_1.wav` | Microsoft Edge neural TTS, hi-IN Madhur | 99.6% | generated |
-| `hindi/fake_edge_tts_swara_2.wav` | Microsoft Edge neural TTS, hi-IN Swara | 93.1% | generated |
-| `english/real_person1.wav` | Real Indian-English speaker (Common Voice) | 3.0% | real |
-| `english/fake_xtts_clone_of_person1.wav` | XTTS-v2 clone of that same person | 100.0% | generated |
-| `english/real_person2.wav` | Real Indian-English speaker (Common Voice) | 0.3% | real |
-| `english/fake_xtts_clone_of_person2.wav` | XTTS-v2 clone of that same person | 100.0% | generated |
+| `hindi/fake_xtts_clone_of_person2.wav` | XTTS-v2 clone of that same person | 96.3% | generated |
+| `hindi/fake_edge_tts_madhur_1.wav` | Microsoft Edge neural TTS, hi-IN Madhur | 98.8% | generated |
+| `hindi/fake_edge_tts_swara_2.wav` | Microsoft Edge neural TTS, hi-IN Swara | 98.2% | generated |
+| `english/real_person1.wav` | Real Indian-English speaker (Common Voice) | 1.4% | real |
+| `english/fake_xtts_clone_of_person1.wav` | XTTS-v2 clone of that same person | 71.7% | generated |
+| `english/real_person2.wav` | Real Indian-English speaker (Common Voice) | 0.1% | real |
+| `english/fake_xtts_clone_of_person2.wav` | XTTS-v2 clone of that same person | 91.2% | generated |
 | `english/fake_edge_tts_prabhat_1.wav` | Microsoft Edge neural TTS, en-IN Prabhat | 100.0% | generated |
-| `english/fake_edge_tts_prabhat_2.wav` | Microsoft Edge neural TTS, en-IN Prabhat | 99.9% | generated |
+| `english/fake_edge_tts_prabhat_2.wav` | Microsoft Edge neural TTS, en-IN Prabhat | 97.7% | generated |
 
 **The interlock, live:** put `real_personN.wav` in **Known voice** and its
 `fake_xtts_clone_of_personN.wav` in **Voice to check**. The deepfake check
@@ -42,16 +42,17 @@ our tests.
 
 Put the first file in **Known voice**, the second in **Voice to check**, and
 press *Run both checks*. "Old" is the VoxCeleb cut-off the app used before
-Phase 9.
+Phase 9, recorded with the original ECAPA. Since the app now loads the
+fine-tuned ECAPA, `build_demo.py --score` no longer reproduces that column.
 
 | Language | Known voice | Voice to check | Truth | New result (score vs cut-off) | Old result |
 |---|---|---|---|---|---|
-| Hindi | `person_A_take1` | `person_A_take2` | same | **Same speaker** (5.14 vs 2.82) | same |
-| Hindi | `person_A_take1` | `person_B` | different | **Different speaker** (1.38 vs 2.50) | same ✗ |
-| Hindi | `same_room_person_A` | `same_room_person_B` | different | **Different speaker** (1.16 vs 2.16)* | same ✗ |
-| English | `person_A_take1` | `person_A_take2` | same | **Same speaker** (4.62 vs 2.77) | same |
-| English | `person_A_take1` | `person_B` | different | **Different speaker** (1.87 vs 2.77) | same ✗ |
-| English | `same_room_person_A` | `same_room_person_B` | different | **Different speaker** (2.03 vs 2.70) | same ✗ |
+| Hindi | `person_A_take1` | `person_A_take2` | same | **Same speaker** (4.77 vs 2.82) | same |
+| Hindi | `person_A_take1` | `person_B` | different | **Different speaker** (0.33 vs 2.50) | same ✗ |
+| Hindi | `same_room_person_A` | `same_room_person_B` | different | **Different speaker** (0.57 vs 2.16)* | same ✗ |
+| English | `person_A_take1` | `person_A_take2` | same | **Same speaker** (4.21 vs 2.77) | same |
+| English | `person_A_take1` | `person_B` | different | **Different speaker** (0.59 vs 2.77) | same ✗ |
+| English | `same_room_person_A` | `same_room_person_B` | different | **Different speaker** (1.15 vs 2.70) | same ✗ |
 
 The `same_room_*` pairs are two different people put through the same simulated
 room and laptop microphone: the case where the old version called two friends
@@ -62,13 +63,12 @@ Each speaker file is 3-5 short questions by one person, joined (10-20 s).
 
 ## Things to know before presenting
 
-- **Keep the deepfake window at 0 s.** The detector expects a clip to start
-  where the recording starts. A window dragged to the middle of a sentence can
-  flag a real voice, and a fake with half a second of silence added in front can
-  pass. See `docs/deepfake-improvement-plan.md`; it is the top item there.
-- Edge-TTS voices were the old head's weak spot (10 of 16 caught at the 0.5 line; the
-  IndicSynth head catches more as-saved fakes overall, 33 of 36).
-  The two Hindi and two English ones here are among those it catches.
+- **Keep the deepfake window at 0 s.** The app puts it there. Moved into the
+  middle of a sentence, it can flag a real voice: started 1 s into the speech,
+  the detector flagged 7 of our 18 real files. See
+  `docs/deepfake-improvement-plan.md`.
+- Edge-TTS voices were the old head's weak spot (10 of 16 caught at the 0.5 line).
+  All four here are caught.
 - For your own live recordings, speak for 10-15 s per clip.
 
 ## Sources and licences

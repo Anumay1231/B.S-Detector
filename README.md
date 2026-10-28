@@ -113,7 +113,7 @@ scripts/              stage 1 benchmark pipeline and stage 2 command-line tools
 tests/                stage 2 unit tests (pytest)
 docs/                 deepfake dossier, experiment protocol, calibration and model notes
 outputs/              stage 1 benchmark results (JSON) and figures
-models/               local SLS head checkpoints (not in Git; see Limitations)
+models/               detector heads and the fine-tuned ECAPA (in Git; see Limitations)
 data/                 dataset placeholders; downloaded audio is never committed
 ```
 
@@ -150,9 +150,9 @@ npm run build                                  # rebuild frontend/dist before co
 
 ## Limitations
 
-- Both stages were evaluated on clean recordings. Phone-call audio (8 kHz, compressed codecs) has not been tested.
-- The app uses the silence-invariant Hindi head (`models/sls_head_silence_invariant.pth`), then the IndicSynth head and the plain 500-clip Hindi head; all are in the repo and the status tag says "Hindi head". If none is there, `run.py` tries the `hindi-head-n500` release, and otherwise the app falls back to the English checkpoint, which misses most Hindi fakes.
-- Stage 1 catches every fake in our tests, but it wrongly flags some real phone recordings (6 of 18 real demo and sample files in the browser's window), which then blocks the speaker check. Run `python scripts/ui_path_check.py` against a running server to see the current state. See [`docs/deepfake-improvement-plan.md`](docs/deepfake-improvement-plan.md).
+- Phone-call audio has only been tested on a simulated line (8 kHz, mu-law): `python scripts/ui_path_check.py --phone` gets 7 answers wrong. Three English fakes get past stage 1, and the speaker check says "not sure" on the same-room pairs. Real phone calls and compressed codecs are untested.
+- The app uses the silence-invariant Hindi head (`models/sls_head_silence_invariant.pth`), then the IndicSynth head, then the channel-robust head. All three are in the repo, and the status tag says "Hindi head". If none is there, `run.py` downloads the silence-invariant head from GitHub; without it the app falls back to the English checkpoint, which misses most Hindi fakes.
+- Stage 1 gets all 27 demo and sample files right in the browser's window, which starts at 0 s. Scored over the whole file, though, it flags 8 of the 18 real ones, all Google SVQ phone recordings, so it only judges the first 4.04 s for now. Run `python scripts/ui_path_check.py` against a running server to see the current state, and see [`docs/deepfake-improvement-plan.md`](docs/deepfake-improvement-plan.md).
 - Stage 2 needs about 8-15 s of speech in each clip to reach the accuracy above; shorter clips are marked less reliable. Hinglish (code-mixed) speech has not been tested separately.
 - Stage 2 needs the voice clearly above the background. The app trims silence before comparing and refuses clips whose speech sits within 6 dB of the noise: ECAPA-TDNN embeds a noise-dominated clip as the room rather than the person, and in tests on random LibriSpeech speakers buried in noise, most pairs of different people crossed the threshold.
 

@@ -1,7 +1,8 @@
 # Stage 1 (deepfake detection): measured gaps and improvement plan
 
-Status: **plan only.** Nothing below has been applied to the shipped detector
-(XLS-R 300M + Hindi-adapted SLS head, `models/sls_head_n500_seed2_best.pth`).
+Status: the app ships XLS-R 300M with the silence-invariant Hindi head
+(`models/sls_head_silence_invariant.pth`, described below). The numbered plan
+items have not been applied yet.
 
 ## What we measured (October 2026)
 
@@ -70,8 +71,9 @@ tone, for both classes, so silence carries no label information.
 
 `models/sls_head_silence_invariant.pth` (`hindi-robust`, `scripts/train_sls_robust.py`)
 was trained with random 0-0.8 s of silence or room tone in front and windows
-cut mid-utterance. The browser now snaps the window to the speech onset, and
-long clips are scored over 4.04 s windows with a 2 s stride. Measured with
+cut mid-utterance. When this was measured, the browser snapped the window to
+the speech onset; long clips are scored over 4.04 s windows with a 2 s stride.
+Measured with
 `scripts/ui_path_check.py` on the 22 demo clips plus the 5 bundled samples
 (18 real, 9 fake):
 
@@ -111,6 +113,24 @@ long clips are scored over 4.04 s windows with a 2 s stride. Measured with
   Voice) plus codec augmentation, split by speaker and voice, with a separate
   validation set (item 1 below). The target is `scripts/ui_path_check.py`
   reporting 0 wrong.
+
+**Update, 29 Oct: window back at 0 s.** Snapping to the speech onset was what
+caught the SVQ recordings: from 0 s the same head flags none of them. The
+browser now starts the window at 0 s for loaded and recorded clips, and
+`ui_path_check.py` sends what the browser sends. Results with the same head:
+
+| Check | Onset window (before) | 0 s window (now) |
+|---|---|---|
+| `ui_path_check.py`, normal audio | 10 wrong | 0 wrong |
+| `ui_path_check.py --phone` | 7 wrong | 7 wrong |
+
+The phone run on 29 Oct gave 7 wrong before the change, not the 12 above. All
+7 remain: three English fakes at p_spoof 0.47-0.50 get through, both
+same-room pairs come back "not sure", and so do the two English clone pairs
+(the speaker check still does not accept the clone). No real phone-line
+file is flagged. The stress table is unchanged, so the whole-file top-2
+score still flags 8/18 real files. Anything that scores every window, such
+as an interlock over the whole clip, has to wait for the retrained head.
 
 Also measured: ECAPA scores **19 of 20 XTTS clones as the real person** at the
 old VoxCeleb cut-off (cosine 0.30-0.67), so the speaker check alone cannot stop

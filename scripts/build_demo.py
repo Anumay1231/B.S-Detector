@@ -125,7 +125,7 @@ def score() -> dict:
     det = dc.Detector()
     for c in manifest["clips"]:
         audio = dc.read(DEMO / c["file"])
-        c["probSpoof"] = det(audio)["hindi"]  # the first 4.04 s, as the app hears it
+        c["probSpoof"] = det(audio[: dc.engine.INPUT_LENGTH])["hindi"]  # the first 4.04 s, as the browser sends it
     state = speaker.VerifierState()
     state.load()
     results = []

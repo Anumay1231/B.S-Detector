@@ -56,10 +56,11 @@ B.S-Detector/
 │   ├── fig2_fewshot_adaptation_curve.png
 │   ├── fig3_backbone_unfreezing_comparison.png
 │   └── fig4_generator_stratification.png
-├── models/                                           # Saved PyTorch SLS head weights
-│   ├── sls_head_n500_seed2_best.pth                  # 98.00% Acc checkpoint
-│   ├── sls_head_n50_seed2.pth                        # N=50 checkpoint
-│   └── sls_head_english_pretrained.pth               # Pretrained English checkpoint
+├── models/                                           # Weights the app loads (in Git)
+│   ├── sls_head_silence_invariant.pth                # hindi-robust, the app's default head
+│   ├── sls_head_n500_indicsynth_best.pth             # hindi-indicsynth, first fallback
+│   ├── sls_head_channel_robust.pth                   # hindi-channel-robust, last fallback
+│   └── ecapa_indian_adapted.pth                      # fine-tuned ECAPA for stage 2
 ├── outputs/
 │   ├── benchmark_splits_n500.json                    # Exact audio IDs
 │   ├── experiment_n500.log                           # Cloud execution log
@@ -99,6 +100,6 @@ python scripts/infer_local.py --audio sample.wav --device mps
 
   Fitted on Common Voice + Google SVQ. With 8 s+ of speech it is right on 96.9-100% of the held-out pairs it answers (Hindi and English, clean and same room). The old VoxCeleb cut-off accepted 42-70% of impostors. See `docs/speaker-verification-hindi-english.md`; the scripts are `scripts/sv_*.py`.
 - **Interlock** also runs stage 1 on the known voice, so a cloned reference can't vouch for a clone.
-- **Stage 1 leans on leading silence.** With 0.5 s of silence added in front, only 6% of fakes are flagged; real clips cut mid-word are flagged 35% of the time. It is not fixed yet: the plan is in `docs/deepfake-improvement-plan.md`. Re-checking the 98% benchmark after any fix needs SEA-Spoof access (gated on Hugging Face).
+- **Stage 1 used to lean on leading silence.** With 0.5 s of silence added in front, the earlier Hindi heads flagged only 6% of fakes, and real clips cut mid-word were flagged 35% of the time. The silence-invariant head fixed most of this; what is left is in `docs/deepfake-improvement-plan.md`. Re-checking the 98% benchmark after any fix needs SEA-Spoof access (gated on Hugging Face).
 - **Demo clips** for both stages are in `demo/` (see `demo/README.md`).
-- **The app now loads the IndicSynth head** (`models/sls_head_n500_indicsynth_best.pth`), falling back to the N=500 head and then the English checkpoint. On our clips it catches 33 of 36 fakes as saved (old head: 30), with no false alarms on 86 real clips; the silence shortcut is unchanged.
+- **The app loads the silence-invariant head** (`models/sls_head_silence_invariant.pth`), then the IndicSynth head, then the channel-robust head, and otherwise the English checkpoint (`HINDI_HEADS` in `server/app.py`). The N=500 seed 2, N=50 and English `.pth` files listed in earlier notes were deleted from `models/`. With the browser's window at 0 s, `scripts/ui_path_check.py` reports 0 wrong on normal audio and 7 wrong on a simulated phone line.
