@@ -264,6 +264,9 @@ if DIST_DIR.exists():
     @app.get("/{path:path}", include_in_schema=False)
     def spa(path: str) -> FileResponse:
         candidate = (DIST_DIR / path).resolve()
-        if path and candidate.is_file() and DIST_DIR in candidate.parents:
-            return FileResponse(candidate)
-        return FileResponse(DIST_DIR / "index.html")
+        if not (path and candidate.is_file() and DIST_DIR in candidate.parents):
+            candidate = DIST_DIR / "index.html"
+        if candidate.name == "index.html":
+            # revalidate every time, so a rebuilt UI shows up without a hard refresh
+            return FileResponse(candidate, headers={"Cache-Control": "no-cache"})
+        return FileResponse(candidate)
