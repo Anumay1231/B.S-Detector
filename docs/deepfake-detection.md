@@ -149,7 +149,10 @@ Trained SLS classifier head checkpoints are located in `models/`:
 
 | Checkpoint File | Configuration | Test Accuracy | Test EER | Size |
 | :--- | :--- | :---: | :---: | :---: |
-| `models/sls_head_n500_seed2_best.pth` | $N=500$, Seed 2 (State-of-the-art) | **98.00%** | **2.12%** | 89.2 MB |
+| `models/sls_head_channel_robust.pth` | Acoustic Channel Invariant (Phone Replay + Commercial TTS) | **94.52% (90.27% Replay, 98.48% Clean)** | **5.36%** | 89.2 MB |
+| `models/sls_head_silence_invariant.pth` | Silence Invariant (Active Speech Trimming + Random Beds) | **98.20%** | **1.85%** | 89.2 MB |
+| `models/sls_head_n500_indicsynth_best.pth` | IndicSynth Voice Conversion + FLEURS Balanced | **98.75%** | **1.17%** | 89.2 MB |
+| `models/sls_head_n500_seed2_best.pth` | $N=500$, Seed 2 (Few-shot base) | **98.00%** | **2.12%** | 89.2 MB |
 | `models/sls_head_n50_seed2.pth` | $N=50$, Seed 2 (Intermediate) | **79.50%** | **18.75%** | 89.2 MB |
 | `models/sls_head_english_pretrained.pth` | Zero-shot base (English pretrained) | **61.75%** | **32.25%** | 89.2 MB |
 

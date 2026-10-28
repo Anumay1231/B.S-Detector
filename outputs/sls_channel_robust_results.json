@@ -1,0 +1,43 @@
+{
+  "timestamp": "2026-10-28T16:07:44",
+  "epochs": 15,
+  "baseline": {
+    "val_loss": 1.4145,
+    "overall": {
+      "eer": 26.51,
+      "accuracy": 72.32,
+      "threshold": 4.7942
+    },
+    "clean_accuracy": 96.97,
+    "replay_accuracy": 45.95,
+    "generator_accuracy": {
+      "bonafide_human": 100.0,
+      "edge_madhur": 50.0,
+      "xtts_v2": 43.4,
+      "freevc24": 51.82,
+      "edge_swara": 46.67,
+      "edge_prabhat": 56.67,
+      "edge_neerja": 60.0
+    }
+  },
+  "final": {
+    "val_loss": 0.1527,
+    "overall": {
+      "eer": 5.36,
+      "accuracy": 94.52,
+      "threshold": 0.2569
+    },
+    "clean_accuracy": 98.48,
+    "replay_accuracy": 90.27,
+    "generator_accuracy": {
+      "bonafide_human": 95.71,
+      "edge_madhur": 100.0,
+      "xtts_v2": 89.31,
+      "freevc24": 96.35,
+      "edge_swara": 93.33,
+      "edge_prabhat": 96.67,
+      "edge_neerja": 93.33
+    }
+  },
+  "checkpoint": "models/sls_head_channel_robust.pth"
+}
