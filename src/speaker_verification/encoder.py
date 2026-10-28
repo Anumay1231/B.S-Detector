@@ -261,6 +261,8 @@ class SpeakerEncoder:
 
         # Check for Indian-adapted ECAPA weights (models/ecapa_indian_adapted.pth)
         self.is_adapted = False
+        #: why the adapted weights were not used, if they exist but failed to load
+        self.adapted_load_error: Optional[str] = None
         target_weights = adapted_weights
         if target_weights is None:
             default_weights = Path(__file__).resolve().parent.parent.parent / "models" / "ecapa_indian_adapted.pth"
@@ -271,11 +273,13 @@ class SpeakerEncoder:
             weights_path = Path(target_weights)
             if weights_path.exists():
                 try:
-                    state_dict = torch.load(weights_path, map_location=self.device_info.device)
+                    # tensors only: a .pth can otherwise run code when it is unpickled
+                    state_dict = torch.load(weights_path, map_location=self.device_info.device, weights_only=True)
                     self._model.mods.embedding_model.load_state_dict(state_dict)
                     self.is_adapted = True
                     logger.info("Loaded Indian-adapted ECAPA weights from %s", weights_path)
                 except Exception as exc:
+                    self.adapted_load_error = f"{weights_path.name}: {type(exc).__name__}: {exc}"
                     logger.warning("Could not load adapted weights from %s: %s", weights_path, exc)
 
         # Explicitly ensure eval mode (no dropout/batchnorm updates) even

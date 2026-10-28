@@ -118,6 +118,11 @@ class VerifierState:
             # the threshold at 8 s of speech; each check reports the one it used
             "threshold": threshold_for(RELIABLE_SPEECH_SECONDS, self.system),
             "isCalibrated": FIXED_THRESHOLD is None,
+            # FUSION_NORM and DECISION were fitted on the original ECAPA; with the
+            # adapted weights loaded they have not been refitted yet
+            "isAdapted": bool(getattr(self.encoder, "is_adapted", False)),
+            "adaptedLoadError": getattr(self.encoder, "adapted_load_error", None),
+            "calibratedOn": "speechbrain/spkrec-ecapa-voxceleb",
         }
 
 
