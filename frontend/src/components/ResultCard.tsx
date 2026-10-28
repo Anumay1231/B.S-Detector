@@ -56,7 +56,9 @@ export function ResultCard({ run }: { run: Run }) {
         <Stroke value={p} tick={0.5} label={`${(p * 100).toFixed(1)}% chance generated, flag line at 50%`} />
         <p className="rc-caveat">
           {hindi
-            ? a.head === 'hindi-indicsynth'
+            ? a.head === 'hindi-robust'
+              ? `This is the Hindi head retrained so a pause before the speech no longer sways it. In our tests it caught every fake, but it can wrongly flag real phone recordings.`
+              : a.head === 'hindi-indicsynth'
               ? `This is the Hindi head trained on 500 clips per class, then fine-tuned on IndicSynth voice clones. On the team's IndicSynth test it scored 98.75%, catching 98% of XTTS-v2 clones.`
               : `This is the Hindi head trained on 500 clips per class. On the benchmark it caught ${ref.fakesCaught} of 200 fakes and passed ${ref.genuinePassed} of 200 real voices.`
             : flagged

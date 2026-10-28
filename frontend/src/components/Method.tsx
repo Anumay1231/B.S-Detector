@@ -80,7 +80,7 @@ const LIMITS = [
   'Phone-call audio (8 kHz, compressed) has not been tested for either stage.',
   'Five generators made the benchmark fakes. A new one can fool it in ways these numbers do not show.',
   'The deepfake check hears 4.04 seconds and expects them to start where the recording starts. A window that begins mid-speech can flag a real voice.',
-  'The app uses the Hindi head fine-tuned on IndicSynth clones (models/sls_head_n500_indicsynth_best.pth), then the plain 500-clip Hindi head. Without either, it falls back to the English checkpoint, which misses most Hindi fakes.',
+  'The app uses the Hindi head retrained to ignore silence (models/sls_head_silence_invariant.pth), then the IndicSynth and plain 500-clip Hindi heads. Without any of them, it falls back to the English checkpoint, which misses most Hindi fakes.',
   'The speaker check needs about 8 to 15 seconds of each voice to be reliable. Hinglish (code-mixed) speech has not been tested separately.',
   'A verdict is evidence, not proof.',
 ]
