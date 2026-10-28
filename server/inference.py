@@ -344,7 +344,10 @@ def run_forensic_detection(
     device: str,
     full_clip: bool = True,
     stride_sec: float = 2.0,
-    aggregation: str = "max",
+    # top-2 mean rather than max: on the demo set and bundled samples it flags 8 of 18
+    # real files instead of 10, and still catches all 9 fakes and all 4 real-then-clone
+    # splices (scripts/ui_path_check.py). Requiring 2 flagged windows missed a splice.
+    aggregation: str = "top2",
     align_onset: bool = True,
 ) -> ForensicInferenceResult:
     """
