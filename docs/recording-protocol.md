@@ -48,7 +48,7 @@ consent signed (yes/no)`. Never put names in the file names.
 
 ## What to measure
 
-Score the folder with the app's own code (a scoring script still needs writing):
+Score the folder with the app's own code: `python scripts/score_recordings.py --people data/real_recordings/people.csv`.
 
 - **Speaker check:** every same-person pair (take a vs b, across setups) and
   every different-person pair of the same gender, grouped by language, setup,
