@@ -47,7 +47,7 @@ mid-word is flagged. Two consequences in the app today:
   real voice), and
 - the interlock checks only the first window of each clip, not every window.
 
-**IndicSynth head (now the app's default).** The team's head fine-tuned on
+**IndicSynth head (the default until 28 Oct).** The team's head fine-tuned on
 IndicSynth clones (`models/sls_head_n500_indicsynth_best.pth`) was run through
 the same edits (`outputs/indicsynth_check.json`), % flagged at p_spoof >= 0.5:
 
@@ -58,13 +58,53 @@ the same edits (`outputs/indicsynth_check.json`), % flagged at p_spoof >= 0.5:
 | Fakes, 0.5 s quiet in front | 5.6% | 16.7% |
 | Real, window starting 1 s in | 68.6% | 76.7% |
 
-It catches more fakes as saved, with no new false alarms, so the app now loads
-it. The silence shortcut is unchanged. Its training zero-pads short clips while
+It catches more fakes as saved, with no new false alarms, so the app loaded it
+next. The silence shortcut is unchanged. Its training zero-pads short clips while
 the app tile-pads them, and neither randomises leading silence.
 
 The fix is item 1 below, with leading-silence randomisation as part of it:
 trim every training clip and re-pad it with a random 0-1 s of silence or room
 tone, for both classes, so silence carries no label information.
+
+### Silence-invariant head (the app's default since 28 Oct)
+
+`models/sls_head_silence_invariant.pth` (`hindi-robust`, `scripts/train_sls_robust.py`)
+was trained with random 0-0.8 s of silence or room tone in front and windows
+cut mid-utterance. The browser now snaps the window to the speech onset, and
+long clips are scored over 4.04 s windows with a 2 s stride. Measured with
+`scripts/ui_path_check.py` on the 22 demo clips plus the 5 bundled samples
+(18 real, 9 fake):
+
+| Condition | Real flagged | Fakes caught |
+|---|---|---|
+| Browser window (snapped to speech onset) | 6/18 | 9/9 |
+| First 4.04 s from 0 s | 0/18 | 9/9 |
+| Silence trimmed | 7/18 | 9/9 |
+| 0.5 s quiet in front | 7/18 | 9/9 |
+| Starts 1 s into speech | 7/18 | 8/9 |
+| Whole file, worst window | 10/18 | 9/9 |
+| Whole file, mean of the 2 worst windows (now the default) | 8/18 | 9/9 |
+
+- **Silence shortcut:** largely gone. Adding or removing silence now barely
+  changes the answer, and fakes are caught in every condition.
+- **New problem:** every false alarm is a real Google SVQ phone recording, and
+  on those most windows score high, not just one. Clean Common Voice and FLEURS
+  clips pass. The head's only real training speech was FLEURS Hindi. Because
+  the voice to check is flagged, 4 of the 6 demo speaker pairs are blocked by
+  the interlock in the browser.
+- **Aggregation:** the mean of the 2 worst windows replaced the worst window
+  (10 to 8 of 18 real files flagged, all 9 fakes and 4/4 real-then-clone
+  splices still caught). Requiring 2 flagged windows missed a splice; the
+  median or mean missed two. No rule fixes the phone recordings.
+- **Reported numbers:** the 98.86% accuracy and 100% per Edge voice in
+  `outputs/sls_robust_results.json` come from a split that shares speakers and
+  Edge voices between train and test, with the checkpoint chosen on the test
+  set, so they are not held-out results. The 99.0% on SEA-Spoof is not in any
+  results file in the repo.
+- **Next:** retrain with real phone-style and English speech (SVQ, Common
+  Voice) plus codec augmentation, split by speaker and voice, with a separate
+  validation set (item 1 below). The target is `scripts/ui_path_check.py`
+  reporting 0 wrong.
 
 Also measured: ECAPA scores **19 of 20 XTTS clones as the real person** at the
 old VoxCeleb cut-off (cosine 0.30-0.67), so the speaker check alone cannot stop
