@@ -16,6 +16,9 @@ Three parts, all through the HTTP API, never the models directly:
     trimmed, 0.5 s of quiet in front, and starting 1 s into the speech.
 
 Exits non-zero if anything in (a) or (b) is wrong.
+
+--phone runs every clip through a phone line first (8 kHz, 300-3400 Hz band,
+8-bit mu-law as in G.711), to see how both stages hold up on call audio.
 """
 
 from __future__ import annotations
@@ -52,12 +55,29 @@ def find_speech_onset(s: np.ndarray) -> float:
     return min(max(0.0, first * hop / SR - 0.15), (len(s) - WINDOW) / SR)
 
 
+PHONE = False
+
+
+def phone_line(a: np.ndarray) -> np.ndarray:
+    """16 kHz -> 8 kHz telephone band, 8-bit mu-law, -> 16 kHz."""
+    from scipy.signal import butter, resample_poly, sosfilt
+
+    x = resample_poly(a, 1, 2)
+    x = sosfilt(butter(4, [300, 3400], btype="band", fs=8000, output="sos"), x)
+    x = x / (np.abs(x).max() + 1e-9) * 0.9
+    mu = 255.0
+    y = np.sign(x) * np.log1p(mu * np.abs(x)) / np.log1p(mu)
+    y = np.round((y + 1) / 2 * mu) / mu * 2 - 1  # 8-bit codes
+    x = np.sign(y) * ((1 + mu) ** np.abs(y) - 1) / mu
+    return resample_poly(x, 2, 1).astype(np.float32)
+
+
 def read(path: Path) -> np.ndarray:
     a, rate = sf.read(path, dtype="float32", always_2d=True)
     a = a.mean(axis=1)
     if rate != SR:
         raise SystemExit(f"{path} is {rate} Hz; the checks expect 16 kHz files")
-    return a
+    return phone_line(a) if PHONE else a
 
 
 def wav(a: np.ndarray) -> bytes:
@@ -119,7 +139,10 @@ def main() -> int:
     ap.add_argument("--url", default="http://127.0.0.1:8000")
     ap.add_argument("--out", type=Path, help="also write the report to this file")
     ap.add_argument("--no-stress", action="store_true", help="skip part (c)")
+    ap.add_argument("--phone", action="store_true", help="put every clip through a phone line first")
     a = ap.parse_args()
+    global PHONE
+    PHONE = a.phone
     lines: list[str] = []
     say = lambda s="": (print(s, flush=True), lines.append(s))  # noqa: E731
 
@@ -130,7 +153,7 @@ def main() -> int:
     v = status.get("verifier") or {}
     if status.get("state") != "ready" or v.get("state") != "ready":
         raise SystemExit("The server is up but the models are still loading. Try again in a minute.")
-    say(f"server: head={status.get('head')}  verifier={v.get('model')} ({v.get('system')})")
+    say(f"server: head={status.get('head')}  verifier={v.get('model')} ({v.get('system')})" + ("  [phone line: 8 kHz, mu-law]" if a.phone else ""))
 
     files = sorted((ROOT / "demo").glob("*/*/*.wav")) + sorted((ROOT / "frontend/public/samples").glob("*.wav"))
     wrong = 0

@@ -101,6 +101,12 @@ long clips are scored over 4.04 s windows with a 2 s stride. Measured with
   Edge voices between train and test, with the checkpoint chosen on the test
   set, so they are not held-out results. The 99.0% on SEA-Spoof is not in any
   results file in the repo.
+- **Phone line** (`scripts/ui_path_check.py --phone`: 8 kHz, 300-3400 Hz,
+  8-bit mu-law): fakes caught in the browser window drop from 9/9 to 6/9 (three
+  English fakes at p_spoof 0.47-0.50), real false alarms drop from 6/18 to 3/18,
+  and the speaker check returns "not sure" on both same-room pairs and on the
+  English clone pairs that now get past stage 1 (it does not accept the clone).
+  12 wrong in total, against 10 on normal audio.
 - **Next:** retrain with real phone-style and English speech (SVQ, Common
   Voice) plus codec augmentation, split by speaker and voice, with a separate
   validation set (item 1 below). The target is `scripts/ui_path_check.py`
