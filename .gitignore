@@ -126,7 +126,6 @@ frontend/node_modules/
 
 # Research (base branch): local checkpoints, LaTeX build files, paper drafts
 models/*.pth
-!models/sls_head_channel_robust.pth
 !models/sls_head_silence_invariant.pth
 !models/sls_head_n500_indicsynth_best.pth
 !models/sls_head_phase12.pth
