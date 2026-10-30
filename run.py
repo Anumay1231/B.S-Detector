@@ -36,8 +36,8 @@ DIST = FRONTEND / "dist"
 
 # The default Hindi head (first in server/app.py HINDI_HEADS) is committed to the repo;
 # this URL fetches it again if models/ lost it.
-HEAD_FILE = ROOT / "models" / "sls_head_silence_invariant.pth"
-HEAD_URL = "https://raw.githubusercontent.com/Anumay1231/B.S-Detector/main/models/sls_head_silence_invariant.pth"
+HEAD_FILE = ROOT / "models" / "sls_head_phase12.pth"
+HEAD_URL = "https://raw.githubusercontent.com/Anumay1231/B.S-Detector/main/models/sls_head_phase12.pth"
 
 
 def say(msg: str) -> None:
@@ -81,6 +81,7 @@ def ensure_hindi_head() -> None:
     models_dir = ROOT / "models"
     if (
         os.environ.get("BSD_HEAD")
+        or (models_dir / "sls_head_silence_invariant.pth").exists()
         or (models_dir / "sls_head_channel_robust.pth").exists()
         or (models_dir / "sls_head_n500_indicsynth_best.pth").exists()
         or HEAD_FILE.exists()
@@ -101,7 +102,7 @@ def ensure_hindi_head() -> None:
     except Exception as exc:
         part.unlink(missing_ok=True)
         say(f"Couldn't get the Hindi head ({exc}). Using the English checkpoint, which misses most Hindi fakes.")
-        say(f"To add it by hand, put sls_head_silence_invariant.pth in {HEAD_FILE.parent}.")
+        say(f"To add it by hand, put sls_head_phase12.pth in {HEAD_FILE.parent}.")
 
 
 def port_free(port: int) -> bool:

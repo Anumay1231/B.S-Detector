@@ -47,10 +47,14 @@ CHECKPOINT = os.environ.get("BSD_CHECKPOINT", "v1")
 DEVICE = os.environ.get("BSD_DEVICE") or None
 # Hindi-adapted SLS heads from the team's runs (same layer layout as the English
 # checkpoint), best first. The first one present is used; BSD_HEAD forces one.
-# The silence-invariant head leads: on scripts/ui_path_check.py the channel-robust
-# head got 17 answers wrong to its 10 (19 to 12 on phone-line audio) and flagged
-# the clean built-in samples as generated. Keep it last until that is fixed.
+# The phase 12 head leads: 0.7 x the silence-invariant head + 0.3 x a head retrained on
+# Indian phone, studio and accented speech with phone/codec/room augmentation
+# (scripts/train_phase12.py, scripts/mix_heads.py). On scripts/ui_path_check.py it gets
+# 0 wrong (the silence-invariant head: 0) and 4 on phone-line audio (7); on held-out
+# people and voices, 76.3% balanced accuracy (73.4%). The channel-robust head got 17
+# answers wrong and flagged the clean built-in samples, so it stays last.
 HINDI_HEADS = {
+    "hindi-phase12": REPO_ROOT / "models" / "sls_head_phase12.pth",
     "hindi-robust": REPO_ROOT / "models" / "sls_head_silence_invariant.pth",
     "hindi-indicsynth": REPO_ROOT / "models" / "sls_head_n500_indicsynth_best.pth",
     "hindi-channel-robust": REPO_ROOT / "models" / "sls_head_channel_robust.pth",
