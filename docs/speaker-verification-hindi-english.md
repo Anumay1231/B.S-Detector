@@ -120,3 +120,48 @@ Speaker verification cannot stop a clone by itself. The interlock now runs the
 deepfake check on the known voice as well as the voice to check, so a cloned
 reference cannot vouch for a clone. See `docs/deepfake-improvement-plan.md` for
 stage 1's own limits.
+
+## 7. The Indian-adapted ECAPA, tested fairly (30 Oct)
+
+`models/ecapa_indian_adapted.pth` was fine-tuned on SVQ fold 0 (`fold_of() == 0`
+in `scripts/sv_fusion.py`) and Common Voice Hindi part 0. Until 30 Oct the app
+loaded it automatically, with `FUSION_NORM` / `DECISION` still fitted on the
+original ECAPA: a pairing nobody had measured.
+
+**Clean and room audio.** `python scripts/sv_fusion.py --fair --ecapa <model>` fits
+the fused constants on Common Voice (train halves) + SVQ fold 0 for each ECAPA,
+then reports only on SVQ fold 1 and Common Voice Hindi part 1. Embeddings come
+from one pass that feeds identical audio to all three models
+(`sv_duration.py embed --model ecapa --also ecapa_adapted wespeaker_r34`).
+Accuracy on the pairs the fused check answers, adapted minus original:
+
+| Set | Cells better or equal | Cells worse | Range |
+|---|---|---|---|
+| SVQ Hindi | 7 of 7 | 0 | +0.0 to +1.9 points |
+| Common Voice Hindi part 1 | 7 of 8 | 1 | -0.03 to +0.4 |
+| SVQ Indian English | 4 of 9 | 5 | -1.05 to +0.2 |
+
+The ship rule was "keep it only if no cell gets worse", so the app now loads
+the **original ECAPA** again, matching its constants (`server/speaker.py`;
+`BSD_ECAPA_WEIGHTS` points at other weights). The adapted file stays in
+`models/` for a comparison on real recordings (`scripts/score_recordings.py`).
+
+**Telephone line.** `scripts/sv_phone_fair.py` repeats the fair test after the
+phone line of `scripts/ui_path_check.py --phone` (8 kHz band, 8-bit mu-law),
+alone and after a simulated room. **The check is not reliable on phone audio
+with either model.** Share of different-person pairs accepted as the same
+person, 8 s+ of speech:
+
+| Set | Condition | Original | Adapted |
+|---|---|---|---|
+| SVQ Hindi | phone | 16.8% | 8.6% |
+| SVQ Hindi | room + phone | 52.0% | 63.6% |
+| SVQ English | phone | 21.0% | 19.8% |
+| SVQ English | room + phone | 27.9% | 36.1% |
+| Common Voice Hindi | phone | 3.5% | 2.6% |
+| Common Voice Hindi | room + phone | 13.5% | 15.7% |
+
+With 3-8 s of speech it is 30-58% on SVQ. The constants were fitted on
+full-band audio, and the phone band leaves less to tell voices apart, so
+different people score higher. Neither model fixes this. The fix is to treat
+phone-band audio separately, which comes next.

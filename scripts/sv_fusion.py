@@ -41,6 +41,8 @@ TARGET_ERROR = 0.02
 #: cross-validation, answering 81-100% of pairs.
 MARGIN_FLOOR = {"fused": 0.40, "ecapa": 0.40 * 0.1298}
 OUT_JSON = sb.OUT / "fusion_fit.json"
+#: which embeddings stand in for "ecapa": "ecapa" (original) or "ecapa_adapted" (--ecapa)
+ECAPA_MODEL = "ecapa"
 
 
 def trial_index(d: dict, rng, max_each: int = 20000):
@@ -71,7 +73,7 @@ def fold_of(spk: np.ndarray) -> np.ndarray:
 
 def load_set(name: str, fold: int | None = None) -> dict:
     """Trials of one set; with `fold`, only trials whose two clips are both in that SVQ fold."""
-    ds = {m: sd.load(m, name) for m in MODELS}
+    ds = {m: sd.load(ECAPA_MODEL if m == "ecapa" else m, name) for m in MODELS}
     if fold is not None:
         keep = fold_of(ds[MODELS[0]]["speaker"]) == fold
         ds = {m: {k: v[keep] for k, v in d.items()} for m, d in ds.items()}
@@ -204,5 +206,33 @@ def main_cv_only() -> None:
     print("\nwrote", OUT_JSON)
 
 
+def main_fair() -> None:
+    """Original vs adapted ECAPA on data the adapted model never trained on.
+
+    models/ecapa_indian_adapted.pth was fine-tuned on SVQ fold 0 (fold_of() == 0) and on
+    Common Voice Hindi part 0, so constants are fitted on Common Voice (train halves) +
+    SVQ fold 0, and reported only on SVQ fold 1 and Common Voice Hindi part 1."""
+    k = fit_constants(merge([load_set(n) for n in sd.FIT_SETS] + [load_set(n, 0) for n in sd.TEST_SETS]))
+    res = {"ecapaModel": ECAPA_MODEL, "constants": k}
+    for system in ("ecapa", "fused"):
+        for n in sd.TEST_SETS:
+            s = load_set(n, 1)
+            res[f"{system}/{n}"] = evaluate(s, *score_with(k, system, s), f"{ECAPA_MODEL} {system}: {n} fold 1")
+        s = load_set("cv_hi_test")
+        res[f"{system}/cv_hi_test"] = evaluate(s, *score_with(k, system, s), f"{ECAPA_MODEL} {system}: cv_hi_test (part 1)")
+    out = sb.OUT / f"fusion_fair_{ECAPA_MODEL}.json"
+    out.write_text(json.dumps(res, indent=1))
+    print("wrote", out)
+
+
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--ecapa", default="ecapa", choices=["ecapa", "ecapa_adapted"], help="which ECAPA embeddings to use")
+    ap.add_argument("--fair", action="store_true", help="fit on CV + SVQ fold 0, report on SVQ fold 1 + CV-hi part 1")
+    a = ap.parse_args()
+    ECAPA_MODEL = a.ecapa
+    if a.ecapa != "ecapa":
+        OUT_JSON = sb.OUT / f"fusion_fit_{a.ecapa}.json"
+    main_fair() if a.fair else main()

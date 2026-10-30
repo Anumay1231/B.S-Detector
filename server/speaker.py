@@ -89,7 +89,12 @@ class VerifierState:
             from speaker_verification.encoder import SpeakerEncoder
 
             t0 = time.perf_counter()
-            self.encoder = SpeakerEncoder(device=os.environ.get("BSD_DEVICE") or None)
+            # The original VoxCeleb ECAPA, which FUSION_NORM / DECISION were fitted on. The
+            # Indian-adapted weights (models/ecapa_indian_adapted.pth) were not kept: on held-out
+            # speakers they were better on Hindi but worse on Indian English in 5 of 9 cells
+            # (docs/speaker-verification-hindi-english.md). BSD_ECAPA_WEIGHTS loads other weights.
+            self.encoder = SpeakerEncoder(device=os.environ.get("BSD_DEVICE") or None,
+                                          adapted_weights=os.environ.get("BSD_ECAPA_WEIGHTS") or False)
             try:
                 from speaker_verification.wespeaker import WeSpeakerEncoder
 
@@ -121,8 +126,8 @@ class VerifierState:
             # the threshold at 8 s of speech; each check reports the one it used
             "threshold": threshold_for(RELIABLE_SPEECH_SECONDS, self.system),
             "isCalibrated": FIXED_THRESHOLD is None,
-            # FUSION_NORM and DECISION were fitted on the original ECAPA; with the
-            # adapted weights loaded they have not been refitted yet
+            # FUSION_NORM and DECISION were fitted on the original ECAPA; true only when
+            # BSD_ECAPA_WEIGHTS loads other weights, which those constants do not match
             "isAdapted": bool(getattr(self.encoder, "is_adapted", False)),
             "adaptedLoadError": getattr(self.encoder, "adapted_load_error", None),
             "calibratedOn": "speechbrain/spkrec-ecapa-voxceleb",

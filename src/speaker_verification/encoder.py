@@ -208,7 +208,7 @@ class SpeakerEncoder:
         model_source: str = DEFAULT_MODEL_SOURCE,
         device: Optional[str] = None,
         savedir: Optional[str] = None,
-        adapted_weights: Optional[str | Path] = None,
+        adapted_weights: Optional[str | Path | bool] = None,
     ) -> None:
         """Load the pretrained model. This performs (or reuses a cached)
         model download and should be done once, not per-file.
@@ -227,7 +227,8 @@ class SpeakerEncoder:
                 project-local directory. See docs/model.md.
             adapted_weights: Optional path to Indian-adapted weights (.pth).
                 If None and models/ecapa_indian_adapted.pth exists, it will
-                be loaded automatically.
+                be loaded automatically. False keeps the original
+                VoxCeleb weights (used to compare the two).
 
         Raises:
             DeviceError: If ``device`` explicitly requests CUDA but none
@@ -263,8 +264,8 @@ class SpeakerEncoder:
         self.is_adapted = False
         #: why the adapted weights were not used, if they exist but failed to load
         self.adapted_load_error: Optional[str] = None
-        target_weights = adapted_weights
-        if target_weights is None:
+        target_weights = None if adapted_weights is False else adapted_weights
+        if adapted_weights is None:
             default_weights = Path(__file__).resolve().parent.parent.parent / "models" / "ecapa_indian_adapted.pth"
             if default_weights.exists():
                 target_weights = default_weights
