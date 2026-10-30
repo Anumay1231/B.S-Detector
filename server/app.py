@@ -9,7 +9,7 @@ stages of the project:
 
   GET  /api/status   loading state of both models
   POST /api/analyze  body = WAV bytes (the browser sends 16 kHz mono) -> stage 1 verdict
-  POST /api/verify   form: reference (1-3 WAVs of the known voice), test (WAV)
+  POST /api/verify   form: reference (1-3 WAVs of the known voice), test (WAV), windowStart (s)
                      -> stage 1 on the test clip and each known clip, then stage 2 only if
                      all sound genuine (the interlock)
 
@@ -26,7 +26,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -212,6 +212,7 @@ def detection_json(result: engine.ForensicInferenceResult) -> Dict[str, Any]:
 async def verify(
     reference: List[UploadFile] = File(...),
     test: UploadFile = File(...),
+    windowStart: float = Form(0.0),
 ) -> JSONResponse:
     if model.state != "ready":
         raise HTTPException(status_code=503, detail=model.message)
@@ -230,9 +231,13 @@ async def verify(
     def run() -> Dict[str, Any]:
         refs = [speaker.read_wav(b) for b in ref_bytes]
         tst = speaker.read_wav(test_bytes)
-        # Scan the complete test recording and every known-voice recording.
-        detection = detect(speaker.wav_bytes(tst))
-        reference_checks = [detect(speaker.wav_bytes(r)) for r in refs]
+        # Stage 1 hears the same 4.04 s window the person chose on the test clip.
+        start = max(0, int(windowStart * speaker.SAMPLE_RATE))
+        window = tst[start : start + engine.INPUT_LENGTH]
+        detection = detect(speaker.wav_bytes(window if len(window) else tst), full_clip=False)
+        # The known voice is checked too: a cloned "known voice" would otherwise
+        # vouch for a clone. With several clips, each one is checked.
+        reference_checks = [detect(speaker.wav_bytes(r[: engine.INPUT_LENGTH]), full_clip=False) for r in refs]
         reference_check = max(reference_checks, key=lambda d: d.prob_spoof)
         reason = None
         if detection.verdict == "SPOOF":

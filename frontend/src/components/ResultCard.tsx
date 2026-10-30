@@ -1,11 +1,11 @@
-import { formatSeconds } from '../lib/audio'
+import { WINDOW_SECONDS, formatSeconds } from '../lib/audio'
 import type { Run } from '../lib/runs'
 import { speakerMeter } from '../lib/api'
 import { regimes, speakerPhase9 } from '../data/research'
 import './ResultCard.css'
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
-const pct = (w?: { probSpoof: number } | null) => `${((w?.probSpoof ?? 0) * 100).toFixed(0)}% model score`
+const pct = (w?: { probSpoof: number } | null) => `${((w?.probSpoof ?? 0) * 100).toFixed(0)}% generated`
 
 /** Stage 1 headline, worded so a pass on Hindi never reads as a guarantee. */
 function stage1Words(p: number): [string, string] {
@@ -33,8 +33,7 @@ export function ResultCard({ run }: { run: Run }) {
   const [lead, em] = stage1Words(p)
   const hindi = !!a.head?.startsWith('hindi')
   const ref = hindi ? regimes[3] : regimes[0]
-  const peak = a.peakSpoofWindow
-  const suspicious = !!peak && peak.prob_spoof >= 0.5
+  const end = Math.min(run.clipDuration, run.windowStart + WINDOW_SECONDS)
 
   const verify = run.mode === 'verify' ? run : null
   const v = verify?.verification ?? null
@@ -44,28 +43,17 @@ export function ResultCard({ run }: { run: Run }) {
   return (
     <article className={`result${blocked ? ' is-flagged' : ''}`} aria-live="polite" aria-labelledby="rc-s1">
       <span className={`rc-stamp ${blocked ? 'is-bs' : 'is-legit'}`} aria-hidden="true">
-        {blocked ? 'B.S.' : suspicious ? 'Review' : 'Legit'}
+        {blocked ? 'B.S.' : 'Legit'}
       </span>
       <section className="rc-stage">
         <h3 className="rc-word serif" id="rc-s1">
-          {suspicious && !flagged ? 'Needs' : lead} <em>{suspicious && !flagged ? 'review' : em}</em>
+          {lead} <em>{em}</em>
         </h3>
         <p className="rc-line">
-          The full recording has a deepfake model score of <strong className="num">{(p * 100).toFixed(1)}%</strong>, so it{' '}
-          {flagged ? 'flags the voice.' : suspicious ? 'needs review of the suspicious segment below.' : 'passes the voice.'}
+          The deepfake check puts the chance this window was generated at <strong className="num">{(p * 100).toFixed(1)}%</strong>, so it{' '}
+          {flagged ? 'flags the voice.' : 'passes the voice.'}
         </p>
-        <Stroke value={p} tick={0.5} label={`Deepfake model score ${(p * 100).toFixed(1)}%, flag line at 50%`} />
-        <p className="rc-caveat">
-          Scanned the entire {formatSeconds(a.durationSec)} recording in {a.numWindows ?? 1} overlapping analysis window{(a.numWindows ?? 1) === 1 ? '' : 's'}.
-          {' '}The overall score uses the two highest window scores, or one for a short clip.
-        </p>
-        {suspicious && (
-          <p className="rc-caveat">
-            <strong>Suspicious segment found:</strong> {formatSeconds(peak.start_sec)} to {formatSeconds(peak.end_sec)}
-            {' '}(window score {(peak.prob_spoof * 100).toFixed(1)}%). This interval may contain generated speech; it does not mark exact splice boundaries.
-            {!flagged && ' This window is suspicious even though the overall score is below the flag threshold.'}
-          </p>
-        )}
+        <Stroke value={p} tick={0.5} label={`${(p * 100).toFixed(1)}% chance generated, flag line at 50%`} />
         {a.head !== 'hindi-robust' && <p className="rc-caveat">
           {hindi
             ? a.head === 'hindi-phase12'
@@ -138,9 +126,9 @@ export function ResultCard({ run }: { run: Run }) {
           <dd title={run.clipName}>{run.clipName}</dd>
         </div>
         <div>
-          <dt>Audio scanned</dt>
+          <dt>Window heard</dt>
           <dd className="num">
-            0.00 s to {formatSeconds(a.durationSec)}
+            {formatSeconds(run.windowStart)} to {formatSeconds(end)}
           </dd>
         </div>
         {verify && (

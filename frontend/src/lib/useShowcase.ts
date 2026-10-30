@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { analyze, verifySpeaker, type Analysis, type Status, type TwoStageResult } from './api'
-import { computeSpectrogram, decodeToClip, encodeWav, paintSpectrogram, type Clip } from './audio'
+import { computeSpectrogram, decodeToClip, encodeWav, paintSpectrogram, windowSlice, type Clip } from './audio'
 import { sampleBlob, type Manifest } from './samples'
 
 export interface Showcase {
@@ -93,14 +93,14 @@ export function useShowcase(status: Status, manifest: Manifest | null): Showcase
     setShow((s) => ({ ...s, source: 'running' }))
     void (async () => {
       try {
-        const detection = await analyze(encodeWav(clip.samples))
+        const detection = await analyze(encodeWav(windowSlice(clip, 0)))
         let pairResult: TwoStageResult | null = null
         const ref = pair && manifest.samples.find((s) => s.id === pair.reference)
         const tst = pair && manifest.samples.find((s) => s.id === pair.test)
         if (ref && tst) {
           const [a, b] = await Promise.all([sampleBlob(ref.file), sampleBlob(tst.file)])
           const [ca, cb] = await Promise.all([decodeToClip(a, ref.title, 'file'), decodeToClip(b, tst.title, 'file')])
-          pairResult = await verifySpeaker(encodeWav(ca.samples), encodeWav(cb.samples))
+          pairResult = await verifySpeaker(encodeWav(ca.samples), encodeWav(cb.samples), 0)
         }
         setShow((s) => ({ ...s, detection, pair: pairResult ?? s.pair, source: 'live' }))
       } catch {

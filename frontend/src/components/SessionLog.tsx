@@ -1,3 +1,4 @@
+import { WINDOW_SECONDS } from '../lib/audio'
 import type { Run } from '../lib/runs'
 import './SessionLog.css'
 
@@ -30,10 +31,7 @@ export function SessionLog({ runs, onClear }: { runs: Run[]; onClear: () => void
     const data = runs.map((r) => ({
       check: r.mode === 'detect' ? 'deepfake' : 'deepfake+speaker',
       clip: r.clipName,
-      audioScanned: [0, r.analysis.durationSec],
-      windows: r.analysis.windows ?? [],
-      aggregation: r.analysis.aggregation ?? 'single',
-      peakSpoofWindow: r.analysis.peakSpoofWindow ?? null,
+      window: [r.windowStart, Math.min(r.clipDuration, r.windowStart + WINDOW_SECONDS)],
       verdict: r.analysis.verdict,
       probSynthetic: r.analysis.probSpoof,
       layerWeights: r.analysis.layerWeights,

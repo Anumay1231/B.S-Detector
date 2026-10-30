@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { encodeWav } from '../lib/audio'
+import { encodeWav, windowSlice } from '../lib/audio'
 import { analyze, verifySpeaker, type Status } from '../lib/api'
 import type { Run } from '../lib/runs'
 import { SAMPLE_LABELS, sampleBlob, type Manifest } from '../lib/samples'
@@ -78,10 +78,10 @@ export function Analyzer({ status, manifest, request }: Props) {
     known.stopPlayback()
     setError(null)
     setRunning(true)
-    const base = { id: Date.now(), at: new Date(), clipName: test.clip.name, clipDuration: test.clip.duration, windowStart: 0 }
+    const base = { id: Date.now(), at: new Date(), clipName: test.clip.name, clipDuration: test.clip.duration, windowStart: test.windowStart }
     try {
       if (known.clip) {
-        const res = await verifySpeaker(encodeWav(known.clip.samples), encodeWav(test.clip.samples))
+        const res = await verifySpeaker(encodeWav(known.clip.samples), encodeWav(test.clip.samples), test.windowStart)
         setRuns((r) => [
           {
             ...base,
@@ -96,7 +96,7 @@ export function Analyzer({ status, manifest, request }: Props) {
           ...r,
         ])
       } else {
-        const analysis = await analyze(encodeWav(test.clip.samples))
+        const analysis = await analyze(encodeWav(windowSlice(test.clip, test.windowStart)))
         setRuns((r) => [{ ...base, mode: 'detect', analysis }, ...r])
       }
       requestAnimationFrame(() => document.getElementById('result')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
@@ -123,8 +123,8 @@ export function Analyzer({ status, manifest, request }: Props) {
     label = s === 'loading' || s === 'connecting' || s === undefined ? 'Models still loading' : 'Model unavailable'
   }
 
-  let hint = 'The deepfake check scans the entire recording automatically.'
-  if (withSpeaker) hint = 'The deepfake check scans both complete recordings first. They are compared only if both pass.'
+  let hint = 'The deepfake check listens to the highlighted 4.04 seconds.'
+  if (withSpeaker) hint = 'The deepfake check runs first, on both voices. They are compared only if both pass.'
   if (!ready) hint = withSpeaker && detectorReady ? (status.verifier?.message ?? hint) : status.message
 
   const chips = manifest
@@ -164,6 +164,7 @@ export function Analyzer({ status, manifest, request }: Props) {
             title="Voice to check"
             helper="The recording you are unsure about. WAV, MP3, FLAC, OGG or M4A, up to 2 minutes."
             placeholder="Drop a clip here, choose a file or record"
+            windowed
             locked={running || known.busy}
           />
           <div className="flow-link" aria-hidden="true">
@@ -176,6 +177,7 @@ export function Analyzer({ status, manifest, request }: Props) {
             title="Known voice"
             helper="Optional. A real recording of the person the voice claims to be. 10 to 15 seconds of speech works best."
             placeholder="Add a known voice for the speaker check"
+            windowed={false}
             locked={running || test.busy}
             optional
           />

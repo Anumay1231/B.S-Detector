@@ -21,23 +21,10 @@ export interface Status {
   verifier?: VerifierStatus
 }
 
-export interface AnalysisWindow {
-  index: number
-  start_sec: number
-  end_sec: number
-  prob_spoof: number
-  prob_bonafide: number
-  verdict: 'SPOOF' | 'BONAFIDE'
-}
-
 export interface Analysis {
   verdict: 'SPOOF' | 'BONAFIDE'
   probSpoof: number
   probBonafide: number
-  windows?: AnalysisWindow[]
-  numWindows?: number
-  aggregation?: string
-  peakSpoofWindow?: AnalysisWindow | null
   layerWeights: number[]
   latencyMs: number
   durationSec: number
@@ -73,7 +60,7 @@ export function speakerMeter(v: Pick<Verification, 'score' | 'threshold' | 'marg
 
 export interface TwoStageResult {
   detection: Analysis
-  /** Stage 1 scans the complete known voice so a cloned reference cannot vouch for a clone. */
+  /** stage 1 on the known voice's first 4.04 s, so a cloned reference can't vouch for a clone */
   referenceDetection?: Analysis
   /** true when stage 1 called a voice synthetic, so stage 2 never ran */
   interlocked: boolean
@@ -119,9 +106,10 @@ async function post<T>(url: string, init: RequestInit): Promise<T> {
 
 export const analyze = (wav: Blob) => post<Analysis>('/api/analyze', { headers: { 'Content-Type': 'audio/wav' }, body: wav })
 
-export function verifySpeaker(reference: Blob, test: Blob) {
+export function verifySpeaker(reference: Blob, test: Blob, windowStart: number) {
   const form = new FormData()
   form.append('reference', reference, 'reference.wav')
   form.append('test', test, 'test.wav')
+  form.append('windowStart', String(windowStart))
   return post<TwoStageResult>('/api/verify', { body: form })
 }
