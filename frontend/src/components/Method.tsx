@@ -77,10 +77,10 @@ const NODES = [
 ]
 
 const LIMITS = [
-  'Phone-call audio (8 kHz, compressed) has not been tested for either stage.',
-  'Five generators made the benchmark fakes. A new one can fool it in ways these numbers do not show.',
+  'On a simulated phone line the deepfake check missed 2 of 9 test fakes, and the speaker check answers "not sure" rather than guess. Real phone calls are untested.',
+  'On voices and generators kept out of training, the deepfake check caught only about half the voice clones. A new generator can fool it.',
   'The deepfake check hears 4.04 seconds and expects them to start where the recording starts. A window that begins mid-speech can flag a real voice.',
-  'The app uses the Hindi head retrained to ignore silence (models/sls_head_silence_invariant.pth), then the IndicSynth and plain 500-clip Hindi heads. Without any of them, it falls back to the English checkpoint, which misses most Hindi fakes.',
+  'The app uses the phase 12 Hindi head (models/sls_head_phase12.pth), then the silence-invariant and IndicSynth heads. Without any of them, it falls back to the English checkpoint, which misses most Hindi fakes.',
   'The speaker check needs about 8 to 15 seconds of each voice to be reliable. Hinglish (code-mixed) speech has not been tested separately.',
   'A verdict is evidence, not proof.',
 ]
@@ -119,8 +119,8 @@ export function Method() {
               <path className="shackle" d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" strokeWidth="2" />
             </svg>
             <p>
-              <strong>The interlock.</strong> If either voice sounds generated, the voiceprint step never runs. B.S. Detector never confirms who is
-              speaking in a voice that may be a clone.
+              <strong>The interlock.</strong> If either voice sounds generated, the voiceprint step never runs, so a voice flagged as a clone is
+              never confirmed as anyone. A clone the deepfake check misses can still pass both stages.
             </p>
           </figcaption>
         </figure>
