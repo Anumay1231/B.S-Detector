@@ -1,11 +1,11 @@
-import { WINDOW_SECONDS, formatSeconds } from '../lib/audio'
+import { formatSeconds } from '../lib/audio'
 import type { Run } from '../lib/runs'
 import { speakerMeter } from '../lib/api'
 import { regimes, speakerPhase9 } from '../data/research'
 import './ResultCard.css'
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
-const pct = (w?: { probSpoof: number } | null) => `${((w?.probSpoof ?? 0) * 100).toFixed(0)}% generated`
+const pct = (w?: { probSpoof: number } | null) => `${((w?.probSpoof ?? 0) * 100).toFixed(0)}% model score`
 
 /** Stage 1 headline, worded so a pass on Hindi never reads as a guarantee. */
 function stage1Words(p: number): [string, string] {
@@ -33,7 +33,8 @@ export function ResultCard({ run }: { run: Run }) {
   const [lead, em] = stage1Words(p)
   const hindi = !!a.head?.startsWith('hindi')
   const ref = hindi ? regimes[3] : regimes[0]
-  const end = Math.min(run.clipDuration, run.windowStart + WINDOW_SECONDS)
+  const peak = a.peakSpoofWindow
+  const suspicious = !!peak && peak.prob_spoof >= 0.5
 
   const verify = run.mode === 'verify' ? run : null
   const v = verify?.verification ?? null
@@ -43,30 +44,39 @@ export function ResultCard({ run }: { run: Run }) {
   return (
     <article className={`result${blocked ? ' is-flagged' : ''}`} aria-live="polite" aria-labelledby="rc-s1">
       <span className={`rc-stamp ${blocked ? 'is-bs' : 'is-legit'}`} aria-hidden="true">
-        {blocked ? 'B.S.' : 'Legit'}
+        {blocked ? 'B.S.' : suspicious ? 'Review' : 'Legit'}
       </span>
       <section className="rc-stage">
         <h3 className="rc-word serif" id="rc-s1">
-          {lead} <em>{em}</em>
+          {suspicious && !flagged ? 'Needs' : lead} <em>{suspicious && !flagged ? 'review' : em}</em>
         </h3>
         <p className="rc-line">
-          The deepfake check puts the chance this window was generated at <strong className="num">{(p * 100).toFixed(1)}%</strong>, so it{' '}
-          {flagged ? 'flags the voice.' : 'passes the voice.'}
+          The full recording has a deepfake model score of <strong className="num">{(p * 100).toFixed(1)}%</strong>, so it{' '}
+          {flagged ? 'flags the voice.' : suspicious ? 'needs review of the suspicious segment below.' : 'passes the voice.'}
         </p>
-        <Stroke value={p} tick={0.5} label={`${(p * 100).toFixed(1)}% chance generated, flag line at 50%`} />
+        <Stroke value={p} tick={0.5} label={`Deepfake model score ${(p * 100).toFixed(1)}%, flag line at 50%`} />
         <p className="rc-caveat">
+          Scanned the entire {formatSeconds(a.durationSec)} recording in {a.numWindows ?? 1} overlapping analysis window{(a.numWindows ?? 1) === 1 ? '' : 's'}.
+          {' '}The overall score uses the two highest window scores, or one for a short clip.
+        </p>
+        {suspicious && (
+          <p className="rc-caveat">
+            <strong>Suspicious segment found:</strong> {formatSeconds(peak.start_sec)} to {formatSeconds(peak.end_sec)}
+            {' '}(window score {(peak.prob_spoof * 100).toFixed(1)}%). This interval may contain generated speech; it does not mark exact splice boundaries.
+            {!flagged && ' This window is suspicious even though the overall score is below the flag threshold.'}
+          </p>
+        )}
+        {a.head !== 'hindi-robust' && <p className="rc-caveat">
           {hindi
             ? a.head === 'hindi-phase12'
               ? `This is the Hindi head retrained on Indian phone, studio and accented speech. On voices it never trained on it was right about 75% of the time, and it caught only about half of the voice clones it had not heard before, so a pass is not proof.`
-              : a.head === 'hindi-robust'
-              ? `This is the Hindi head retrained so a pause before the speech no longer sways it. In our tests it caught every fake, but it can wrongly flag real phone recordings.`
               : a.head === 'hindi-indicsynth'
               ? `This is the Hindi head trained on 500 clips per class, then fine-tuned on IndicSynth voice clones. On the team's IndicSynth test it scored 98.75%, catching 98% of XTTS-v2 clones.`
               : `This is the Hindi head trained on 500 clips per class. On the benchmark it caught ${ref.fakesCaught} of 200 fakes and passed ${ref.genuinePassed} of 200 real voices.`
             : flagged
               ? `This is the English checkpoint. On the Hindi benchmark it passed ${ref.genuinePassed} of 200 real voices, so a flag is the stronger signal.`
               : `This is the English checkpoint. On the Hindi benchmark it caught only ${ref.fakesCaught} of 200 fakes, so a pass is weak evidence.`}
-        </p>
+        </p>}
       </section>
 
       <section className="rc-stage" aria-labelledby="rc-s2">
@@ -128,9 +138,9 @@ export function ResultCard({ run }: { run: Run }) {
           <dd title={run.clipName}>{run.clipName}</dd>
         </div>
         <div>
-          <dt>Window heard</dt>
+          <dt>Audio scanned</dt>
           <dd className="num">
-            {formatSeconds(run.windowStart)} to {formatSeconds(end)}
+            0.00 s to {formatSeconds(a.durationSec)}
           </dd>
         </div>
         {verify && (

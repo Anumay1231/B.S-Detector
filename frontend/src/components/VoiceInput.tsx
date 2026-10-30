@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { WINDOW_SECONDS, formatSeconds } from '../lib/audio'
+import { formatSeconds } from '../lib/audio'
 import { RECORD_LIMIT, type ClipSlot } from '../lib/useClip'
 import { Scope } from './Scope'
 import './VoiceInput.css'
@@ -9,20 +9,17 @@ interface Props {
   title: string
   helper: string
   placeholder: string
-  /** Show and let people move the 4.04 s window the deepfake check hears. */
-  windowed: boolean
   locked: boolean
   /** Optional slots get a remove button once filled. */
   optional?: boolean
 }
 
-export function VoiceInput({ slot, title, helper, placeholder, windowed, locked, optional }: Props) {
+export function VoiceInput({ slot, title, helper, placeholder, locked, optional }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
   const { clip, phase } = slot
   const busy = slot.busy || locked
   const recording = phase === 'recording'
-  const end = clip ? Math.min(clip.duration, slot.windowStart + WINDOW_SECONDS) : 0
 
   let line: React.ReactNode = <span className="composer-placeholder">{placeholder}</span>
   if (recording)
@@ -93,10 +90,10 @@ export function VoiceInput({ slot, title, helper, placeholder, windowed, locked,
           <button
             type="button"
             className="icon-btn icon-btn-dark"
-            onClick={() => slot.togglePlay(!windowed)}
+            onClick={() => slot.togglePlay(true)}
             disabled={phase === 'decoding'}
             aria-pressed={slot.playing}
-            aria-label={slot.playing ? 'Stop playback' : windowed ? 'Play the analysis window' : 'Play the clip'}
+            aria-label={slot.playing ? 'Stop playback' : 'Play the clip'}
             title={slot.playing ? 'Stop' : 'Play'}
           >
             {slot.playing ? <IconStop /> : <IconPlay />}
@@ -120,19 +117,11 @@ export function VoiceInput({ slot, title, helper, placeholder, windowed, locked,
             playing={slot.playing}
             live={slot.live}
             busy={busy}
-            windowed={windowed}
+            windowed={false}
           />
           {clip && !recording && (
             <p className="voice-window tag">
-              {windowed ? (
-                <>
-                  The deepfake check hears <span className="num">{formatSeconds(slot.windowStart)}</span> to{' '}
-                  <span className="num">{formatSeconds(end)}</span>
-                  {clip.duration > WINDOW_SECONDS && '. Drag the bracket or use the arrow keys to move it, though the check is most reliable from 0 s.'}
-                </>
-              ) : (
-                'The speaker check uses the whole clip.'
-              )}
+              The deepfake check scans the entire recording automatically.
             </p>
           )}
         </div>

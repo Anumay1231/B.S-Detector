@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { SAMPLE_RATE, WINDOW_SAMPLES, encodeWav, formatSeconds, windowSlice, type Clip } from './audio'
+import { describe, expect, it, vi } from 'vitest'
+import { SAMPLE_RATE, WINDOW_SAMPLES, decodeToClip, encodeWav, formatSeconds, windowSlice, type Clip } from './audio'
 
 const clip = (seconds: number): Clip => {
   const samples = new Float32Array(Math.round(seconds * SAMPLE_RATE)).map((_, i) => i / SAMPLE_RATE)
@@ -70,4 +70,19 @@ describe('formatSeconds', () => {
     expect(formatSeconds(60)).toBe('1:00')
     expect(formatSeconds(125.9)).toBe('2:05')
   })
+})
+
+
+it('rejects oversized recordings instead of silently cropping their tail', async () => {
+  const close = vi.fn()
+  vi.stubGlobal('AudioContext', class {
+    async decodeAudioData() { return { duration: 121 } }
+    close = close
+  })
+  try {
+    await expect(decodeToClip(new Blob(), 'long.wav', 'file')).rejects.toThrow('never silently cropped')
+    expect(close).toHaveBeenCalled()
+  } finally {
+    vi.unstubAllGlobals()
+  }
 })

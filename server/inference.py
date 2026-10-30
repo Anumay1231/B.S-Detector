@@ -188,6 +188,8 @@ def find_speech_onset_index(
 
 def pad_or_truncate_audio(waveform: "torch.Tensor", target_length: int = INPUT_LENGTH) -> "torch.Tensor":
     """Tile-pad or extract speech-centered window of exactly target_length samples."""
+    if waveform.shape[0] == 0:
+        raise ValueError("The audio recording is empty.")
     if waveform.shape[0] <= target_length:
         repeats = (target_length // waveform.shape[0]) + 1
         tiled = waveform.repeat(repeats)
@@ -199,10 +201,9 @@ def pad_or_truncate_audio(waveform: "torch.Tensor", target_length: int = INPUT_L
 def extract_sliding_windows(
     waveform: "torch.Tensor",
     window_length: int = INPUT_LENGTH,
-    stride_sec: float = 2.0,
+    stride_sec: float = 1.0,
     sample_rate: int = TARGET_SR,
-    max_windows: int = 20,
-    align_onset: bool = True,
+    align_onset: bool = False,
 ) -> Tuple[List["torch.Tensor"], List[Dict[str, Any]]]:
     """
     Slices a 1D waveform tensor into overlapping windows of window_length samples.
@@ -214,6 +215,8 @@ def extract_sliding_windows(
         window_metadata: List of dicts with window boundaries, indices, and padding status.
     """
     total_samples = waveform.shape[0]
+    if total_samples == 0:
+        raise ValueError("The audio recording is empty.")
 
     # If the audio is shorter than or equal to window_length, tile-pad and return 1 window
     if total_samples <= window_length:
@@ -223,7 +226,7 @@ def extract_sliding_windows(
         return [tiled], [{"index": 0, "start_sec": 0.0, "end_sec": dur_sec, "is_padded": total_samples < window_length}]
 
     stride_samples = int(stride_sec * sample_rate)
-    stride_samples = max(int(0.5 * sample_rate), stride_samples)
+    stride_samples = min(window_length, max(int(0.5 * sample_rate), stride_samples))
 
     # Determine starting sample (aligning to speech onset if enabled)
     start_offset = find_speech_onset_index(waveform, target_length=window_length, sample_rate=sample_rate) if align_onset else 0
@@ -235,11 +238,6 @@ def extract_sliding_windows(
         starts.append(last_possible)
     elif not starts:
         starts = [last_possible]
-
-    # Cap number of windows for responsiveness
-    if len(starts) > max_windows:
-        indices = np.linspace(0, len(starts) - 1, max_windows, dtype=int)
-        starts = [starts[i] for i in indices]
 
     windows = []
     metadata = []
@@ -343,18 +341,20 @@ def run_forensic_detection(
     sls_head: Any,
     device: str,
     full_clip: bool = True,
-    stride_sec: float = 2.0,
+    stride_sec: float = 1.0,
+    # Historical checks below used the previous windowing defaults; dense full scans need separate accuracy validation.
     # top-2 mean rather than max: on the demo set and bundled samples it flags 8 of 18
     # real files instead of 10, and still catches all 9 fakes and all 4 real-then-clone
     # splices (scripts/ui_path_check.py). Requiring 2 flagged windows missed a splice.
     aggregation: str = "top2",
-    align_onset: bool = True,
+    align_onset: bool = False,
+    batch_size: int = 2,
 ) -> ForensicInferenceResult:
     """
     Executes end-to-end forensic inference on audio input:
     1. Preprocesses & normalizes audio to 16kHz.
-    2. If full_clip is True and audio > 4.04s, extracts overlapping sliding windows (2.0s stride).
-    3. Batches windows through frozen XLS-R 300M and SLS Head in a single forward pass.
+    2. If full_clip is True and audio > 4.04s, extracts overlapping sliding windows (1.0s stride), without a window cap.
+    3. Batches windows through frozen XLS-R 300M and SLS Head in bounded batches.
     4. Aggregates scores across all windows (max-pooling or top2) and identifies peak spoof segment.
     """
     t_start = time.perf_counter()
@@ -387,16 +387,22 @@ def run_forensic_detection(
         win_meta = [{"index": 0, "start_sec": 0.0, "end_sec": dur, "is_padded": full_wave.shape[0] <= INPUT_LENGTH}]
 
     K = len(windows_list)
-    batch_waveforms = torch.stack(windows_list, dim=0).to(device)  # (K, 64600)
-    
-    with torch.no_grad():
-        # Step 1: Feature Extraction across all 24 layers of XLS-R in a single batched pass
-        outputs = backbone(batch_waveforms, output_hidden_states=True)
-        hidden_states = list(outputs.hidden_states[1:])  # 24 tensors, each (K, 201, 1024)
-        
-        # Step 2: SLS Classification & Layer Attention Gating
-        log_probs, layer_weight_tensors = sls_head(hidden_states)
-        probs = torch.exp(log_probs)  # (K, 2) [p_spoof, p_bonafide]
+    if batch_size < 1:
+        raise ValueError("batch_size must be at least 1.")
+    probability_batches = []
+    weight_batches = []
+    with torch.inference_mode():
+        for start in range(0, K, batch_size):
+            batch_waveforms = torch.stack(windows_list[start : start + batch_size]).to(device)
+            outputs = backbone(batch_waveforms, output_hidden_states=True)
+            hidden_states = list(outputs.hidden_states[1:])
+            log_probs, weights = sls_head(hidden_states)
+            probability_batches.append(torch.exp(log_probs).cpu())
+            weight_batches.append(torch.cat(weights, dim=1).cpu())
+            # Release backbone activations before processing the next batch.
+            del outputs, hidden_states, log_probs, weights, batch_waveforms
+    probs = torch.cat(probability_batches, dim=0)
+    all_weights = torch.cat(weight_batches, dim=0)
 
     latency_ms = (time.perf_counter() - t_start) * 1000.0
 
@@ -436,7 +442,7 @@ def run_forensic_detection(
     }
 
     # Extract per-layer attention scalar weights for peak window
-    layer_weights = [float(w[peak_idx].squeeze().cpu().item()) for w in layer_weight_tensors]
+    layer_weights = all_weights[peak_idx].tolist()
 
     # Classification decision
     is_spoof = p_spoof >= 0.50

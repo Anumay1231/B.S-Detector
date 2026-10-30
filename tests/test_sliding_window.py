@@ -57,18 +57,55 @@ def test_sliding_window_multi_window_coverage():
     assert meta[-1]["end_sec"] == 8.0
 
 
-def test_sliding_window_max_windows_cap():
-    sr = 16000
-    # 60 seconds of audio
-    waveform = torch.randn(int(60.0 * sr)) * 0.05
-    max_win = 10
-    windows, meta = extract_sliding_windows(
-        waveform, window_length=INPUT_LENGTH, stride_sec=1.0, sample_rate=sr, max_windows=max_win
-    )
+@pytest.mark.parametrize("seconds", [30, 60, 120])
+def test_sliding_window_full_coverage_without_cap(seconds):
+    waveform = torch.ones(seconds * TARGET_SR) * 0.05
+    windows, meta = extract_sliding_windows(waveform)
+    assert len(windows) > 20
+    assert meta[0]["start_sec"] == 0.0
+    assert meta[-1]["end_sec"] == seconds
+    for previous, current in zip(meta, meta[1:]):
+        assert current["start_sec"] <= previous["end_sec"]
+        assert current["start_sec"] - previous["start_sec"] <= 1.001
+    assert all(window.numel() == INPUT_LENGTH for window in windows)
 
-    assert len(windows) <= max_win
-    assert len(meta) <= max_win
-    assert meta[-1]["end_sec"] == 60.0
+
+def test_full_scan_includes_leading_silence_and_tail():
+    waveform = torch.cat([torch.zeros(10 * TARGET_SR), torch.ones(20 * TARGET_SR) * 0.1])
+    _, meta = extract_sliding_windows(waveform)
+    assert meta[0]["start_sec"] == 0
+    assert meta[-1]["end_sec"] == 30
+
+
+def test_full_scan_batches_preserve_scores_and_peak(monkeypatch):
+    from types import SimpleNamespace
+    from server import inference
+
+    raw = np.full(30 * TARGET_SR, 0.1, dtype=np.float32)
+    monkeypatch.setattr(inference, "load_and_preprocess_audio", lambda _: (torch.from_numpy(raw[:INPUT_LENGTH]), 30.0, raw))
+    seen = []
+
+    class Backbone:
+        def __call__(self, waves, **kwargs):
+            seen.append(len(waves))
+            # Encode each window's global position without loading XLS-R.
+            offset = sum(seen[:-1])
+            states = torch.arange(offset, offset + len(waves), dtype=torch.float32).reshape(-1, 1, 1)
+            return SimpleNamespace(hidden_states=[None] + [states] * 24)
+
+    class Head:
+        def __call__(self, states):
+            ids = states[0][:, 0, 0]
+            p = torch.where(ids == 26, 0.9, 0.1)
+            return torch.stack([p, 1-p], dim=1).log(), [ids[:, None]] * 24
+
+    result = inference.run_forensic_detection(b"audio", Backbone(), Head(), "cpu", batch_size=2)
+    assert seen == [2] * 13 + [1]
+    assert result.num_windows == 27
+    assert result.windows[-1]["end_sec"] == 30
+    assert result.peak_spoof_window["index"] == 26
+    assert result.layer_weights == [26.0] * 24
+    assert result.prob_spoof == pytest.approx(0.5)
 
 
 def test_sls_head_batched_forward():

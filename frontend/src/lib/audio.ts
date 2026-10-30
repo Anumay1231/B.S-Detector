@@ -24,7 +24,10 @@ export async function decodeToClip(blob: Blob, name: string, source: Clip['sourc
   } finally {
     void ctx.close()
   }
-  const seconds = Math.min(decoded.duration, MAX_SECONDS)
+  if (decoded.duration > MAX_SECONDS) {
+    throw new Error(`That clip exceeds ${MAX_SECONDS} seconds. Use a shorter recording; audio is never silently cropped.`)
+  }
+  const seconds = decoded.duration
   if (seconds < 0.25) throw new Error('That clip is shorter than a quarter of a second. Use at least one second of speech.')
 
   const frames = Math.ceil(seconds * SAMPLE_RATE)
