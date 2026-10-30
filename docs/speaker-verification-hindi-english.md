@@ -175,3 +175,17 @@ caution applies to them. `ui_path_check.py --phone` went from 6 wrong (two
 same-room pairs accepted as one person) to 2, both stage 1 misses. Fitting separate
 phone-band constants is possible, but even then room + phone pairs reached only
 55-64% accuracy above, so "not sure" is the honest answer for now.
+
+**Short same-room clips, re-measured (30 Oct).** From the same fair test, with
+the shipped setup (original ECAPA, fused), accuracy on the pairs it answers,
+with the share answered in brackets:
+
+| Same-room pairs | SVQ Hindi (fold 1) | SVQ English (fold 1) | Common Voice Hindi part 1 |
+|---|---|---|---|
+| 3-6 s of speech | 83.6% (76%) | 82.8% (72%) | 97.6% (93%) |
+| 6-8 s | 92.7% (78%) | 90.2% (78%) | 99.6% (96%) |
+
+The 92% in section 5 was one 3-8 s bucket, cross-validated over both SVQ folds.
+Split finer and tested on unseen people only, the shortest SVQ clips sit near
+83%. The UI already says results under 8 s are less certain; for same-room
+recordings of under 6 s, that warning matters most.
