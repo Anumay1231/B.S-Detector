@@ -163,5 +163,15 @@ person, 8 s+ of speech:
 
 With 3-8 s of speech it is 30-58% on SVQ. The constants were fitted on
 full-band audio, and the phone band leaves less to tell voices apart, so
-different people score higher. Neither model fixes this. The fix is to treat
-phone-band audio separately, which comes next.
+different people score higher. Neither model fixes this.
+
+**What the app does now.** `server/speaker.py` measures how much of each clip's
+speech energy lies above 4 kHz. Below 2e-5, the clip counts as phone-band, and the
+pair is answered UNCERTAIN (the score is still reported, and the response lists the
+clips in `phoneBand`). A simulated phone line measures at most 3e-6. Demo and sample
+files measure at least 3e-3, and real dataset clips have a median of 1.5e-3 to
+9e-3; the few real clips below 2e-5 are low-passed like a phone line, so the same
+caution applies to them. `ui_path_check.py --phone` went from 6 wrong (two
+same-room pairs accepted as one person) to 2, both stage 1 misses. Fitting separate
+phone-band constants is possible, but even then room + phone pairs reached only
+55-64% accuracy above, so "not sure" is the honest answer for now.
