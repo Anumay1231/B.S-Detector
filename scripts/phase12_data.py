@@ -48,6 +48,9 @@ def main() -> int:
     # has to learn that a clean studio voice is not by itself a sign of a fake
     for s in (0, 5):
         get("SPRINGLab/IndicTTS-Hindi", f"data/train-{s:05d}-of-00010.parquet")
+    # clean read US/UK audiobook English: the first retrained head flagged LibriSpeech as fake
+    for s in (0, 7):
+        get("openslr/librispeech_asr", f"all/train.clean.100/{s:04d}.parquet")
     return 0
 
 

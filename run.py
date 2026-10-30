@@ -82,7 +82,6 @@ def ensure_hindi_head() -> None:
     if (
         os.environ.get("BSD_HEAD")
         or (models_dir / "sls_head_silence_invariant.pth").exists()
-        or (models_dir / "sls_head_channel_robust.pth").exists()
         or (models_dir / "sls_head_n500_indicsynth_best.pth").exists()
         or HEAD_FILE.exists()
     ):

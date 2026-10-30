@@ -39,7 +39,7 @@ from scipy.signal import butter, resample_poly, sosfilt
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "server"))
 from phase12_common import DATA, ROOT  # noqa: E402
-from phase12_real import GATED, ai4bharat, common_voice, fleurs, indicsynth, indictts, svq  # noqa: E402
+from phase12_real import GATED, ai4bharat, common_voice, fleurs, indicsynth, indictts, librispeech, svq  # noqa: E402
 
 SR = 16_000
 WINDOW = 64_600
@@ -185,12 +185,19 @@ def safe_augment(clip: np.ndarray, rng: np.random.Generator) -> np.ndarray:
 # ------------------------------------------------------------------ data
 
 
+CACHE = DATA / "cache"  # decoded clips per source, so later runs skip the parquet decoding
+
+
 def collect() -> list[dict]:
-    """Every clip as {label (1 real / 0 fake), source, split, speaker, audio int16}."""
+    """Every clip as {label (1 real / 0 fake), source, split, speaker, audio int16}.
+
+    Each source group is decoded once and cached under data/raw/phase12/cache/; delete
+    a group's .npz (or the folder) to rebuild it after changing caps or data."""
     rng = random.Random(0)
     items: list[dict] = []
 
-    def add(rows: list[dict], label: int, cap: bool = True) -> None:
+    def add(rows: list[dict], label: int, cap: bool = True) -> list[dict]:
+        out: list[dict] = []
         by = defaultdict(list)
         for r in rows:
             by[(r["split"], r["speaker"])].append(r)
@@ -209,33 +216,49 @@ def collect() -> list[dict]:
                 a = decode(r["audio"] if "audio" in r else DATA / r["file"])
                 if a is None:
                     continue
-                items.append({"label": label, "source": r["source"], "split": split, "speaker": r["speaker"],
-                              "lang": r.get("lang", ""), "audio": a})
+                out.append({"label": label, "source": r["source"], "split": split, "speaker": r["speaker"],
+                            "lang": r.get("lang", ""), "audio": a})
                 kept[(r["source"], split)] += 1
         print("  " + ", ".join(f"{s}/{sp}: {n}" for (s, sp), n in sorted(kept.items())), flush=True)
+        return out
+
+    def group(name: str, label: int, load, cap: bool = True) -> None:
+        path = CACHE / f"{name}.npz"
+        if path.exists():
+            with np.load(path, allow_pickle=False) as z:  # each z[key] re-reads the file: read once
+                meta, off, audio = json.loads(str(z["meta"])), z["offsets"], z["audio"]
+            items.extend({**m, "audio": audio[off[i] : off[i + 1]]} for i, m in enumerate(meta))
+            print(f"{name}: {len(meta)} clips from cache", flush=True)
+            return
+        print(f"{name}: decoding", flush=True)
+        out = add(load(), label, cap)
+        CACHE.mkdir(parents=True, exist_ok=True)
+        offsets = np.cumsum([0] + [len(o["audio"]) for o in out])
+        meta = [{k: v for k, v in o.items() if k != "audio"} for o in out]
+        np.savez(path, audio=np.concatenate([o["audio"] for o in out]) if out else np.zeros(0, np.int16),
+                 offsets=offsets, meta=json.dumps(meta))
+        items.extend(out)
+
+    def edge_and_xtts() -> list[dict]:
+        fakes = json.loads((DATA / "fakes" / "fakes.json").read_text(encoding="utf-8"))
+        for f in fakes:
+            f["source"] = "edge" if f["kind"] == "edge" else f"xtts-{f['lang']}"
+            f["speaker"] = f.get("voice") or f.get("clonedSpeaker")
+        return fakes
 
     t0 = time.time()
-    print("real: SVQ", flush=True)
-    add(svq(), 1)
-    for lang in ("hi", "en"):
-        print(f"real: Common Voice {lang}", flush=True)
-        add(common_voice(lang), 1)
-    print("real: FLEURS Hindi, IndicTTS Hindi (studio)", flush=True)
-    add(fleurs(), 1)
-    add(indictts(), 1)
+    group("svq", 1, svq)
+    group("cv-hi", 1, lambda: common_voice("hi"))
+    group("cv-en", 1, lambda: common_voice("en"))
+    group("fleurs", 1, fleurs)
+    group("indictts", 1, indictts)
+    group("librispeech", 1, librispeech)
     # gated AI4Bharat sets, when they have been downloaded by hand
     for name, lang in (("svarah", "en"), ("lahaja", "hi"), ("kathbath", "hi")):
         if any((GATED / name).glob("*.parquet")):
-            print(f"real: {name}", flush=True)
-            add(ai4bharat(name, lang), 1)
-    print("fake: IndicSynth", flush=True)
-    add(indicsynth(), 0)
-    fakes = json.loads((DATA / "fakes" / "fakes.json").read_text(encoding="utf-8"))
-    for f in fakes:
-        f["source"] = "edge" if f["kind"] == "edge" else f"xtts-{f['lang']}"
-        f["speaker"] = f.get("voice") or f.get("clonedSpeaker")
-    print("fake: Edge-TTS and XTTS-v2", flush=True)
-    add(fakes, 0, cap=False)
+            group(name, 1, lambda name=name, lang=lang: ai4bharat(name, lang))
+    group("indicsynth", 0, indicsynth)
+    group("edge-xtts", 0, edge_and_xtts, cap=False)
     print(f"collected {len(items)} clips in {time.time() - t0:.0f} s", flush=True)
     return items
 
@@ -329,6 +352,7 @@ def main() -> int:
     ap.add_argument("--init", type=Path, default=ROOT / "models" / "sls_head_silence_invariant.pth")
     ap.add_argument("--out", type=Path, default=ROOT / "models" / "sls_head_phase12.pth")
     ap.add_argument("--smoke", action="store_true", help="tiny run to check the pipeline end to end")
+    ap.add_argument("--patience", type=int, default=2, help="stop after this many epochs without a val gain (0: never)")
     a = ap.parse_args()
     if a.smoke:
         CAP.update(train=1, val=1, test=1)
@@ -378,6 +402,9 @@ def main() -> int:
             best, best_epoch = sel, epoch
             torch.save(head.state_dict(), a.out)
             print(f"  saved (selection score {sel:.4f})", flush=True)
+        elif a.patience and epoch - best_epoch >= a.patience:
+            print(f"  no val gain for {a.patience} epochs: stopping", flush=True)
+            break
     log["bestEpoch"] = best_epoch
     out = ROOT / "outputs" / "phase12_train.json"
     out.parent.mkdir(exist_ok=True)

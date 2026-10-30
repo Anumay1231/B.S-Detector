@@ -213,10 +213,30 @@ Svarah (44%).
   Starting 1 s into speech, 7/9 fakes are caught (the old head: 8/9). The whole
   file still flags 9/18 real files.
 
-**Next:** add clean read English (LibriSpeech, keeping reader 777 out, since
-the bundled samples come from that reader) and retrain at a lower learning
-rate. The aim is a head that ships on its own and keeps the 84% held-out
-accuracy.
+**Tried next (30 Oct): add LibriSpeech, retrain.** Two shards of LibriSpeech
+train-clean-100 went in as real speech (reader 777, behind the bundled
+samples, excluded). Training continued from the retrained head at lr 1.5e-5
+and stopped early after epoch 1 (val 88.2%). On a test set that now also
+holds LibriSpeech readers:
+
+| | Shipped blend | v2 alone | v2 50/50 blend |
+|---|---|---|---|
+| Held-out balanced accuracy | 75.1% | 82.6% | 79.7% |
+| Unseen XTTS-v2 clones caught (en / hi) | 56% / 55% | 92% / 93% | 70% / 80% |
+| Held-out LibriSpeech called real | 72% | 44% | 66% |
+| `ui_path_check.py`, normal / phone | 0 / 4 wrong | 3 / 8 wrong | 2 / 6 wrong |
+
+Neither shipped. v2 catches far more fakes but wrongly flags more real speech,
+LibriSpeech included, even after training on it. The bundled `speaker-a-2`
+sample (LibriSpeech reader 777) is flagged by every retrained variant. More of
+the same data does not close this gap. What might: a learned calibration of
+the 0.5 cut-off on a mixed dev set (plan item 4), or a second detector to
+ensemble with (item 5).
+
+Tooling from this round: decoded clips are cached per source, so loading drops
+from about 190 s to 7 s; training stops after 2 epochs without a val gain; and
+`scripts/check_head.py` runs the app check on any head file without manual
+server swaps.
 
 ## Plan, in order of payoff
 

@@ -148,3 +148,19 @@ def ai4bharat(name: str, lang: str) -> list[dict]:
     for r in rows:
         r["split"] = split[r["speaker"]]
     return rows
+
+
+def librispeech() -> list[dict]:
+    """LibriSpeech train-clean-100 (clean read audiobook English), split by reader. Reader
+    777, behind the bundled speaker-a samples, is kept out (it is not in train-clean-100,
+    but the filter makes that explicit)."""
+    rows = []
+    for f in _files("datasets--openslr--librispeech_asr/snapshots/*/all/train.clean.100/*.parquet"):
+        t = pq.read_table(f, columns=["audio", "speaker_id"])
+        for a, spk in zip(t.column("audio").to_pylist(), t.column("speaker_id").to_pylist()):
+            if int(spk) == 777:
+                continue
+            key = f"librispeech:{spk}"
+            rows.append({"source": "librispeech", "lang": "en", "speaker": key, "gender": "", "split": split_of(key),
+                         "audio": a["bytes"]})
+    return rows
