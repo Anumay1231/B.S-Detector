@@ -1,8 +1,8 @@
 # Stage 1 (deepfake detection): measured gaps and improvement plan
 
-Status: the app ships XLS-R 300M with the silence-invariant Hindi head
-(`models/sls_head_silence_invariant.pth`, described below). The numbered plan
-items have not been applied yet.
+Status: the app ships XLS-R 300M with the phase 12 Hindi head
+(`models/sls_head_phase12.pth`, see "Phase 12 head" below). Plan items 0-2 are
+applied in it; items 3-5 are not.
 
 ## What we measured (October 2026)
 
@@ -137,13 +137,94 @@ old VoxCeleb cut-off (cosine 0.30-0.67), so the speaker check alone cannot stop
 a clone. This is why the interlock now also checks the known voice, not just the
 voice to check.
 
+### Phase 12 head (the app's default since 30 Oct)
+
+**Training** (`scripts/train_phase12.py`, data by `phase12_data.py` and
+`phase12_fakes.py`). Starting from the silence-invariant head, backbone frozen:
+
+- Real: SVQ hi/en in all four environments, Common Voice hi/en (Indian-accented
+  English as its own source), FLEURS hi, IndicTTS hi (studio), Svarah (Indian
+  English), Lahaja and Kathbath (Hindi).
+- Fake: IndicSynth (XTTS-v2, FreeVC24), Edge-TTS stock voices, and XTTS-v2
+  clones of Common Voice speakers.
+- Augmentation, the same for both classes: the window starts at 0 s, mid-sentence
+  or after 0-1 s of added quiet; then a phone line, MP3 or Opus, background noise,
+  a random room or a loudspeaker replay, and a random gain.
+- Splits are by person and by TTS voice (`phase12_common.py`). Neerja and Swara
+  are test-only, two more Edge voices are val-only, and demo speakers are in no
+  split at all. The epoch was chosen on val.
+
+**Held-out results** (`scripts/eval_phase12.py`): 1,782 windows of people and
+voices no head was trained or selected on, each heard under one condition.
+Balanced accuracy at the app's 0.5 cut-off:
+
+| Condition | Silence-invariant | IndicSynth | Channel-robust | Retrained alone | **Shipped (0.7/0.3 blend)** |
+|---|---|---|---|---|---|
+| **All** | **73.4%** | **67.1%** | **81.1%** | **84.0%** | **76.3%** |
+| From 0 s | 90.0% | 77.8% | 94.7% | 94.6% | 92.8% |
+| Phone line | 80.2% | 70.8% | 88.9% | 87.4% | 83.3% |
+| MP3 | 68.4% | 61.7% | 85.0% | 88.3% | 76.2% |
+| Opus | 94.4% | 78.2% | 94.7% | 93.3% | 96.8% |
+| Mid-sentence | 85.7% | 64.5% | 84.6% | 93.7% | 89.1% |
+| Added quiet | 85.0% | 67.4% | 84.4% | 87.1% | 87.4% |
+| Noise | 52.9% | 78.3% | 73.6% | 77.6% | 56.5% |
+| Room | 49.6% | 51.3% | 58.5% | 67.1% | 50.0% |
+| Loudspeaker replay | 50.0% | 50.8% | 62.4% | 63.8% | 50.0% |
+
+Share of each fake source caught, same windows:
+
+| Fake source | Silence-invariant | IndicSynth | Channel-robust | Retrained alone | Shipped blend |
+|---|---|---|---|---|---|
+| Edge-TTS, unseen voices (Neerja, Swara) | 44.4% | 41.2% | 72.5% | 59.4% | 46.2% |
+| XTTS-v2 clones, English | 40.0% | 80.0% | 78.0% | 90.0% | 50.0% |
+| XTTS-v2 clones, Hindi | 45.0% | 77.5% | 75.0% | 90.0% | 50.0% |
+| IndicSynth XTTS-v2 | 30.4% | 69.6% | 65.2% | 82.6% | 47.8% |
+| IndicSynth FreeVC24 | 65.5% | 68.5% | 78.0% | 77.5% | 67.5% |
+
+On real speech, the shipped blend calls 92.5-100% of each source real, apart
+from SVQ clean at 75% (the silence-invariant head also gets 75%). The
+channel-robust head drops to 50% on SVQ clean and 80.5% on Common Voice
+English. The IndicSynth head flags most of Lahaja (29% called real) and
+Svarah (44%).
+
+**What this says:**
+
+- **The heads miss most fakes they have not seen.** The silence-invariant head
+  caught 9/9 demo fakes but only 30-45% of new XTTS clones. The demo fakes are
+  close to its training data, so the demo set alone overstates it. The 98%
+  SEA-Spoof figure is still unchecked (the set is about 80 GB across languages).
+- **The retrained head generalises best (84.0%) but did not ship.**
+  `ui_path_check.py` gave 6 wrong: it flags the two LibriSpeech samples (clean US
+  audiobook speech, a domain in none of the training sources) and misses Edge
+  Prabhat 2 and Swara.
+- **The shipped head is a weight blend** (`scripts/mix_heads.py`, 0.7 x
+  silence-invariant + 0.3 x retrained). It keeps the old head's answers on
+  unfamiliar real speech: every real source is equal or better except
+  non-Indian Common Voice English (92.5% vs 93.5%, 2 of 200 windows), and
+  `ui_path_check.py` gives 0 wrong. The phone line drops from 7 wrong to 4, and
+  held-out accuracy goes from 73.4% to 76.3%. It gives back most of the room,
+  replay and noise gains, though.
+- **The channel-robust head** scores 81.1% held out, second best. But it got 17
+  wrong on the app check, flagging the clean built-in samples. It stays last.
+- **Training was unstable** at lr 3e-5: val accuracy swung from 87.7% (epoch 7)
+  to 65.7% (epoch 8). Keeping the best val epoch protects the result; a lower
+  learning rate would be worth trying.
+- **Stress table:** from 0 s it is 0/18 real flagged and 9/9 fakes caught.
+  Starting 1 s into speech, 7/9 fakes are caught (the old head: 8/9). The whole
+  file still flags 9/18 real files.
+
+**Next:** add clean read English (LibriSpeech, keeping reader 777 out, since
+the bundled samples come from that reader) and retrain at a lower learning
+rate. The aim is a head that ships on its own and keeps the 84% held-out
+accuracy.
+
 ## Plan, in order of payoff
 
-0. **Remove the silence shortcut.** Re-pad every training clip, real and fake,
+0. **(Done: silence-invariant head, then phase 12.) Remove the silence shortcut.** Re-pad every training clip, real and fake,
    with a random 0-1 s of silence / room tone after trimming, and add windows that
    start mid-utterance. Re-test with the two edits above; the gap between the
    columns should close. Until then, report stage 1 results with this caveat.
-1. **Fine-tune the SLS head on more generators.** Add Edge-TTS (all hi-IN and
+1. **(Done in phase 12, held-out numbers above.) Fine-tune the SLS head on more generators.** Add Edge-TTS (all hi-IN and
    en-IN voices, plus en-US / en-GB), XTTS-v2 clones and English bona fide
    speech (Common Voice, SVQ) to the N=500 Hindi set. Head only, backbone frozen,
    as in the benchmark. Protocol: hold out whole voices (e.g. Neerja, Swara) and
@@ -151,7 +232,7 @@ voice to check.
    *Blocker:* the SEA-Spoof test split behind the reported 98% is gated on
    Hugging Face. It needs a team member's HF token to re-run, so we can confirm
    the Hindi benchmark does not drop after fine-tuning.
-2. **Codec and channel augmentation** in that fine-tune (MP3 / Opus re-encoding,
+2. **(Done in phase 12.) Codec and channel augmentation** in that fine-tune (MP3 / Opus re-encoding,
    room impulse responses, browser noise suppression), since live clips arrive
    through a mic and a browser.
 3. **Score the whole clip, not one window**, once item 0 makes later windows
