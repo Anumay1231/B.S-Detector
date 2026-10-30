@@ -70,6 +70,13 @@ MIN_SNR_DB = 6.0
 #: The known voice may come as up to this many clips; their speech counts together, up to 20 s.
 MAX_REFERENCES = 3
 MAX_REFERENCE_SECONDS = 20.0
+#: Share of speech energy above 4 kHz below which a clip counts as phone-band (8 kHz
+#: telephone audio, or anything low-passed like it). A simulated phone line measures
+#: at most 3e-6; demo and sample files at least 3e-3; real dataset clips have a median
+#: of 1.5e-3 to 9e-3. On phone audio the decision constants, fitted on full-band audio,
+#: accept 17-52% of different-person pairs (docs/speaker-verification-hindi-english.md,
+#: section 7), so such pairs are answered UNCERTAIN.
+PHONE_BAND_SHARE = 2e-5
 
 
 class VerifierState:
@@ -89,7 +96,12 @@ class VerifierState:
             from speaker_verification.encoder import SpeakerEncoder
 
             t0 = time.perf_counter()
-            self.encoder = SpeakerEncoder(device=os.environ.get("BSD_DEVICE") or None)
+            # The original VoxCeleb ECAPA, which FUSION_NORM / DECISION were fitted on. The
+            # Indian-adapted weights (models/ecapa_indian_adapted.pth) were not kept: on held-out
+            # speakers they were better on Hindi but worse on Indian English in 5 of 9 cells
+            # (docs/speaker-verification-hindi-english.md). BSD_ECAPA_WEIGHTS loads other weights.
+            self.encoder = SpeakerEncoder(device=os.environ.get("BSD_DEVICE") or None,
+                                          adapted_weights=os.environ.get("BSD_ECAPA_WEIGHTS") or False)
             try:
                 from speaker_verification.wespeaker import WeSpeakerEncoder
 
@@ -121,8 +133,8 @@ class VerifierState:
             # the threshold at 8 s of speech; each check reports the one it used
             "threshold": threshold_for(RELIABLE_SPEECH_SECONDS, self.system),
             "isCalibrated": FIXED_THRESHOLD is None,
-            # FUSION_NORM and DECISION were fitted on the original ECAPA; with the
-            # adapted weights loaded they have not been refitted yet
+            # FUSION_NORM and DECISION were fitted on the original ECAPA; true only when
+            # BSD_ECAPA_WEIGHTS loads other weights, which those constants do not match
             "isAdapted": bool(getattr(self.encoder, "is_adapted", False)),
             "adaptedLoadError": getattr(self.encoder, "adapted_load_error", None),
             "calibratedOn": "speechbrain/spkrec-ecapa-voxceleb",
@@ -225,6 +237,15 @@ def wav_bytes(samples: np.ndarray) -> bytes:
     return buf.getvalue()
 
 
+def high_band_share(speech: np.ndarray) -> float:
+    """Share of the clip's energy between 4 and 7.8 kHz, out of 0.1-7.8 kHz."""
+    if len(speech) < 1024:
+        return 1.0
+    spec = np.abs(np.fft.rfft(speech * np.hanning(len(speech)))) ** 2
+    f = np.fft.rfftfreq(len(speech), 1 / SAMPLE_RATE)
+    return float(spec[(f >= 4000) & (f < 7800)].sum() / (spec[(f >= 100) & (f < 7800)].sum() + 1e-12))
+
+
 def speech_snr(samples: np.ndarray, frame: int = 480) -> float:
     """Rough SNR in dB: loudest fifth of the frames against the quietest tenth."""
     n = len(samples) // frame
@@ -288,6 +309,7 @@ def verify(state: VerifierState, reference: Union[np.ndarray, Sequence[np.ndarra
                 f"It needs at least {MIN_SPEECH_SECONDS:.0f} s, and about {RELIABLE_SPEECH_SECONDS:.0f}-15 s for a reliable answer. "
                 "Record again closer to the microphone and keep talking."
             )
+    phone_band = [name for name, clip in clips if high_band_share(clip) < PHONE_BAND_SHARE]
     reference = [clip for _, clip in clips[:-1]]
     test = clips[-1][1]
 
@@ -303,6 +325,10 @@ def verify(state: VerifierState, reference: Union[np.ndarray, Sequence[np.ndarra
     score = fused_score(cos) if system == "fused" else cos["ecapa"]
     threshold, margin = threshold_for(speech, system), margin_for(speech, system)
     outcome = decide(score, threshold, margin)
+    if phone_band:
+        # the score is still reported, but phone-band audio is not judged
+        logger.info("speaker check: phone-band audio (%s), %s -> UNCERTAIN", ", ".join(phone_band), outcome)
+        outcome = "UNCERTAIN"
     logger.info(
         "speaker check: %s %s score %.3f vs %.3f +/- %.3f (cosines %s; SNR %s; speech %.1f s in %d known clip(s) / %.1f s)",
         outcome, system, score, threshold, margin, {k: round(v, 3) for k, v in cos.items()},
@@ -322,6 +348,8 @@ def verify(state: VerifierState, reference: Union[np.ndarray, Sequence[np.ndarra
         # below this the held-out error rate is several times higher; the UI says so
         "reliable": speech >= RELIABLE_SPEECH_SECONDS,
         "reliableSeconds": RELIABLE_SPEECH_SECONDS,
+        # telephone-band clips: different people score as the same too often to judge
+        "phoneBand": phone_band,
     }
     if len(reference) > 1:
         result["referenceClips"] = len(reference)

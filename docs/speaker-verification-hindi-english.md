@@ -120,3 +120,72 @@ Speaker verification cannot stop a clone by itself. The interlock now runs the
 deepfake check on the known voice as well as the voice to check, so a cloned
 reference cannot vouch for a clone. See `docs/deepfake-improvement-plan.md` for
 stage 1's own limits.
+
+## 7. The Indian-adapted ECAPA, tested fairly (30 Oct)
+
+`models/ecapa_indian_adapted.pth` was fine-tuned on SVQ fold 0 (`fold_of() == 0`
+in `scripts/sv_fusion.py`) and Common Voice Hindi part 0. Until 30 Oct the app
+loaded it automatically, with `FUSION_NORM` / `DECISION` still fitted on the
+original ECAPA: a pairing nobody had measured.
+
+**Clean and room audio.** `python scripts/sv_fusion.py --fair --ecapa <model>` fits
+the fused constants on Common Voice (train halves) + SVQ fold 0 for each ECAPA,
+then reports only on SVQ fold 1 and Common Voice Hindi part 1. Embeddings come
+from one pass that feeds identical audio to all three models
+(`sv_duration.py embed --model ecapa --also ecapa_adapted wespeaker_r34`).
+Accuracy on the pairs the fused check answers, adapted minus original:
+
+| Set | Cells better or equal | Cells worse | Range |
+|---|---|---|---|
+| SVQ Hindi | 7 of 7 | 0 | +0.0 to +1.9 points |
+| Common Voice Hindi part 1 | 7 of 8 | 1 | -0.03 to +0.4 |
+| SVQ Indian English | 4 of 9 | 5 | -1.05 to +0.2 |
+
+The ship rule was "keep it only if no cell gets worse", so the app now loads
+the **original ECAPA** again, matching its constants (`server/speaker.py`;
+`BSD_ECAPA_WEIGHTS` points at other weights). The adapted file stays in
+`models/` for a comparison on real recordings (`scripts/score_recordings.py`).
+
+**Telephone line.** `scripts/sv_phone_fair.py` repeats the fair test after the
+phone line of `scripts/ui_path_check.py --phone` (8 kHz band, 8-bit mu-law),
+alone and after a simulated room. **The check is not reliable on phone audio
+with either model.** Share of different-person pairs accepted as the same
+person, 8 s+ of speech:
+
+| Set | Condition | Original | Adapted |
+|---|---|---|---|
+| SVQ Hindi | phone | 16.8% | 8.6% |
+| SVQ Hindi | room + phone | 52.0% | 63.6% |
+| SVQ English | phone | 21.0% | 19.8% |
+| SVQ English | room + phone | 27.9% | 36.1% |
+| Common Voice Hindi | phone | 3.5% | 2.6% |
+| Common Voice Hindi | room + phone | 13.5% | 15.7% |
+
+With 3-8 s of speech it is 30-58% on SVQ. The constants were fitted on
+full-band audio, and the phone band leaves less to tell voices apart, so
+different people score higher. Neither model fixes this.
+
+**What the app does now.** `server/speaker.py` measures how much of each clip's
+speech energy lies above 4 kHz. Below 2e-5, the clip counts as phone-band, and the
+pair is answered UNCERTAIN (the score is still reported, and the response lists the
+clips in `phoneBand`). A simulated phone line measures at most 3e-6. Demo and sample
+files measure at least 3e-3, and real dataset clips have a median of 1.5e-3 to
+9e-3; the few real clips below 2e-5 are low-passed like a phone line, so the same
+caution applies to them. `ui_path_check.py --phone` went from 6 wrong (two
+same-room pairs accepted as one person) to 2, both stage 1 misses. Fitting separate
+phone-band constants is possible, but even then room + phone pairs reached only
+55-64% accuracy above, so "not sure" is the honest answer for now.
+
+**Short same-room clips, re-measured (30 Oct).** From the same fair test, with
+the shipped setup (original ECAPA, fused), accuracy on the pairs it answers,
+with the share answered in brackets:
+
+| Same-room pairs | SVQ Hindi (fold 1) | SVQ English (fold 1) | Common Voice Hindi part 1 |
+|---|---|---|---|
+| 3-6 s of speech | 83.6% (76%) | 82.8% (72%) | 97.6% (93%) |
+| 6-8 s | 92.7% (78%) | 90.2% (78%) | 99.6% (96%) |
+
+The 92% in section 5 was one 3-8 s bucket, cross-validated over both SVQ folds.
+Split finer and tested on unseen people only, the shortest SVQ clips sit near
+83%. The UI already says results under 8 s are less certain; for same-room
+recordings of under 6 s, that warning matters most.

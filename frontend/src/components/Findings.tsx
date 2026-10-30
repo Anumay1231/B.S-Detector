@@ -172,7 +172,8 @@ export function Findings() {
               </p>
               <p>
                 VoxCeleb1 is mostly English interviews, and its cut-off let {speakerPhase9.oldImpostorsAccepted} of different Hindi and Indian-English
-                speakers through. Recalibrated on Hindi and English speakers, with a second model and a longer recording, the check is now right on{' '}
+                speakers through. Recalibrated on Hindi and English speakers, with a second model and at least 8 seconds of speech per clip, the check
+                is now right on{' '}
                 {speakerPhase9.accuracyReliable} of the pairs it answers.
               </p>
               <a className="text-link" href={`${DOCS}/calibration.md`} target="_blank" rel="noreferrer">

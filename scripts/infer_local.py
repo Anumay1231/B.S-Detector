@@ -4,7 +4,7 @@ Run inference locally on any audio clip (.wav, .flac, .mp3, .pt) using CPU or Ap
 
 Usage:
     python scripts/infer_local.py --audio path/to/sample.wav
-    python scripts/infer_local.py --audio path/to/sample.wav --model models/sls_head_channel_robust.pth --device cpu
+    python scripts/infer_local.py --audio path/to/sample.wav --model models/sls_head_phase12.pth --device cpu
 """
 
 from __future__ import annotations
@@ -113,9 +113,10 @@ def predict(
 def main():
     parser = argparse.ArgumentParser(description="Run local audio deepfake inference")
     parser.add_argument("--audio", type=str, required=True, help="Path to input audio file")
+    # the app's default head (first in server/app.py HINDI_HEADS), else the IndicSynth head
     default_head = (
-        _PROJECT_ROOT / "models" / "sls_head_channel_robust.pth"
-        if (_PROJECT_ROOT / "models" / "sls_head_channel_robust.pth").exists()
+        _PROJECT_ROOT / "models" / "sls_head_phase12.pth"
+        if (_PROJECT_ROOT / "models" / "sls_head_phase12.pth").exists()
         else _PROJECT_ROOT / "models" / "sls_head_n500_indicsynth_best.pth"
     )
     parser.add_argument(

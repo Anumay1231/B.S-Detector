@@ -59,43 +59,68 @@ def groups(items: list[dict], rng) -> list[list[dict]]:
     return out
 
 
-def embed(model_name: str, only: list[str] | None = None) -> None:
-    model = sb.get_model(model_name)
+def condition(audio: np.ndarray, c: str, rooms: list, rng) -> np.ndarray:
+    """clean, roomN (a simulated room + laptop mic), phone (the telephone line of
+    scripts/ui_path_check.py --phone) or phone_roomN (a room, then the phone line)."""
+    if c == "clean":
+        return audio
+    if c.startswith("room"):
+        return sb.in_room(audio, rooms[int(c[4:])], rng)
+    from ui_path_check import phone_line
+
+    if c == "phone":
+        return phone_line(audio)
+    return phone_line(sb.in_room(audio, rooms[int(c[len("phone_room"):])], rng))
+
+
+def embed(model_names: str | list[str], only: list[str] | None = None, conds: tuple = CONDS, suffix: str = "") -> None:
+    """Embed each set with one or more models in a single pass: every clip is decoded and
+    put through the room once, then embedded by all models, so they see identical audio."""
+    names = [model_names] if isinstance(model_names, str) else list(model_names)
     rooms = [sb.make_room(r) for r in range(sb.ROOMS)]
     loaders = sb.corpora()
+    models: dict = {}
     for name in only or FIT_SETS + TEST_SETS:
-        path = OUT / f"dur_{model_name}__{name}.npz"
-        if path.exists():
-            print("[skip]", path.name)
+        todo = [m for m in names if not (OUT / f"dur_{m}__{name}{suffix}.npz").exists()]
+        for m in set(names) - set(todo):
+            print("[skip]", f"dur_{m}__{name}{suffix}.npz")
+        if not todo:
             continue
+        for m in todo:
+            if m not in models:
+                models[m] = sb.get_model(m)
         t0 = time.time()
         rng = np.random.default_rng(11)
         gs = groups(loaders[name](), rng)
         if len(gs) > MAX_GROUPS:  # a two-parameter curve does not need more
             gs = [gs[i] for i in sorted(rng.choice(len(gs), MAX_GROUPS, replace=False))]
-        rec = {k: [] for k in ("speaker", "gender", "n", "cond", "seconds", "emb", "seg")}
+        meta = {k: [] for k in ("speaker", "gender", "n", "cond", "seconds")}
+        vecs = {m: {"emb": [], "seg": []} for m in todo}
         for gi, g in enumerate(gs):
             try:
                 audio = np.concatenate([sb._decode(it["audio"]) for it in g])
             except Exception as exc:
                 print("  skip", exc)
                 continue
-            for c in CONDS:
-                wav = audio if c == "clean" else sb.in_room(audio, rooms[int(c[4:])], rng)
+            for c in conds:
+                wav = condition(audio, c, rooms, rng)
                 wav = sb.speaker.speech_only(wav)
                 if len(wav) < sb.SR:
                     continue
-                rec["speaker"].append(g[0]["speaker"])
-                rec["gender"].append(g[0]["gender"])
-                rec["n"].append(len(g))
-                rec["cond"].append(c)
-                rec["seconds"].append(len(wav) / sb.SR)
-                rec["emb"].append(model(wav))
-                rec["seg"].append(segment_embed(model, wav))
+                meta["speaker"].append(g[0]["speaker"])
+                meta["gender"].append(g[0]["gender"])
+                meta["n"].append(len(g))
+                meta["cond"].append(c)
+                meta["seconds"].append(len(wav) / sb.SR)
+                for m in todo:
+                    vecs[m]["emb"].append(models[m](wav))
+                    vecs[m]["seg"].append(segment_embed(models[m], wav))
             if gi % 50 == 0:
                 print(f"  {name}: {gi}/{len(gs)} ({time.time() - t0:.0f} s)", flush=True)
-        np.savez(path, **{k: np.array(v) for k, v in rec.items()})
-        print(f"[done] {path.name}: {len(rec['emb'])} clips in {time.time() - t0:.0f} s", flush=True)
+        for m in todo:
+            path = OUT / f"dur_{m}__{name}{suffix}.npz"
+            np.savez(path, **{k: np.array(v) for k, v in {**meta, **vecs[m]}.items()})
+            print(f"[done] {path.name}: {len(meta['cond'])} clips in {time.time() - t0:.0f} s", flush=True)
 
 
 def load(model: str, name: str) -> dict:
@@ -183,8 +208,15 @@ def main() -> None:
     ap.add_argument("cmd", choices=["embed", "fit"])
     ap.add_argument("--model", default="ecapa")
     ap.add_argument("--only", nargs="*")
+    ap.add_argument("--ecapa-weights", choices=["original", "adapted"], default="original",
+                    help="with --model ecapa: the VoxCeleb weights or models/ecapa_indian_adapted.pth")
+    ap.add_argument("--conds", nargs="*", default=list(CONDS), help="embed: clean, room0, phone, phone_room0, ...")
+    ap.add_argument("--suffix", default="", help="embed: appended to the set name in the output file")
+    ap.add_argument("--also", nargs="*", default=[],
+                    help="embed: more models in the same pass, e.g. --also ecapa_adapted wespeaker_r34")
     a = ap.parse_args()
-    embed(a.model, a.only) if a.cmd == "embed" else fit(a.model)
+    model = "ecapa_adapted" if a.model == "ecapa" and a.ecapa_weights == "adapted" else a.model
+    embed([model, *a.also], a.only, tuple(a.conds), a.suffix) if a.cmd == "embed" else fit(model)
 
 
 if __name__ == "__main__":

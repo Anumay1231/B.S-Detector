@@ -16,7 +16,7 @@ export interface Status {
   checkpoint: string
   windowSeconds: number
   /** which SLS head is loaded: the English checkpoint or the team's Hindi-adapted one */
-  head?: 'english' | 'hindi-n500' | 'hindi-robust' | 'hindi-channel-robust' | 'hindi-indicsynth' | 'hindi-custom'
+  head?: 'english' | 'hindi-n500' | 'hindi-robust' | 'hindi-phase12' | 'hindi-channel-robust' | 'hindi-indicsynth' | 'hindi-custom'
   headNote?: string | null
   verifier?: VerifierStatus
 }
@@ -29,7 +29,7 @@ export interface Analysis {
   latencyMs: number
   durationSec: number
   device: string
-  head?: 'english' | 'hindi-n500' | 'hindi-robust' | 'hindi-channel-robust' | 'hindi-indicsynth' | 'hindi-custom'
+  head?: 'english' | 'hindi-n500' | 'hindi-robust' | 'hindi-phase12' | 'hindi-channel-robust' | 'hindi-indicsynth' | 'hindi-custom'
 }
 
 export interface Verification {

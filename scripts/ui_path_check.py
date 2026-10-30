@@ -18,7 +18,8 @@ Three parts, all through the HTTP API, never the models directly:
 Exits non-zero if anything in (a) or (b) is wrong.
 
 --phone runs every clip through a phone line first (8 kHz, 300-3400 Hz band,
-8-bit mu-law as in G.711), to see how both stages hold up on call audio.
+8-bit mu-law as in G.711), to see how both stages hold up on call audio. Speaker
+pairs then expect UNCERTAIN: stage 2 does not judge telephone-band audio.
 """
 
 from __future__ import annotations
@@ -155,6 +156,8 @@ def main() -> int:
 
     say("\n(b) Run both checks: windowStart 0, as the browser sends it")
     for ref, tst, expect in pairs():
+        if a.phone and expect in ("MATCH", "NON_MATCH"):
+            expect = "UNCERTAIN"  # the speaker check does not judge telephone-band audio
         test_audio = read(ROOT / tst)
         body, ctype = form({"windowStart": 0}, {"reference": wav(read(ROOT / ref)), "test": wav(test_audio)})
         r = post(f"{a.url}/api/verify", body, ctype)

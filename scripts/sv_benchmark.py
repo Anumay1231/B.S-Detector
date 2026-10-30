@@ -73,7 +73,9 @@ def _files(pattern: str) -> list[str]:
 def _cv_files(lang: str, split: str) -> list[str]:
     # Hindi shards sit in hi/<split>/chunk-*/, English ones in en/<split>-*.parquet
     base = "datasets--fixie-ai--common_voice_17_0/snapshots/*"
-    return _files(f"{base}/{lang}/{split}/*/*.parquet") + _files(f"{base}/{lang}/{split}-*.parquet")
+    files = _files(f"{base}/{lang}/{split}/*/*.parquet") + _files(f"{base}/{lang}/{split}-*.parquet")
+    # the Phase 9 fit used the first 3 English train shards; more are cached for the detector
+    return files[:3] if lang == "en" and split == "train" else files
 
 
 def cv_speakers(lang: str, split: str) -> set[str]:
@@ -174,12 +176,15 @@ def in_room(audio: np.ndarray, room, rng) -> np.ndarray:
 
 
 class Ecapa:
+    """The original VoxCeleb ECAPA (what FUSION_NORM / DECISION were fitted on)."""
+
     name = "ecapa"
+    weights: object = False  # False: never auto-load models/ecapa_indian_adapted.pth
 
     def __init__(self):
         from speaker_verification.encoder import SpeakerEncoder
 
-        self.enc = SpeakerEncoder(device="cpu")
+        self.enc = SpeakerEncoder(device=None, adapted_weights=self.weights)  # CUDA when available
 
     def __call__(self, wav: np.ndarray) -> np.ndarray:
         import torch
@@ -187,7 +192,14 @@ class Ecapa:
         return self.enc.encode(torch.from_numpy(wav).unsqueeze(0)).cpu().numpy()
 
 
-MODELS = {"ecapa": Ecapa}
+class EcapaAdapted(Ecapa):
+    """ECAPA with the Indian-adapted weights the app loads (trained on SVQ fold 0)."""
+
+    name = "ecapa_adapted"
+    weights = ROOT / "models" / "ecapa_indian_adapted.pth"
+
+
+MODELS = {"ecapa": Ecapa, "ecapa_adapted": EcapaAdapted}
 
 
 def get_model(name: str):
